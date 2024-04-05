@@ -1,0 +1,912 @@
+DIGEST e6b91915d38d1400eebcd31fb4ea95ae
+FMRC.PredCalc
+R24:37 Coq.Strings.String <> <> lib
+R64:73 Coq.Lists.List <> <> lib
+R83:95 Coq.Lists.List ListNotations <> mod
+R122:134 Coq.ZArith.ZArith <> <> lib
+R161:171 Coq.Reals.Reals <> <> lib
+R218:221 MRC.Maps <> <> lib
+ind 236:240 <> value
+constr 256:260 <> V_Nat
+constr 276:280 <> V_Int
+constr 294:299 <> V_Real
+R267:269 Coq.Init.Datatypes <> nat ind
+binder 263:263 <> n:3
+R287:287 Coq.Numbers.BinNums <> Z ind
+binder 283:283 <> z:4
+R306:306 Coq.Reals.Rdefinitions RbaseSymbolsImpl R defax
+binder 302:302 <> r:5
+scheme 236:240 <> value_rect
+scheme 236:240 <> value_ind
+scheme 236:240 <> value_rec
+scheme 236:240 <> value_sind
+def 322:331 <> value_to_R
+R338:342 MRC.PredCalc <> value ind
+binder 334:334 <> v:6
+R354:354 MRC.PredCalc <> v:6 var
+R365:369 MRC.PredCalc <> V_Nat constr
+R376:378 Coq.Reals.Raxioms <> INR def
+R386:390 MRC.PredCalc <> V_Int constr
+R397:399 Coq.Reals.Rdefinitions <> IZR def
+R407:412 MRC.PredCalc <> V_Real constr
+def 438:442 <> state
+R447:457 MRC.Maps <> partial_map def
+R459:463 MRC.PredCalc <> value ind
+def 478:492 <> functional_frel
+R512:515 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R502:505 Coq.Init.Datatypes <> list ind
+R507:511 MRC.PredCalc <> value ind
+R521:524 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R516:520 MRC.PredCalc <> value ind
+binder 495:498 <> frel:8
+binder 543:546 <> args:9
+binder 548:549 <> v1:10
+binder 551:552 <> v2:11
+R567:570 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R555:558 MRC.PredCalc <> frel:8 var
+R565:566 MRC.PredCalc <> v1:10 var
+R560:563 MRC.PredCalc <> args:9 var
+R583:586 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R571:574 MRC.PredCalc <> frel:8 var
+R581:582 MRC.PredCalc <> v2:11 var
+R576:579 MRC.PredCalc <> args:9 var
+R589:591 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R587:588 MRC.PredCalc <> v1:10 var
+R592:593 MRC.PredCalc <> v2:11 var
+ind 607:614 <> func_def
+constr 630:636 <> FuncDef
+R650:652 Coq.Init.Datatypes <> nat ind
+binder 639:646 <> n_params:14
+R673:676 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R663:666 Coq.Init.Datatypes <> list ind
+R668:672 MRC.PredCalc <> value ind
+R682:685 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R677:681 MRC.PredCalc <> value ind
+binder 656:659 <> frel:15
+R705:719 MRC.PredCalc <> functional_frel def
+R721:724 MRC.PredCalc <> frel:15 var
+binder 698:702 <> Hfnal:16
+scheme 607:614 <> func_def_rect
+scheme 607:614 <> func_def_ind
+scheme 607:614 <> func_def_rec
+scheme 607:614 <> func_def_sind
+def 740:747 <> fcontext
+R752:762 MRC.Maps <> partial_map def
+R764:771 MRC.PredCalc <> func_def ind
+ind 785:788 <> term
+constr 804:810 <> T_Const
+constr 828:832 <> T_Var
+constr 851:856 <> T_Func
+R817:821 MRC.PredCalc <> value ind
+binder 813:813 <> v:19
+R839:844 Coq.Strings.String <> string ind
+binder 835:835 <> x:20
+R868:873 Coq.Strings.String <> string ind
+binder 859:864 <> symbol:21
+R884:887 Coq.Init.Datatypes <> list ind
+R889:892 MRC.PredCalc <> term:17 ind
+binder 877:880 <> args:22
+scheme 785:788 <> term_rect
+scheme 785:788 <> term_ind
+scheme 785:788 <> term_rec
+scheme 785:788 <> term_sind
+ind 907:914 <> pred_def
+constr 930:936 <> PredDef
+R950:952 Coq.Init.Datatypes <> nat ind
+binder 939:946 <> n_params:25
+R968:971 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R963:967 MRC.PredCalc <> state def
+R980:983 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R972:979 MRC.PredCalc <> fcontext def
+R993:996 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R984:987 Coq.Init.Datatypes <> list ind
+R989:992 MRC.PredCalc <> term ind
+R1001:1004 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R997:1000 Coq.Init.Datatypes <> bool ind
+binder 956:959 <> pred:26
+scheme 907:914 <> pred_def_rect
+scheme 907:914 <> pred_def_ind
+scheme 907:914 <> pred_def_rec
+scheme 907:914 <> pred_def_sind
+def 1024:1031 <> pcontext
+R1036:1046 MRC.Maps <> partial_map def
+R1048:1055 MRC.PredCalc <> pred_def ind
+ind 1069:1082 <> simple_formula
+constr 1098:1104 <> AT_True
+constr 1110:1117 <> AT_False
+constr 1123:1129 <> AT_Pred
+R1141:1146 Coq.Strings.String <> string ind
+binder 1132:1137 <> symbol:29
+R1157:1160 Coq.Init.Datatypes <> list ind
+R1162:1165 MRC.PredCalc <> term ind
+binder 1150:1153 <> args:30
+scheme 1069:1082 <> simple_formula_rect
+scheme 1069:1082 <> simple_formula_ind
+scheme 1069:1082 <> simple_formula_rec
+scheme 1069:1082 <> simple_formula_sind
+ind 1180:1186 <> formula
+constr 1202:1209 <> F_Simple
+constr 1237:1241 <> F_Not
+constr 1261:1265 <> F_And
+constr 1289:1292 <> F_Or
+constr 1316:1324 <> F_Implies
+constr 1348:1352 <> F_Iff
+constr 1376:1383 <> F_Exists
+constr 1418:1425 <> F_Forall
+R1217:1230 MRC.PredCalc <> simple_formula ind
+binder 1212:1213 <> sf:33
+R1248:1254 MRC.PredCalc <> formula:31 ind
+binder 1244:1244 <> f:34
+R1276:1282 MRC.PredCalc <> formula:31 ind
+binder 1268:1269 <> f1:35
+binder 1271:1272 <> f2:36
+R1303:1309 MRC.PredCalc <> formula:31 ind
+binder 1295:1296 <> f1:37
+binder 1298:1299 <> f2:38
+R1335:1341 MRC.PredCalc <> formula:31 ind
+binder 1327:1328 <> f1:39
+binder 1330:1331 <> f2:40
+R1363:1369 MRC.PredCalc <> formula:31 ind
+binder 1355:1356 <> f1:41
+binder 1358:1359 <> f2:42
+R1390:1395 Coq.Strings.String <> string ind
+binder 1386:1386 <> x:43
+R1403:1409 MRC.PredCalc <> formula:31 ind
+binder 1399:1399 <> f:44
+R1432:1437 Coq.Strings.String <> string ind
+binder 1428:1428 <> x:45
+R1445:1451 MRC.PredCalc <> formula:31 ind
+binder 1441:1441 <> f:46
+scheme 1180:1186 <> formula_rect
+scheme 1180:1186 <> formula_ind
+scheme 1180:1186 <> formula_rec
+scheme 1180:1186 <> formula_sind
+R1456:1485 MRC.PredCalc <> V_Nat constr
+R1488:1515 MRC.PredCalc <> V_Int constr
+R1518:1546 MRC.PredCalc <> V_Real constr
+R1550:1582 MRC.PredCalc <> T_Const constr
+R1585:1616 MRC.PredCalc <> T_Var constr
+R1619:1664 MRC.PredCalc <> F_Simple constr
+not 1861:1861 <> ::formula_scope:'<['_x_']>'
+not 1925:1925 <> :formula_aux:formula_scope:x
+not 2014:2014 <> :formula:formula_scope:'('_x_')'
+not 2088:2088 <> :formula:formula_scope:'`'_x_x_'..'_x_'`'
+not 2314:2314 <> :formula:formula_scope:x
+R2414:2419 MRC.PredCalc <> T_Func constr
+not 2402:2402 <> :formula::x_'+'_x
+R2504:2509 MRC.PredCalc <> T_Func constr
+not 2492:2492 <> :formula::x_'-'_x
+R2594:2599 MRC.PredCalc <> T_Func constr
+not 2582:2582 <> :formula::x_'*'_x
+R2685:2688 Coq.Init.Datatypes <> true constr
+not 2672:2672 <> :::'true'
+R2726:2732 MRC.PredCalc <> AT_True constr
+not 2713:2713 <> :formula::'true'
+R2789:2793 Coq.Init.Datatypes <> false constr
+not 2776:2776 <> :::'false'
+R2832:2839 MRC.PredCalc <> AT_False constr
+not 2818:2818 <> :formula::'false'
+R2895:2901 MRC.PredCalc <> AT_Pred constr
+R2909:2912 Coq.Init.Datatypes <> cons constr
+R2914:2917 MRC.PredCalc <> term ind
+R2923:2926 Coq.Init.Datatypes <> cons constr
+R2928:2931 MRC.PredCalc <> term ind
+R2935:2937 Coq.Init.Datatypes <> nil constr
+not 2883:2883 <> :formula::x_'='_x
+R3015:3021 MRC.PredCalc <> AT_Pred constr
+R3030:3033 Coq.Init.Datatypes <> cons constr
+R3035:3038 MRC.PredCalc <> term ind
+R3044:3047 Coq.Init.Datatypes <> cons constr
+R3049:3052 MRC.PredCalc <> term ind
+R3056:3058 Coq.Init.Datatypes <> nil constr
+not 3002:3002 <> :formula::x_'<>'_x
+R3151:3157 MRC.PredCalc <> AT_Pred constr
+R3166:3169 Coq.Init.Datatypes <> cons constr
+R3171:3174 MRC.PredCalc <> term ind
+R3180:3183 Coq.Init.Datatypes <> cons constr
+R3185:3188 MRC.PredCalc <> term ind
+R3192:3194 Coq.Init.Datatypes <> nil constr
+not 3137:3137 <> :formula::x_'≠'_x
+R3286:3292 MRC.PredCalc <> AT_Pred constr
+R3300:3303 Coq.Init.Datatypes <> cons constr
+R3305:3308 MRC.PredCalc <> term ind
+R3314:3317 Coq.Init.Datatypes <> cons constr
+R3319:3322 MRC.PredCalc <> term ind
+R3326:3328 Coq.Init.Datatypes <> nil constr
+not 3274:3274 <> :formula::x_'<'_x
+R3406:3412 MRC.PredCalc <> AT_Pred constr
+R3421:3424 Coq.Init.Datatypes <> cons constr
+R3426:3429 MRC.PredCalc <> term ind
+R3435:3438 Coq.Init.Datatypes <> cons constr
+R3440:3443 MRC.PredCalc <> term ind
+R3447:3449 Coq.Init.Datatypes <> nil constr
+not 3393:3393 <> :formula::x_'<='_x
+R3526:3532 MRC.PredCalc <> AT_Pred constr
+R3540:3543 Coq.Init.Datatypes <> cons constr
+R3545:3548 MRC.PredCalc <> term ind
+R3554:3557 Coq.Init.Datatypes <> cons constr
+R3559:3562 MRC.PredCalc <> term ind
+R3566:3568 Coq.Init.Datatypes <> nil constr
+not 3514:3514 <> :formula::x_'>'_x
+R3646:3652 MRC.PredCalc <> AT_Pred constr
+R3661:3664 Coq.Init.Datatypes <> cons constr
+R3666:3669 MRC.PredCalc <> term ind
+R3675:3678 Coq.Init.Datatypes <> cons constr
+R3680:3683 MRC.PredCalc <> term ind
+R3687:3689 Coq.Init.Datatypes <> nil constr
+not 3633:3633 <> :formula::x_'>='_x
+R3766:3770 MRC.PredCalc <> F_Not constr
+not 3754:3754 <> :formula::'~'_x
+R3844:3848 MRC.PredCalc <> F_Not constr
+not 3831:3831 <> :formula::'¬'_x
+R3923:3927 MRC.PredCalc <> F_And constr
+not 3910:3910 <> :formula::x_'/\'_x
+R4024:4028 MRC.PredCalc <> F_And constr
+not 4010:4010 <> :formula::x_'∧'_x
+R4125:4128 MRC.PredCalc <> F_Or constr
+not 4112:4112 <> :formula::x_'\/'_x
+R4225:4228 MRC.PredCalc <> F_Or constr
+not 4211:4211 <> :formula::x_'∨'_x
+R4325:4333 MRC.PredCalc <> F_Implies constr
+not 4312:4312 <> :formula::x_'=>'_x
+R4410:4418 MRC.PredCalc <> F_Implies constr
+not 4396:4396 <> :formula::x_'⇒'_x
+R4496:4504 MRC.PredCalc <> F_Implies constr
+not 4482:4482 <> :formula::x_'<=>'_x
+R4581:4589 MRC.PredCalc <> F_Implies constr
+not 4567:4567 <> :formula::x_'⇔'_x
+R4681:4688 MRC.PredCalc <> F_Exists constr
+R4696:4703 MRC.PredCalc <> F_Exists constr
+not 4653:4653 <> :formula::'exists'_x_'..'_x_','_x
+R4797:4804 MRC.PredCalc <> F_Exists constr
+R4812:4819 MRC.PredCalc <> F_Exists constr
+not 4770:4770 <> :formula::'∃'_x_'..'_x_'●'_x
+R4915:4922 MRC.PredCalc <> F_Forall constr
+R4930:4937 MRC.PredCalc <> F_Forall constr
+not 4887:4887 <> :formula::'forall'_x_'..'_x_','_x
+R5017:5024 MRC.PredCalc <> F_Forall constr
+R5032:5039 MRC.PredCalc <> F_Forall constr
+not 4990:4990 <> :formula::'∀'_x_'..'_x_'●'_x
+R5123:5128 MRC.PredCalc <> T_Func constr
+R5134:5137 Coq.Init.Datatypes <> cons constr
+R5139:5142 MRC.PredCalc <> term ind
+R5151:5154 Coq.Init.Datatypes <> cons constr
+R5156:5159 MRC.PredCalc <> term ind
+R5163:5165 Coq.Init.Datatypes <> nil constr
+not 5092:5092 <> :formula::x_'('_x_','_'..'_','_x_')'
+def 5245:5245 <> x
+R5249:5254 Coq.Strings.String <> string ind
+def 5275:5275 <> y
+R5279:5284 Coq.Strings.String <> string ind
+def 5305:5305 <> z
+R5309:5314 Coq.Strings.String <> string ind
+def 5336:5336 <> f
+R5340:5345 Coq.Strings.String <> string ind
+ind 5366:5374 <> fdef_eval
+constr 5438:5444 <> FN_Eval
+R5384:5391 MRC.PredCalc <> func_def ind
+binder 5377:5380 <> fdef:47
+R5403:5406 Coq.Init.Datatypes <> list ind
+R5408:5412 MRC.PredCalc <> value ind
+binder 5395:5399 <> argsv:48
+R5422:5425 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5417:5421 MRC.PredCalc <> value ind
+binder 5455:5460 <> n_args:51
+binder 5462:5463 <> fn:52
+binder 5465:5469 <> Hfnal:53
+binder 5471:5475 <> value:54
+R5513:5520 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5487:5489 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5483:5486 MRC.PredCalc <> fdef:47 var
+R5490:5496 MRC.PredCalc <> FuncDef constr
+R5498:5503 MRC.PredCalc <> n_args:51 var
+R5505:5506 MRC.PredCalc <> fn:52 var
+R5508:5512 MRC.PredCalc <> Hfnal:53 var
+R5535:5542 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5521:5522 MRC.PredCalc <> fn:52 var
+R5524:5528 MRC.PredCalc <> argsv:48 var
+R5530:5534 MRC.PredCalc <> value:54 var
+R5543:5551 MRC.PredCalc <> fdef_eval:49 ind
+R5564:5568 MRC.PredCalc <> value:54 var
+R5558:5562 MRC.PredCalc <> argsv:48 var
+R5553:5556 MRC.PredCalc <> fdef:47 var
+scheme 5366:5374 <> fdef_eval_ind
+scheme 5366:5374 <> fdef_eval_sind
+ind 5582:5586 <> teval
+constr 5650:5658 <> EvalConst
+constr 5704:5710 <> EvalVar
+constr 5773:5780 <> EvalFunc
+ind 5956:5964 <> args_eval
+constr 6038:6049 <> ArgsEval_nil
+constr 6081:6093 <> ArgsEval_cons
+R5594:5598 MRC.PredCalc <> state def
+binder 5589:5590 <> st:55
+R5609:5616 MRC.PredCalc <> fcontext def
+binder 5602:5605 <> fctx:56
+R5625:5628 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5621:5624 MRC.PredCalc <> term ind
+R5634:5637 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5629:5633 MRC.PredCalc <> value ind
+R6008:6011 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5999:6002 Coq.Init.Datatypes <> list ind
+R6004:6007 MRC.PredCalc <> term ind
+R6022:6025 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6012:6015 Coq.Init.Datatypes <> list ind
+R6017:6021 MRC.PredCalc <> value ind
+binder 5669:5669 <> v:61
+R5672:5676 MRC.PredCalc <> teval:57 ind
+R5698:5698 MRC.PredCalc <> v:61 var
+R5687:5693 MRC.PredCalc <> T_Const constr
+R5695:5695 MRC.PredCalc <> v:61 var
+R5681:5684 MRC.PredCalc <> fctx:56 var
+R5678:5679 MRC.PredCalc <> st:55 var
+binder 5721:5721 <> x:62
+binder 5723:5723 <> v:63
+R5739:5742 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5730:5732 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5726:5727 MRC.PredCalc <> st:55 var
+R5729:5729 MRC.PredCalc <> x:62 var
+R5733:5736 Coq.Init.Datatypes <> Some constr
+R5738:5738 MRC.PredCalc <> v:63 var
+R5743:5747 MRC.PredCalc <> teval:57 ind
+R5767:5767 MRC.PredCalc <> v:63 var
+R5758:5762 MRC.PredCalc <> T_Var constr
+R5764:5764 MRC.PredCalc <> x:62 var
+R5752:5755 MRC.PredCalc <> fctx:56 var
+R5749:5750 MRC.PredCalc <> st:55 var
+binder 5791:5791 <> f:64
+binder 5793:5796 <> fdef:65
+binder 5798:5801 <> args:66
+binder 5803:5807 <> argsv:67
+binder 5809:5812 <> fval:68
+R5847:5854 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5819:5827 MRC.PredCalc <> args_eval:58 ind
+R5842:5846 MRC.PredCalc <> argsv:67 var
+R5837:5840 MRC.PredCalc <> args:66 var
+R5832:5835 MRC.PredCalc <> fctx:56 var
+R5829:5830 MRC.PredCalc <> st:55 var
+R5873:5880 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5861:5863 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R5855:5858 MRC.PredCalc <> fctx:56 var
+R5860:5860 MRC.PredCalc <> f:64 var
+R5864:5867 Coq.Init.Datatypes <> Some constr
+R5869:5872 MRC.PredCalc <> fdef:65 var
+R5906:5913 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R5881:5889 MRC.PredCalc <> fdef_eval ind
+R5891:5894 MRC.PredCalc <> fdef:65 var
+R5896:5900 MRC.PredCalc <> argsv:67 var
+R5902:5905 MRC.PredCalc <> fval:68 var
+R5914:5918 MRC.PredCalc <> teval:57 ind
+R5945:5948 MRC.PredCalc <> fval:68 var
+R5929:5934 MRC.PredCalc <> T_Func constr
+R5936:5936 MRC.PredCalc <> f:64 var
+R5938:5941 MRC.PredCalc <> args:66 var
+R5923:5926 MRC.PredCalc <> fctx:56 var
+R5920:5921 MRC.PredCalc <> st:55 var
+R6053:6061 MRC.PredCalc <> args_eval:58 ind
+R6074:6075 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R6071:6072 Coq.Lists.List ListNotations ::list_scope:'['_']' not
+R6066:6069 MRC.PredCalc <> fctx:56 var
+R6063:6064 MRC.PredCalc <> st:55 var
+binder 6104:6104 <> t:69
+binder 6106:6107 <> ts:70
+binder 6109:6109 <> v:71
+binder 6111:6112 <> vs:72
+R6137:6144 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6120:6124 MRC.PredCalc <> teval:57 ind
+R6136:6136 MRC.PredCalc <> v:71 var
+R6134:6134 MRC.PredCalc <> t:69 var
+R6129:6132 MRC.PredCalc <> fctx:56 var
+R6126:6127 MRC.PredCalc <> st:55 var
+R6168:6175 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6145:6153 MRC.PredCalc <> args_eval:58 ind
+R6166:6167 MRC.PredCalc <> vs:72 var
+R6163:6164 MRC.PredCalc <> ts:70 var
+R6158:6161 MRC.PredCalc <> fctx:56 var
+R6155:6156 MRC.PredCalc <> st:55 var
+R6176:6184 MRC.PredCalc <> args_eval:58 ind
+R6204:6205 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R6203:6203 MRC.PredCalc <> v:71 var
+R6206:6207 MRC.PredCalc <> vs:72 var
+R6196:6197 Coq.Init.Datatypes <> ::list_scope:x_'::'_x not
+R6195:6195 MRC.PredCalc <> t:69 var
+R6198:6199 MRC.PredCalc <> ts:70 var
+R6189:6192 MRC.PredCalc <> fctx:56 var
+R6186:6187 MRC.PredCalc <> st:55 var
+scheme 5582:5586 <> teval_ind
+scheme 5582:5586 <> teval_sind
+scheme 5956:5964 <> args_eval_ind
+scheme 5956:5964 <> args_eval_sind
+ind 6223:6229 <> eq_prel
+constr 6297:6308 <> EQValue_True
+constr 6456:6468 <> EQValue_False
+constr 6625:6634 <> EQ_FuncSym
+R6237:6241 MRC.PredCalc <> state def
+binder 6232:6233 <> st:73
+R6252:6259 MRC.PredCalc <> fcontext def
+binder 6245:6248 <> pctx:74
+R6273:6276 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6264:6267 Coq.Init.Datatypes <> list ind
+R6269:6272 MRC.PredCalc <> term ind
+R6281:6284 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6277:6280 Coq.Init.Datatypes <> bool ind
+binder 6319:6320 <> t1:77
+binder 6322:6323 <> v1:78
+binder 6325:6326 <> t2:79
+binder 6328:6329 <> v2:80
+R6356:6363 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6337:6341 MRC.PredCalc <> teval ind
+R6343:6344 MRC.PredCalc <> st:73 var
+R6346:6349 MRC.PredCalc <> pctx:74 var
+R6351:6352 MRC.PredCalc <> t1:77 var
+R6354:6355 MRC.PredCalc <> v1:78 var
+R6383:6390 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6364:6368 MRC.PredCalc <> teval ind
+R6370:6371 MRC.PredCalc <> st:73 var
+R6373:6376 MRC.PredCalc <> pctx:74 var
+R6378:6379 MRC.PredCalc <> t2:79 var
+R6381:6382 MRC.PredCalc <> v2:80 var
+R6398:6405 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6393:6395 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6391:6392 MRC.PredCalc <> v1:78 var
+R6396:6397 MRC.PredCalc <> v2:80 var
+R6406:6412 MRC.PredCalc <> eq_prel:75 ind
+R6447:6450 MRC.PredCalc <> :::'true' not
+R6422:6422 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6433:6434 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6445:6445 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6423:6429 MRC.PredCalc <> T_Const constr
+R6431:6432 MRC.PredCalc <> v1:78 var
+R6435:6441 MRC.PredCalc <> T_Const constr
+R6443:6444 MRC.PredCalc <> v2:80 var
+R6417:6420 MRC.PredCalc <> pctx:74 var
+R6414:6415 MRC.PredCalc <> st:73 var
+binder 6479:6480 <> t1:81
+binder 6482:6483 <> v1:82
+binder 6485:6486 <> t2:83
+binder 6488:6489 <> v2:84
+R6518:6527 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6499:6503 MRC.PredCalc <> teval ind
+R6505:6506 MRC.PredCalc <> st:73 var
+R6508:6511 MRC.PredCalc <> pctx:74 var
+R6513:6514 MRC.PredCalc <> t1:81 var
+R6516:6517 MRC.PredCalc <> v1:82 var
+R6547:6556 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6528:6532 MRC.PredCalc <> teval ind
+R6534:6535 MRC.PredCalc <> st:73 var
+R6537:6540 MRC.PredCalc <> pctx:74 var
+R6542:6543 MRC.PredCalc <> t2:83 var
+R6545:6546 MRC.PredCalc <> v2:84 var
+R6565:6574 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6559:6562 Coq.Init.Logic <> ::type_scope:x_'<>'_x not
+R6557:6558 MRC.PredCalc <> v1:82 var
+R6563:6564 MRC.PredCalc <> v2:84 var
+R6575:6581 MRC.PredCalc <> eq_prel:75 ind
+R6616:6619 MRC.PredCalc <> :::'true' not
+R6591:6591 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6602:6603 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6614:6614 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6592:6598 MRC.PredCalc <> T_Const constr
+R6600:6601 MRC.PredCalc <> v1:82 var
+R6604:6610 MRC.PredCalc <> T_Const constr
+R6612:6613 MRC.PredCalc <> v2:84 var
+R6586:6589 MRC.PredCalc <> pctx:74 var
+R6583:6584 MRC.PredCalc <> st:73 var
+binder 6645:6645 <> f:85
+binder 6647:6651 <> args1:86
+binder 6653:6658 <> argsv1:87
+binder 6660:6664 <> args2:88
+binder 6666:6671 <> argsv2:89
+R6708:6715 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6678:6686 MRC.PredCalc <> args_eval ind
+R6688:6689 MRC.PredCalc <> st:73 var
+R6691:6694 MRC.PredCalc <> pctx:74 var
+R6696:6700 MRC.PredCalc <> args1:86 var
+R6702:6707 MRC.PredCalc <> argsv1:87 var
+R6746:6753 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6716:6724 MRC.PredCalc <> args_eval ind
+R6726:6727 MRC.PredCalc <> st:73 var
+R6729:6732 MRC.PredCalc <> pctx:74 var
+R6734:6738 MRC.PredCalc <> args2:88 var
+R6740:6745 MRC.PredCalc <> argsv2:89 var
+R6754:6760 MRC.PredCalc <> eq_prel:75 ind
+R6807:6810 MRC.PredCalc <> :::'true' not
+R6770:6771 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6786:6789 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6804:6805 Coq.Lists.List ListNotations ::list_scope:'['_x_';'_x_';'_'..'_';'_x_']' not
+R6772:6777 MRC.PredCalc <> T_Func constr
+R6779:6779 MRC.PredCalc <> f:85 var
+R6781:6785 MRC.PredCalc <> args1:86 var
+R6790:6795 MRC.PredCalc <> T_Func constr
+R6797:6797 MRC.PredCalc <> f:85 var
+R6799:6803 MRC.PredCalc <> args2:88 var
+R6765:6768 MRC.PredCalc <> pctx:74 var
+R6762:6763 MRC.PredCalc <> st:73 var
+scheme 6223:6229 <> eq_prel_ind
+scheme 6223:6229 <> eq_prel_sind
+ind 6824:6832 <> pdef_eval
+constr 6924:6932 <> Pred_Eval
+R6840:6844 MRC.PredCalc <> state def
+binder 6835:6836 <> st:90
+R6855:6862 MRC.PredCalc <> fcontext def
+binder 6848:6851 <> fctx:91
+R6873:6880 MRC.PredCalc <> pred_def ind
+binder 6866:6869 <> pdef:92
+R6891:6894 Coq.Init.Datatypes <> list ind
+R6896:6899 MRC.PredCalc <> term ind
+binder 6884:6887 <> args:93
+R6908:6911 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6904:6907 Coq.Init.Datatypes <> bool ind
+binder 6943:6948 <> n_args:96
+binder 6950:6953 <> prel:97
+binder 6955:6959 <> pbool:98
+R6992:6999 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R6970:6972 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R6966:6969 MRC.PredCalc <> pdef:92 var
+R6973:6979 MRC.PredCalc <> PredDef constr
+R6981:6986 MRC.PredCalc <> n_args:96 var
+R6988:6991 MRC.PredCalc <> prel:97 var
+R7023:7030 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7000:7003 MRC.PredCalc <> prel:97 var
+R7005:7006 MRC.PredCalc <> st:90 var
+R7008:7011 MRC.PredCalc <> fctx:91 var
+R7013:7016 MRC.PredCalc <> args:93 var
+R7018:7022 MRC.PredCalc <> pbool:98 var
+R7031:7039 MRC.PredCalc <> pdef_eval:94 ind
+R7059:7063 MRC.PredCalc <> pbool:98 var
+R7054:7057 MRC.PredCalc <> args:93 var
+R7049:7052 MRC.PredCalc <> pdef:92 var
+R7044:7047 MRC.PredCalc <> fctx:91 var
+R7041:7042 MRC.PredCalc <> st:90 var
+scheme 6824:6832 <> pdef_eval_ind
+scheme 6824:6832 <> pdef_eval_sind
+ind 7077:7082 <> sfeval
+constr 7173:7183 <> SFEval_True
+constr 7224:7235 <> SFEval_False
+constr 7278:7288 <> SFEval_Pred
+R7090:7094 MRC.PredCalc <> state def
+binder 7085:7086 <> st:99
+R7105:7112 MRC.PredCalc <> fcontext def
+binder 7098:7101 <> fctx:100
+R7123:7130 MRC.PredCalc <> pcontext def
+binder 7116:7119 <> pctx:101
+R7149:7152 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7135:7148 MRC.PredCalc <> simple_formula ind
+R7157:7160 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7153:7156 Coq.Init.Datatypes <> bool ind
+R7187:7192 MRC.PredCalc <> sfeval:102 ind
+R7215:7218 MRC.PredCalc <> :::'true' not
+R7207:7213 MRC.PredCalc <> AT_True constr
+R7202:7205 MRC.PredCalc <> pctx:101 var
+R7197:7200 MRC.PredCalc <> fctx:100 var
+R7194:7195 MRC.PredCalc <> st:99 var
+R7239:7244 MRC.PredCalc <> sfeval:102 ind
+R7268:7272 MRC.PredCalc <> :::'false' not
+R7259:7266 MRC.PredCalc <> AT_False constr
+R7254:7257 MRC.PredCalc <> pctx:101 var
+R7249:7252 MRC.PredCalc <> fctx:100 var
+R7246:7247 MRC.PredCalc <> st:99 var
+binder 7299:7299 <> f:104
+binder 7301:7304 <> args:105
+binder 7306:7309 <> pdef:106
+binder 7311:7315 <> peval:107
+R7341:7349 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7329:7331 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R7323:7326 MRC.PredCalc <> pctx:101 var
+R7328:7328 MRC.PredCalc <> f:104 var
+R7332:7335 Coq.Init.Datatypes <> Some constr
+R7337:7340 MRC.PredCalc <> pdef:106 var
+R7383:7390 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7350:7358 MRC.PredCalc <> pdef_eval ind
+R7360:7361 MRC.PredCalc <> st:99 var
+R7363:7366 MRC.PredCalc <> fctx:100 var
+R7368:7371 MRC.PredCalc <> pdef:106 var
+R7373:7376 MRC.PredCalc <> args:105 var
+R7378:7382 MRC.PredCalc <> peval:107 var
+R7391:7396 MRC.PredCalc <> sfeval:102 ind
+R7428:7432 MRC.PredCalc <> peval:107 var
+R7412:7418 MRC.PredCalc <> AT_Pred constr
+R7420:7420 MRC.PredCalc <> f:104 var
+R7422:7425 MRC.PredCalc <> args:105 var
+R7406:7409 MRC.PredCalc <> pctx:101 var
+R7401:7404 MRC.PredCalc <> fctx:100 var
+R7398:7399 MRC.PredCalc <> st:99 var
+scheme 7077:7082 <> sfeval_ind
+scheme 7077:7082 <> sfeval_sind
+ind 7446:7450 <> feval
+constr 7534:7545 <> FEval_Simple
+constr 7650:7658 <> FEval_Not
+constr 7760:7768 <> FEval_And
+constr 7933:7941 <> FEval_Or1
+constr 8041:8049 <> FEval_Or2
+constr 8149:8162 <> FEval_Or_False
+constr 8301:8314 <> FEval_Implies1
+constr 8417:8430 <> FEval_Implies2
+constr 8532:8540 <> FEval_Iff
+constr 8709:8720 <> FEval_Exists
+constr 8844:8855 <> FEval_Forall
+R7458:7462 MRC.PredCalc <> state def
+binder 7453:7454 <> st:108
+R7473:7480 MRC.PredCalc <> fcontext def
+binder 7466:7469 <> fctx:109
+R7491:7498 MRC.PredCalc <> pcontext def
+binder 7484:7487 <> pctx:110
+R7510:7513 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7503:7509 MRC.PredCalc <> formula ind
+R7518:7521 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7514:7517 Coq.Init.Datatypes <> bool ind
+binder 7556:7557 <> sf:113
+binder 7559:7563 <> sfval:114
+R7599:7606 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7571:7576 MRC.PredCalc <> sfeval ind
+R7578:7579 MRC.PredCalc <> st:108 var
+R7581:7584 MRC.PredCalc <> fctx:109 var
+R7586:7589 MRC.PredCalc <> pctx:110 var
+R7591:7592 MRC.PredCalc <> sf:113 var
+R7594:7598 MRC.PredCalc <> sfval:114 var
+R7607:7611 MRC.PredCalc <> feval:111 ind
+R7640:7644 MRC.PredCalc <> sfval:114 var
+R7627:7634 MRC.PredCalc <> F_Simple constr
+R7636:7637 MRC.PredCalc <> sf:113 var
+R7621:7624 MRC.PredCalc <> pctx:110 var
+R7616:7619 MRC.PredCalc <> fctx:109 var
+R7613:7614 MRC.PredCalc <> st:108 var
+binder 7669:7669 <> f:115
+binder 7671:7674 <> fval:116
+R7707:7714 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7682:7686 MRC.PredCalc <> feval:111 ind
+R7703:7706 MRC.PredCalc <> fval:116 var
+R7701:7701 MRC.PredCalc <> f:115 var
+R7696:7699 MRC.PredCalc <> pctx:110 var
+R7691:7694 MRC.PredCalc <> fctx:109 var
+R7688:7689 MRC.PredCalc <> st:108 var
+R7715:7719 MRC.PredCalc <> feval:111 ind
+R7745:7748 Coq.Init.Datatypes <> negb def
+R7750:7753 MRC.PredCalc <> fval:116 var
+R7735:7739 MRC.PredCalc <> F_Not constr
+R7741:7741 MRC.PredCalc <> f:115 var
+R7729:7732 MRC.PredCalc <> pctx:110 var
+R7724:7727 MRC.PredCalc <> fctx:109 var
+R7721:7722 MRC.PredCalc <> st:108 var
+binder 7779:7780 <> f1:117
+binder 7782:7786 <> f1val:118
+binder 7788:7789 <> f2:119
+binder 7791:7795 <> f2val:120
+R7832:7839 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7803:7807 MRC.PredCalc <> feval:111 ind
+R7827:7831 MRC.PredCalc <> f1val:118 var
+R7823:7824 MRC.PredCalc <> f1:117 var
+R7817:7820 MRC.PredCalc <> pctx:110 var
+R7812:7815 MRC.PredCalc <> fctx:109 var
+R7809:7810 MRC.PredCalc <> st:108 var
+R7869:7876 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7840:7844 MRC.PredCalc <> feval:111 ind
+R7864:7868 MRC.PredCalc <> f2val:120 var
+R7860:7861 MRC.PredCalc <> f2:119 var
+R7854:7857 MRC.PredCalc <> pctx:110 var
+R7849:7852 MRC.PredCalc <> fctx:109 var
+R7846:7847 MRC.PredCalc <> st:108 var
+R7877:7881 MRC.PredCalc <> feval:111 ind
+R7911:7914 Coq.Init.Datatypes <> andb def
+R7922:7926 MRC.PredCalc <> f2val:120 var
+R7916:7920 MRC.PredCalc <> f1val:118 var
+R7897:7901 MRC.PredCalc <> F_And constr
+R7903:7904 MRC.PredCalc <> f1:117 var
+R7906:7907 MRC.PredCalc <> f2:119 var
+R7891:7894 MRC.PredCalc <> pctx:110 var
+R7886:7889 MRC.PredCalc <> fctx:109 var
+R7883:7884 MRC.PredCalc <> st:108 var
+binder 7952:7953 <> f1:121
+binder 7955:7956 <> f2:122
+R7992:7999 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R7964:7968 MRC.PredCalc <> feval:111 ind
+R7988:7991 MRC.PredCalc <> :::'true' not
+R7984:7985 MRC.PredCalc <> f1:121 var
+R7978:7981 MRC.PredCalc <> pctx:110 var
+R7973:7976 MRC.PredCalc <> fctx:109 var
+R7970:7971 MRC.PredCalc <> st:108 var
+R8000:8004 MRC.PredCalc <> feval:111 ind
+R8032:8035 MRC.PredCalc <> :::'true' not
+R8020:8023 MRC.PredCalc <> F_Or constr
+R8025:8026 MRC.PredCalc <> f1:121 var
+R8028:8029 MRC.PredCalc <> f2:122 var
+R8014:8017 MRC.PredCalc <> pctx:110 var
+R8009:8012 MRC.PredCalc <> fctx:109 var
+R8006:8007 MRC.PredCalc <> st:108 var
+binder 8060:8061 <> f1:123
+binder 8063:8064 <> f2:124
+R8100:8107 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8072:8076 MRC.PredCalc <> feval:111 ind
+R8096:8099 MRC.PredCalc <> :::'true' not
+R8092:8093 MRC.PredCalc <> f2:124 var
+R8086:8089 MRC.PredCalc <> pctx:110 var
+R8081:8084 MRC.PredCalc <> fctx:109 var
+R8078:8079 MRC.PredCalc <> st:108 var
+R8108:8112 MRC.PredCalc <> feval:111 ind
+R8140:8143 MRC.PredCalc <> :::'true' not
+R8128:8131 MRC.PredCalc <> F_Or constr
+R8133:8134 MRC.PredCalc <> f1:123 var
+R8136:8137 MRC.PredCalc <> f2:124 var
+R8122:8125 MRC.PredCalc <> pctx:110 var
+R8117:8120 MRC.PredCalc <> fctx:109 var
+R8114:8115 MRC.PredCalc <> st:108 var
+binder 8173:8174 <> f1:125
+binder 8176:8177 <> f2:126
+R8214:8221 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8185:8189 MRC.PredCalc <> feval:111 ind
+R8209:8213 MRC.PredCalc <> :::'false' not
+R8205:8206 MRC.PredCalc <> f1:125 var
+R8199:8202 MRC.PredCalc <> pctx:110 var
+R8194:8197 MRC.PredCalc <> fctx:109 var
+R8191:8192 MRC.PredCalc <> st:108 var
+R8251:8258 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8222:8226 MRC.PredCalc <> feval:111 ind
+R8246:8250 MRC.PredCalc <> :::'false' not
+R8242:8243 MRC.PredCalc <> f2:126 var
+R8236:8239 MRC.PredCalc <> pctx:110 var
+R8231:8234 MRC.PredCalc <> fctx:109 var
+R8228:8229 MRC.PredCalc <> st:108 var
+R8259:8263 MRC.PredCalc <> feval:111 ind
+R8291:8295 MRC.PredCalc <> :::'false' not
+R8279:8282 MRC.PredCalc <> F_Or constr
+R8284:8285 MRC.PredCalc <> f1:125 var
+R8287:8288 MRC.PredCalc <> f2:126 var
+R8273:8276 MRC.PredCalc <> pctx:110 var
+R8268:8271 MRC.PredCalc <> fctx:109 var
+R8265:8266 MRC.PredCalc <> st:108 var
+binder 8325:8326 <> f1:127
+binder 8328:8329 <> f2:128
+R8363:8370 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8336:8340 MRC.PredCalc <> feval:111 ind
+R8358:8362 MRC.PredCalc <> :::'false' not
+R8355:8356 MRC.PredCalc <> f1:127 var
+R8350:8353 MRC.PredCalc <> pctx:110 var
+R8345:8348 MRC.PredCalc <> fctx:109 var
+R8342:8343 MRC.PredCalc <> st:108 var
+R8371:8375 MRC.PredCalc <> feval:111 ind
+R8408:8411 MRC.PredCalc <> :::'true' not
+R8391:8399 MRC.PredCalc <> F_Implies constr
+R8401:8402 MRC.PredCalc <> f1:127 var
+R8404:8405 MRC.PredCalc <> f2:128 var
+R8385:8388 MRC.PredCalc <> pctx:110 var
+R8380:8383 MRC.PredCalc <> fctx:109 var
+R8377:8378 MRC.PredCalc <> st:108 var
+binder 8441:8442 <> f1:129
+binder 8444:8445 <> f2:130
+R8478:8485 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8452:8456 MRC.PredCalc <> feval:111 ind
+R8474:8477 MRC.PredCalc <> :::'true' not
+R8471:8472 MRC.PredCalc <> f2:130 var
+R8466:8469 MRC.PredCalc <> pctx:110 var
+R8461:8464 MRC.PredCalc <> fctx:109 var
+R8458:8459 MRC.PredCalc <> st:108 var
+R8486:8490 MRC.PredCalc <> feval:111 ind
+R8523:8526 MRC.PredCalc <> :::'true' not
+R8506:8514 MRC.PredCalc <> F_Implies constr
+R8516:8517 MRC.PredCalc <> f1:129 var
+R8519:8520 MRC.PredCalc <> f2:130 var
+R8500:8503 MRC.PredCalc <> pctx:110 var
+R8495:8498 MRC.PredCalc <> fctx:109 var
+R8492:8493 MRC.PredCalc <> st:108 var
+binder 8551:8552 <> f1:131
+binder 8554:8558 <> f1val:132
+binder 8560:8561 <> f2:133
+binder 8563:8567 <> f2val:134
+R8604:8611 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8575:8579 MRC.PredCalc <> feval:111 ind
+R8599:8603 MRC.PredCalc <> f1val:132 var
+R8595:8596 MRC.PredCalc <> f1:131 var
+R8589:8592 MRC.PredCalc <> pctx:110 var
+R8584:8587 MRC.PredCalc <> fctx:109 var
+R8581:8582 MRC.PredCalc <> st:108 var
+R8641:8648 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8612:8616 MRC.PredCalc <> feval:111 ind
+R8636:8640 MRC.PredCalc <> f2val:134 var
+R8632:8633 MRC.PredCalc <> f2:133 var
+R8626:8629 MRC.PredCalc <> pctx:110 var
+R8621:8624 MRC.PredCalc <> fctx:109 var
+R8618:8619 MRC.PredCalc <> st:108 var
+R8649:8653 MRC.PredCalc <> feval:111 ind
+R8683:8690 Coq.Bool.Bool <> eqb def
+R8692:8696 MRC.PredCalc <> f1val:132 var
+R8698:8702 MRC.PredCalc <> f2val:134 var
+R8669:8673 MRC.PredCalc <> F_Iff constr
+R8675:8676 MRC.PredCalc <> f1:131 var
+R8678:8679 MRC.PredCalc <> f2:133 var
+R8663:8666 MRC.PredCalc <> pctx:110 var
+R8658:8661 MRC.PredCalc <> fctx:109 var
+R8655:8656 MRC.PredCalc <> st:108 var
+binder 8731:8731 <> x:135
+binder 8733:8733 <> f:136
+R8741:8741 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8791:8799 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8742:8748 Coq.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R8750:8751 Coq.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 8749:8749 <> v:137
+R8752:8756 MRC.PredCalc <> feval:111 ind
+R8787:8790 MRC.PredCalc <> :::'true' not
+R8784:8784 MRC.PredCalc <> f:136 var
+R8778:8781 MRC.PredCalc <> pctx:110 var
+R8773:8776 MRC.PredCalc <> fctx:109 var
+R8760:8764 MRC.Maps <> :::x_'!->'_x_';'_x not
+R8766:8768 MRC.Maps <> :::x_'!->'_x_';'_x not
+R8769:8770 MRC.PredCalc <> st:108 var
+R8759:8759 MRC.PredCalc <> x:135 var
+R8765:8765 MRC.PredCalc <> v:137 var
+R8800:8804 MRC.PredCalc <> feval:111 ind
+R8835:8838 MRC.PredCalc <> :::'true' not
+R8820:8827 MRC.PredCalc <> F_Exists constr
+R8829:8829 MRC.PredCalc <> x:135 var
+R8831:8831 MRC.PredCalc <> f:136 var
+R8814:8817 MRC.PredCalc <> pctx:110 var
+R8809:8812 MRC.PredCalc <> fctx:109 var
+R8806:8807 MRC.PredCalc <> st:108 var
+binder 8866:8866 <> x:138
+binder 8868:8868 <> f:139
+R8876:8876 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R8926:8934 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+binder 8884:8884 <> v:140
+R8887:8891 MRC.PredCalc <> feval:111 ind
+R8922:8925 MRC.PredCalc <> :::'true' not
+R8919:8919 MRC.PredCalc <> f:139 var
+R8913:8916 MRC.PredCalc <> pctx:110 var
+R8908:8911 MRC.PredCalc <> fctx:109 var
+R8895:8899 MRC.Maps <> :::x_'!->'_x_';'_x not
+R8901:8903 MRC.Maps <> :::x_'!->'_x_';'_x not
+R8904:8905 MRC.PredCalc <> st:108 var
+R8894:8894 MRC.PredCalc <> x:138 var
+R8900:8900 MRC.PredCalc <> v:140 var
+R8935:8939 MRC.PredCalc <> feval:111 ind
+R8969:8972 MRC.PredCalc <> :::'true' not
+R8955:8962 MRC.PredCalc <> F_Forall constr
+R8964:8964 MRC.PredCalc <> x:138 var
+R8966:8966 MRC.PredCalc <> f:139 var
+R8949:8952 MRC.PredCalc <> pctx:110 var
+R8944:8947 MRC.PredCalc <> fctx:109 var
+R8941:8942 MRC.PredCalc <> st:108 var
+scheme 7446:7450 <> feval_ind
+scheme 7446:7450 <> feval_sind
+def 8987:9001 <> formula_implies
+R9012:9018 MRC.PredCalc <> formula ind
+binder 9004:9005 <> f1:141
+binder 9007:9008 <> f2:142
+binder 9021:9024 <> fctx:143
+binder 9026:9029 <> pctx:144
+binder 9050:9054 <> f1val:145
+binder 9056:9057 <> st:146
+R9091:9098 Coq.Init.Logic <> ::type_scope:x_'->'_x not
+R9064:9068 MRC.PredCalc <> feval ind
+R9070:9071 MRC.PredCalc <> st:146 var
+R9073:9076 MRC.PredCalc <> fctx:143 var
+R9078:9081 MRC.PredCalc <> pctx:144 var
+R9083:9084 MRC.PredCalc <> f1:141 var
+R9086:9090 MRC.PredCalc <> f1val:145 var
+R9099:9099 Coq.Init.Logic <> ::type_scope:x_'\/'_x not
+R9113:9118 Coq.Init.Logic <> ::type_scope:x_'\/'_x not
+R9145:9145 Coq.Init.Logic <> ::type_scope:x_'\/'_x not
+R9105:9107 Coq.Init.Logic <> ::type_scope:x_'='_x not
+R9100:9104 MRC.PredCalc <> f1val:145 var
+R9108:9112 MRC.PredCalc <> :::'false' not
+R9119:9123 MRC.PredCalc <> feval ind
+R9125:9126 MRC.PredCalc <> st:146 var
+R9128:9131 MRC.PredCalc <> fctx:143 var
+R9133:9136 MRC.PredCalc <> pctx:144 var
+R9138:9139 MRC.PredCalc <> f2:142 var
+R9141:9144 MRC.PredCalc <> :::'true' not
+def 9160:9172 <> formula_equiv
+R9183:9189 MRC.PredCalc <> formula ind
+binder 9175:9176 <> f1:147
+binder 9178:9179 <> f2:148
+binder 9192:9195 <> fctx:149
+binder 9197:9200 <> pctx:150
+R9245:9250 Coq.Init.Logic <> ::type_scope:x_'/\'_x not
+R9214:9228 MRC.PredCalc <> formula_implies def
+R9230:9231 MRC.PredCalc <> f1:147 var
+R9233:9234 MRC.PredCalc <> f2:148 var
+R9236:9239 MRC.PredCalc <> fctx:149 var
+R9241:9244 MRC.PredCalc <> pctx:150 var
+R9251:9265 MRC.PredCalc <> formula_implies def
+R9267:9268 MRC.PredCalc <> f2:148 var
+R9270:9271 MRC.PredCalc <> f1:147 var
+R9273:9276 MRC.PredCalc <> fctx:149 var
+R9278:9281 MRC.PredCalc <> pctx:150 var

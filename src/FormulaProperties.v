@@ -1,3 +1,5 @@
+From MRC Require Import PredCalc.
+
 Theorem and_comm : forall f1 f2 fctx pctx,
   formula_equiv <[ f1 /\ f2 ]> <[ f2 /\ f1 ]> fctx pctx.
 Proof. 
