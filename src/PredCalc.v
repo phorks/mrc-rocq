@@ -1,18 +1,30 @@
 From Coq Require Import Strings.String.
 From Coq Require Import Lists.List. Import ListNotations.
 From Coq Require Import ZArith.ZArith.
-From Coq Require Import Reals.Reals.
+From Coq Require Import Reals.Reals. Open Scope R_scope.
 From MRC Require Import Maps.
+
 
 Inductive value : Type :=
   | V_Nat (n : nat)
   | V_Int (z : Z)
   | V_Real (r : R).
 
+Definition value_to_R (v : value) :=
+match v with
+  | V_Nat n => INR n
+  | V_Int z => IZR z
+  | V_Real r => r
+end.
+
 Definition state := partial_map value.
 
+Definition functional_frel (frel : list value -> value -> Prop) :=
+  forall args v1 v2, frel args v1 -> frel args v2 -> v1 = v2.
+
 Inductive func_def : Type :=
-  | FuncDef (n_params : nat) (fn : list value -> option value).
+  | FuncDef (n_params : nat) (frel : list value -> value -> Prop) 
+    (Hfnal: functional_frel frel).
 
 Definition fcontext := partial_map func_def.
 
@@ -20,6 +32,11 @@ Inductive term : Type :=
   | T_Const (v : value)
   | T_Var (x : string)
   | T_Func (symbol : string) (args : list term).
+
+Inductive pred_def : Type :=
+  | PredDef (n_params : nat) (pred : state -> fcontext -> list term -> bool -> Prop).
+
+Definition pcontext := partial_map pred_def.
 
 Inductive simple_formula : Type :=
   | AT_True
@@ -33,8 +50,8 @@ Inductive formula : Type :=
   | F_Or (f1 f2 : formula)
   | F_Implies (f1 f2 : formula)
   | F_Iff (f1 f2 : formula)
-  | F_Forall (x : string) (f : formula)
-  | F_Exists (x : string) (f : formula).
+  | F_Exists (x : string) (f : formula)  
+  | F_Forall (x : string) (f : formula).
 
 Coercion V_Nat : nat >-> value.
 Coercion V_Int : Z >-> value.
@@ -70,18 +87,26 @@ Notation "'true'" := (AT_True) (in custom formula at level 0).
 Notation "'false'" := false (at level 1).
 Notation "'false'" := (AT_False) (in custom formula at level 0).
 Notation "x = y" := (AT_Pred "=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x <> y" := (AT_Pred "<>" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
+Notation "x <> y" := (AT_Pred "<>" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity, only parsing).
+Notation "x ≠ y" := (AT_Pred "<>" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity, only printing).
 Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
 Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
 Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
 Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "'~' x" := (F_Not x) (in custom formula at level 75).
-Notation "x /\ y" := (F_And x y) (in custom formula at level 80, left associativity).
-Notation "x \/ y" := (F_Or x y) (in custom formula at level 80, left associativity).
-Notation "x => y" := (F_Implies x y) (in custom formula at level 80).
-Notation "x <=> y" := (F_Implies x y) (in custom formula at level 80).
-Notation "'exists' x .. y ',' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85).
+Notation "'~' x" := (F_Not x) (in custom formula at level 75, only parsing).
+Notation "'¬' x" := (F_Not x) (in custom formula at level 75, only printing).
+Notation "x /\ y" := (F_And x y) (in custom formula at level 80, only parsing, left associativity).
+Notation "x ∧ y" := (F_And x y) (in custom formula at level 80, only printing, left associativity).
+Notation "x \/ y" := (F_Or x y) (in custom formula at level 80, left associativity, only parsing).
+Notation "x ∨ y" := (F_Or x y) (in custom formula at level 80, left associativity, only printing).
+Notation "x => y" := (F_Implies x y) (in custom formula at level 80, only parsing).
+Notation "x ⇒ y" := (F_Implies x y) (in custom formula at level 80, only printing).
+Notation "x <=> y" := (F_Implies x y) (in custom formula at level 80, only parsing).
+Notation "x ⇔ y" := (F_Implies x y) (in custom formula at level 80, only printing).
+Notation "'exists' x .. y ',' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only parsing).
+Notation "'∃' x .. y '●' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only printing).
 Notation "'forall' x .. y ',' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
+Notation "'∀' x .. y '●' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
 Notation "f '(' x ',' .. ',' y ')'" := (T_Func f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
 
 Open Scope formula_scope.
@@ -92,65 +117,110 @@ Definition z : string := "z".
 
 Definition f : string := "f".
 
-Locate length.
+Inductive fdef_eval (fdef : func_def) (argsv : list value) : value -> Prop :=
+  | FN_Eval : forall n_args fn Hfnal value, 
+    fdef = FuncDef n_args fn Hfnal ->
+    fn argsv value ->
+    fdef_eval fdef argsv value.
 
-Definition fdef_eval (f : func_def) (argsv : list value) :=
-  match f with
-  | FuncDef n_params fn => if n_params =? List.length argsv
-    then (fn argsv)
-    else None
-  end.
-
-Inductive teval : state -> fcontext -> term -> value -> Prop :=
-  | EvalConst : forall st fctx v, teval st fctx (T_Const v) v
-  | EvalVar : forall st fctx x v, st x = Some v -> teval st fctx (T_Var x) v
-  | EvalFunc : forall st fctx f fdef args argsv fval,
+Inductive teval (st : state) (fctx : fcontext) : term -> value -> Prop :=
+  | EvalConst : forall v, teval st fctx (T_Const v) v
+  | EvalVar : forall x v, st x = Some v -> teval st fctx (T_Var x) v
+  | EvalFunc : forall f fdef args argsv fval,
     args_eval st fctx args argsv ->
     fctx f = Some fdef ->
-    fdef_eval fdef argsv = Some fval ->
+    fdef_eval fdef argsv fval ->
     teval st fctx (T_Func f args) (fval)
-with args_eval : state -> fcontext -> list term -> list value -> Prop :=
-  | ArgsEval_nil : forall st fctx, args_eval st fctx [] []
-  | ArgsEval_cons : forall st fctx t ts v vs, 
+with args_eval (st : state) (fctx : fcontext) : list term -> list value -> Prop :=
+  | ArgsEval_nil : args_eval st fctx [] []
+  | ArgsEval_cons : forall t ts v vs, 
     teval st fctx t v ->
     args_eval st fctx ts vs ->
     args_eval st fctx (t::ts) (v::vs).
 
-Definition binary_arith_fdef (on_N : nat -> nat -> nat) (on_Z : Z -> Z -> Z) (on_R : R -> R -> R) :=
-  FuncDef 2 (fun args => match args with 
-    | [V_Nat n1; V_Nat n2] => @Some value (on_N n1 n2)
-    | [V_Int z1; V_Int z2] => @Some value (on_Z z1 z2)
-    | [V_Nat n1; V_Int z2] => @Some value (on_Z (Z.of_nat n1) z2)
-    | [V_Int z1; V_Nat n2] => @Some value (on_Z z1 (Z.of_nat n2))
-    | [V_Real r1; V_Real r2] => @Some value (on_R r1 r2)
-    | [V_Nat n1; V_Real r2] => @Some value (on_R (INR n1) r2)
-    | [V_Real r1; V_Nat n2] => @Some value (on_R r1 (INR n2))
-    | [V_Int z1; V_Real r2] => @Some value (on_R (IZR z1) r2)
-    | [V_Real r1; V_Int z2] => @Some value (on_R r1 (IZR z2))  
-    | _ => None
-    end).  
 
-Definition value_to_R (v : value) :=
-  match v with
-  | V_Nat n => INR n
-  | V_Int z => IZR z
-  | V_Real r => r
-  end.
+Inductive eq_prel (st : state) (pctx : fcontext) : list term -> bool -> Prop :=
+  | EQValue_True : forall t1 v1 t2 v2, 
+    teval st pctx t1 v1 ->
+    teval st pctx t2 v2 ->
+    v1 = v2 ->
+    eq_prel st pctx [T_Const v1; T_Const v2] true
+  | EQValue_False : forall t1 v1 t2 v2, 
+      teval st pctx t1 v1 ->
+      teval st pctx t2 v2 ->
+      v1 <> v2 ->
+      eq_prel st pctx [T_Const v1; T_Const v2] true
+  | EQ_FuncSym : forall f args1 argsv1 args2 argsv2,
+    args_eval st pctx args1 argsv1 ->
+    args_eval st pctx args2 argsv2 ->
+    eq_prel st pctx [(T_Func f args1); (T_Func f args2)] true.
 
-Definition plus_fdef := 
-  binary_arith_fdef Nat.add Z.add Rplus.
+Inductive pdef_eval (st : state) (fctx : fcontext) (pdef : pred_def) (args : list term) : bool -> Prop :=
+  | Pred_Eval : forall n_args prel pbool,
+    pdef = PredDef n_args prel ->
+    prel st fctx args pbool ->
+    pdef_eval st fctx pdef args pbool.
 
-Definition minus_fdef := 
-  binary_arith_fdef Nat.sub Z.sub Rminus.
+Inductive sfeval (st : state) (fctx : fcontext) (pctx : pcontext) : simple_formula -> bool -> Prop :=
+  | SFEval_True : sfeval st fctx pctx AT_True true
+  | SFEval_False : sfeval st fctx pctx AT_False false
+  | SFEval_Pred : forall f args pdef peval, 
+    pctx f = Some pdef -> 
+    pdef_eval st fctx pdef args peval ->
+    sfeval st fctx pctx (AT_Pred f args) peval.
 
-Definition mult_fdef :=
-  binary_arith_fdef Nat.mul Z.mul Rmult.
+Inductive feval (st : state) (fctx : fcontext) (pctx : pcontext) : formula -> bool -> Prop :=
+  | FEval_Simple : forall sf sfval, 
+    sfeval st fctx pctx sf sfval ->
+    feval st fctx pctx (F_Simple sf) sfval
+  | FEval_Not : forall f fval, 
+    feval st fctx pctx f fval ->
+    feval st fctx pctx (F_Not f) (negb fval)
+  | FEval_And : forall f1 f1val f2 f2val, 
+    feval st fctx pctx (f1) f1val ->
+    feval st fctx pctx (f2) f2val ->
+    feval st fctx pctx (F_And f1 f2) (andb f1val f2val)
+  | FEval_Or1 : forall f1 f2, 
+    feval st fctx pctx (f1) true ->
+    feval st fctx pctx (F_Or f1 f2) true
+  | FEval_Or2 : forall f1 f2, 
+    feval st fctx pctx (f2) true ->
+    feval st fctx pctx (F_Or f1 f2) true
+  | FEval_Or_False : forall f1 f2, 
+    feval st fctx pctx (f1) false ->
+    feval st fctx pctx (f2) false ->
+    feval st fctx pctx (F_Or f1 f2) false
+  | FEval_Implies1 : forall f1 f2,
+    feval st fctx pctx f1 false ->
+    feval st fctx pctx (F_Implies f1 f2) true
+  | FEval_Implies2 : forall f1 f2,
+    feval st fctx pctx f2 true ->
+    feval st fctx pctx (F_Implies f1 f2) true
+  | FEval_Iff : forall f1 f1val f2 f2val, 
+    feval st fctx pctx (f1) f1val ->
+    feval st fctx pctx (f2) f2val ->
+    feval st fctx pctx (F_Iff f1 f2) (Bool.eqb f1val f2val)
+  | FEval_Exists : forall x f, 
+    (exists v, feval (x !-> v ; st) fctx pctx (f) true) ->
+    feval st fctx pctx (F_Exists x f)  true
+  | FEval_Forall : forall x f, 
+    (forall v, feval (x !-> v ; st) fctx pctx (f) true) ->
+    feval st fctx pctx (F_Forall x f) true.
 
-Definition div_fdef := FuncDef 2 (fun args =>
-  match args with
-  | [v1; v2] => @Some value (Rdiv (value_to_R v1) (value_to_R v2))
-  | _ => None
-  end).
+Definition formula_implies (f1 f2 : formula) fctx pctx : Prop :=
+  forall f1val st,
+    feval st fctx pctx f1 f1val ->
+    (f1val = false) \/ (feval st fctx pctx f2 true).
+
+(* 
+
+Notation "P '==>' Q" := (formula_implies P Q fctx pctx)
+                  (at level 80).
+
+Notation "P == Q" := (P ==> Q /\ Q ==> P)
+                          (at level 80). 
+                          
+*)
 
 (* term_equals *)
 (* formula_implies *)
