@@ -84,6 +84,8 @@ Notation "x" := x (in custom formula at level 0, x constr at level 0) : formula_
 Notation "x + y" := (T_Func "+" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
 Notation "x - y" := (T_Func "-" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
 Notation "x * y" := (T_Func "*" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
+Notation "f '(' x ',' .. ',' y ')'" := (T_Func f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
+
 Notation "'true'"  := true (at level 1).
 Notation "'true'" := (AT_True) (in custom formula at level 0).
 Notation "'false'" := false (at level 1).
@@ -109,7 +111,6 @@ Notation "'exists' x .. y ',' f" := (F_Exists x .. (F_Exists y f) ..) (in custom
 Notation "'∃' x .. y '●' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only printing).
 Notation "'forall' x .. y ',' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
 Notation "'∀' x .. y '●' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
-Notation "f '(' x ',' .. ',' y ')'" := (T_Func f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
 
 Open Scope formula_scope.
 
