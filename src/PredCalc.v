@@ -105,8 +105,8 @@ Notation "x \/ y" := (F_Or x y) (in custom formula at level 80, left associativi
 Notation "x ∨ y" := (F_Or x y) (in custom formula at level 80, left associativity, only printing).
 Notation "x => y" := (F_Implies x y) (in custom formula at level 80, only parsing).
 Notation "x ⇒ y" := (F_Implies x y) (in custom formula at level 80, only printing).
-Notation "x <=> y" := (F_Implies x y) (in custom formula at level 80, only parsing).
-Notation "x ⇔ y" := (F_Implies x y) (in custom formula at level 80, only printing).
+Notation "x <=> y" := (F_Iff x y) (in custom formula at level 80, only parsing).
+Notation "x ⇔ y" := (F_Iff x y) (in custom formula at level 80, only printing).
 Notation "'exists' x .. y ',' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only parsing).
 Notation "'∃' x .. y '●' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only printing).
 Notation "'forall' x .. y ',' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
@@ -209,6 +209,8 @@ Inductive feval (st : state) (fctx : fcontext) (pctx : pcontext) : formula -> bo
   | FEval_Forall : forall x f, 
     (forall v, feval (x !-> v ; st) fctx pctx (f) true) ->
     feval st fctx pctx (F_Forall x f) true.
+
+Hint Constructors feval : core.
 
 Definition formula_implies (f1 f2 : formula) fctx pctx : Prop :=
   forall f1val st,
@@ -402,14 +404,19 @@ Definition formula_subst f x a :=
   subst_formula_qrank (quantifier_rank f) f x a.
 
 Notation "f [ x \ a ]" := (formula_subst f x a)
-  (at level 10, x at next level, a custom formula) : formula_scope.
+  (at level 10, left associativity, x at next level, a custom formula) : formula_scope.
 
-(* 
+Notation "f [ x \ a ]" := (formula_subst f x a)
+  (in custom formula at level 76, left associativity,
+    f custom formula,
+    x constr at level 0, a custom formula) : formula_scope.  
 
-Notation "P '==>' Q" := (formula_implies P Q fctx pctx)
-                  (at level 80).
+Declare Scope general_fassertion_scope.
+Declare Custom Entry fassertion.
 
-Notation "P == Q" := (P ==> Q /\ Q ==> P)
-                          (at level 80). 
-                          
-*)
+Notation "P '==>' Q" := (forall fctx pctx, formula_implies P Q fctx pctx)
+                  (at level 50) : general_fassertion_scope.
+
+Notation "P '==' Q" := (forall fctx pctx, 
+                    (formula_implies P Q fctx pctx) /\ (formula_implies Q P fctx pctx))
+                          (at level 50) : general_fassertion_scope. 
