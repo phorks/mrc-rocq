@@ -697,196 +697,150 @@ Ltac deduce_rank_eq Hsame :=
 Hint Extern 2 (fstruct_same ?A ?A = true) =>
   apply fstruct_same_refl : core.
 
-Theorem subst_preserves_structure : forall A B x a r,
-  fstruct_same A B = true ->
-  fstruct_same A (subst_formula_qrank r B x a) = true.
+Theorem subst_preserves_structure : forall A x a r,
+  fstruct_same A (subst_formula_qrank r A x a) = true.
 Proof with auto.
   intros A.
-  apply (rank_induction (fun P => forall B x a r,
-    fstruct_same P B = true ->
-    fstruct_same P (subst_formula_qrank r B x a) = true)) with (S (rank A))...
+  apply (rank_induction (fun P => forall x a r,
+      fstruct_same P (subst_formula_qrank r P x a) = true))
+    with (S (rank A))...
   clear A. intros n IH. destruct A;
-    intros Hr B x a r Hsame.
-  - apply fstruct_same_simple in Hsame as [sf' HB]. rewrite HB.
+    intros Hr x a r.
+  - destruct r; simpl in *...
+  - specialize IH with (m:=rank A) (B:=A).
     destruct r; simpl in *...
-  - apply fstruct_same_not in Hsame as [B' [HB1 HB2]]; subst.
-    specialize IH with (m:=rank B') (B:=B').
-    destruct r; simpl in *...
-    + fold_qrank_subst 0 B' x a.
-      deduce_rank_eq HB2.
-      forward IH; try lia. forward IH...
-      specialize (IH B' x a 0 (fstruct_same_refl B')).
-      apply fstruct_same_trans with B'...
-    + fold_qrank_subst (S r) B' x a.
-      deduce_rank_eq HB2.
-      repeat forward IH by lia; auto.
-      specialize (IH B' x a (S r) (fstruct_same_refl B'))...
-      apply fstruct_same_trans with B'...
-  - apply fstruct_same_and in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    deduce_rank_eq HB1. deduce_rank_eq HB2.
-    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+    + fold_qrank_subst 0 A x a. apply IH; try lia...
+    + fold_qrank_subst (S r) A x a. apply IH; try lia...
+  - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
     specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff. split...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a. 
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
-  - apply fstruct_same_or in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    deduce_rank_eq HB1. deduce_rank_eq HB2.
-    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a.
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+  - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
     specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff. split...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a. 
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
-  - apply fstruct_same_implies in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    deduce_rank_eq HB1. deduce_rank_eq HB2.
-    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a.
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+  - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
     specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff. split...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a. 
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
-  - apply fstruct_same_iff in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    deduce_rank_eq HB1. deduce_rank_eq HB2.
-    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a.
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+  - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
     specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff. split...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a. 
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a 0 HB1).
-        specialize (IH2 B2 x a 0 HB2).
-        apply Bool.andb_true_iff...
-      * fold_qrank_subst (S r) B2 x a.
-        fold_qrank_subst (S r) B1 x a.
-        repeat forward IH1 by lia; auto.
-        repeat forward IH2 by lia; auto.
-        specialize (IH1 B1 x a (S r) HB1).
-        specialize (IH2 B2 x a (S r) HB2).
-        apply Bool.andb_true_iff...
-  - apply fstruct_same_exists in Hsame as [y [B1 [HB1 HB2]]].
-    deduce_rank_eq HB2. subst. destruct r; simpl in *.
-    + destruct (eqb_spec y x)...
-    + fold_qrank_subst (S r) B1 y (fresh_quantifier y B1 a).
-      destruct (eqb_spec y x); try lia...
-      specialize IH with (m:=rank B1) (B:=B1) as IH.
-      forward IH by lia. forward IH by auto.
-      specialize (IH B1 y (fresh_quantifier y B1 a) (S r) 
-        (fstruct_same_refl B1)) as H1.
-      specialize (IH (subst_formula_qrank (S r) 
-        B1 y (fresh_quantifier y B1 a)) x a r H1) as H2.
-      apply fstruct_same_trans with B1...
-  - apply fstruct_same_forall in Hsame as [y [B1 [HB1 HB2]]].
-    deduce_rank_eq HB2. subst. destruct r; simpl in *.
-    + destruct (eqb_spec y x)...
-    + fold_qrank_subst (S r) B1 y (fresh_quantifier y B1 a).
-      destruct (eqb_spec y x); try lia...
-      specialize IH with (m:=rank B1) (B:=B1) as IH.
-      forward IH by lia. forward IH by auto.
-      specialize (IH B1 y (fresh_quantifier y B1 a) (S r) 
-        (fstruct_same_refl B1)) as H1.
-      specialize (IH (subst_formula_qrank (S r) 
-        B1 y (fresh_quantifier y B1 a)) x a r H1) as H2.
-      apply fstruct_same_trans with B1...
+      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...
+      * fold_qrank_subst (S r) A2 x a.
+        fold_qrank_subst (S r) A1 x a.
+        apply Bool.andb_true_iff. split; 
+          [apply IH1|apply IH2]; lia...                              
+  - subst. destruct r; simpl in *.
+    + destruct (eqb_spec x0 x)...
+    + fold_qrank_subst (S r) A x0 (fresh_quantifier x0 A a).
+      destruct (eqb_spec x0 x); try lia...
+      remember (subst_formula_qrank (S r) A x0 (fresh_quantifier x0 A a))
+        as F1. (* the first substitution *)
+      remember (subst_formula_qrank r F1 x a)
+        as F2. (* the second substituion *)
+      specialize IH with (m:=rank A) (B:=A) as IHA.
+      specialize IH with (m:=rank F1) (B:=F1) as IHF1.
+      forward IHA by lia. forward IHA by auto.      
+      specialize (IHA x0 (fresh_quantifier x0 A a) (S r)). (* F1 *)
+      forward IHF1. { deduce_rank_eq IHA. rewrite HeqF1. lia. }
+      forward IHF1 by reflexivity. specialize (IHF1 x a r).
+      rewrite <- HeqF1 in *. rewrite <- HeqF2 in *.
+      apply fstruct_same_trans with F1...
+  - subst. destruct r; simpl in *.
+    + destruct (eqb_spec x0 x)...
+    + fold_qrank_subst (S r) A x0 (fresh_quantifier x0 A a).
+      destruct (eqb_spec x0 x); try lia...
+      remember (subst_formula_qrank (S r) A x0 (fresh_quantifier x0 A a))
+        as F1. (* the first substitution *)
+      remember (subst_formula_qrank r F1 x a)
+        as F2. (* the second substituion *)
+      specialize IH with (m:=rank A) (B:=A) as IHA.
+      specialize IH with (m:=rank F1) (B:=F1) as IHF1.
+      forward IHA by lia. forward IHA by auto.      
+      specialize (IHA x0 (fresh_quantifier x0 A a) (S r)). (* F1 *)
+      forward IHF1. { deduce_rank_eq IHA. rewrite HeqF1. lia. }
+      forward IHF1 by reflexivity. specialize (IHF1 x a r).
+      rewrite <- HeqF1 in *. rewrite <- HeqF2 in *.
+      apply fstruct_same_trans with F1...
 Qed.
+
+Theorem xxx : forall A x a r',
+  quantifier_rank A <= r' ->
+    subst_formula_qrank (quantifier_rank A) A x a 
+    = subst_formula_qrank r' A x a.
+Proof.
+  intros A.
+  apply (rank_induction (fun B => forall x a r',
+    quantifier_rank B <= r' ->
+    subst_formula_qrank (quantifier_rank B) B x a 
+    = subst_formula_qrank r' B x a))
+    with (S (rank A)); try lia...
+  - intros 
 
 Theorem fff_rank0 : forall A r' x a,
   quantifier_rank A = 0 ->
