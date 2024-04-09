@@ -876,10 +876,16 @@ Inductive feval (st : state) (fctx : fcontext) (pctx : pcontext) : formula -> bo
   | FEval_Not : forall f fval, 
     feval st fctx pctx f fval ->
     feval st fctx pctx (F_Not f) (negb fval)
-  | FEval_And : forall f1 f1val f2 f2val, 
-    feval st fctx pctx (f1) f1val ->
-    feval st fctx pctx (f2) f2val ->
-    feval st fctx pctx (F_And f1 f2) (andb f1val f2val)
+  | FEval_And : forall f1 f2, 
+    feval st fctx pctx (f1) true ->
+    feval st fctx pctx (f2) true ->
+    feval st fctx pctx (F_And f1 f2) true
+  | FEVal_And_False1 : forall f1 f2,
+    feval st fctx pctx (f1) false ->
+    feval st fctx pctx (F_And f1 f2) false
+  | FEVal_And_False2 : forall f1 f2,
+    feval st fctx pctx (f2) false ->
+    feval st fctx pctx (F_And f1 f2) false   
   | FEval_Or1 : forall f1 f2, 
     feval st fctx pctx (f1) true ->
     feval st fctx pctx (F_Or f1 f2) true

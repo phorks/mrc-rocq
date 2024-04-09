@@ -9,9 +9,7 @@ Theorem feval_inversion_and : forall st fctx pctx A B,
   feval st fctx pctx <[ A /\ B ]> true ->
   feval st fctx pctx A true /\ feval st fctx pctx B true.
 Proof.
-  intros st fctx pctx A B H. inversion H; subst.
-  apply Bool.andb_true_iff in H2 as [H1 H2]; subst.
-  simpl. split; assumption.
+  intros st fctx pctx A B H. inversion H; subst. split; assumption.
 Qed.
 
 Theorem feval_inversion_and_false : forall st fctx pctx A B,
@@ -19,9 +17,8 @@ Theorem feval_inversion_and_false : forall st fctx pctx A B,
   feval st fctx pctx A false \/ feval st fctx pctx B false.
 Proof.
   intros st fctx pctx A B H. inversion H; subst.
-  apply Bool.andb_false_iff in H2 as [H1 | H1]; subst.
-  - simpl. left. assumption.
-  - rewrite Bool.andb_comm. simpl. right. assumption.
+  - left. assumption.
+  - right. assumption.
 Qed.
 
 Theorem feval_inversion_or : forall st fctx pctx A B,
@@ -122,12 +119,53 @@ Proof.
   apply FEval_And; assumption.
 Qed.
 
+Theorem and_false_if : forall st fctx pctx A B,
+  feval st fctx pctx A false \/ feval st fctx pctx B false ->
+  feval st fctx pctx <[ A /\ B ]> false.
+Proof.
+  intros st fctx pctx A B [H | H].
+  - apply FEVal_And_False1. assumption.
+  - apply FEVal_And_False2. assumption.
+Qed.
+
+Theorem or_true_if : forall st fctx pctx A B,
+  feval st fctx pctx A true \/
+  feval st fctx pctx B true ->
+  feval st fctx pctx <[ A \/ B ]> true.
+Proof.
+  intros st fctx pctx A B [H | H].
+  - replace true with (orb true true) by auto. 
+    apply FEval_Or1. assumption.
+  - replace true with (orb true true) by auto. 
+    apply FEval_Or2. assumption.
+Qed.
+
+Theorem or_false_if : forall st fctx pctx A B,
+  feval st fctx pctx A false ->
+  feval st fctx pctx B false ->
+  feval st fctx pctx <[ A \/ B ]> false.
+Proof.
+  intros st fctx pctx A B H1 H2.
+  replace false with (orb false false) by auto. 
+  apply FEval_Or_False; assumption.
+Qed.
+
 Theorem not_true_if : forall st fctx pctx A,
   feval st fctx pctx <[ A ]> false -> 
   feval st fctx pctx <[ ~ A ]> true.
 Proof.
   intros st fctx pctx A H. 
   replace true with (negb false) by reflexivity.
+  apply FEval_Not. assumption.
+Qed.
+
+Theorem not_false_if : forall st fctx pctx A,
+  feval st fctx pctx <[ A ]> true -> 
+  feval st fctx pctx <[ ~ A ]> false.
+Proof.
+  intros st fctx pctx A H. 
+  replace true with (negb false) by reflexivity.
+  replace false with (negb true) by reflexivity.
   apply FEval_Not. assumption.
 Qed.
 
@@ -349,4 +387,56 @@ Proof with auto.
       apply H with v...
   - destruct val... right. apply feval_inversion_false in H.
     destruct H.
+Qed.
+
+(* Since our function and predicate symbol interpretations are 
+  relations instead of computable functions, our evaluation
+  process might fail evaluating some fomrulas; i.e., it might
+  not evaluate a formula as either false or true. In such cases
+  (A \/ ~ A) does not hold. 
+  
+  Example: P(0, 1), when pctx does not contain P, is neither
+    true not false. Meanwhile, even if the symbols has an
+    interpretation in pctx, it might be the case that neither
+    (0, 1) |-> true nor (0, 1) |-> false are in P.
+  
+  We admit this as an axiom, since the book includes it.
+  *)
+Axiom excluded_middle : forall A,
+  <[ A \/ ~ A ]> == <[ true ]>.
+
+Theorem not_involutive : forall A,
+  <[ ~ ~ A ]> == <[ A ]>.
+Proof with auto.
+  intros A fctx pctx. split; intros val st H.
+  - destruct val... right. apply feval_inversion_not in H.
+    apply feval_inversion_not_false in H...
+  - destruct val... right. apply not_true_if.
+    apply not_false_if...
+Qed.
+
+Theorem not_and : forall A B,
+  <[ ~ (A /\ B) ]> == <[ ~ A \/ ~ B ]>.
+Proof with auto.
+  intros A B fctx pctx. split; intros val st H.
+  - destruct val... right. apply feval_inversion_not in H.
+    apply or_true_if. 
+    apply feval_inversion_and_false in H as [H | H].
+    + left. apply not_true_if...
+    + right. apply not_true_if...
+  - destruct val... right. apply not_true_if. apply and_false_if.
+    apply feval_inversion_or in H as [H | H]; 
+      apply feval_inversion_not in H...
+Qed.
+
+Theorem not_or : forall A B,
+  <[ ~ (A \/ B) ]> == <[ ~ A /\ ~ B ]>.
+Proof with auto.
+  intros A B fctx pctx. split; intros val st H.
+  - destruct val... right. apply feval_inversion_not in H.
+    apply feval_inversion_or_false in H as [H1 H2].
+    apply and_true_if; apply not_true_if...
+  - destruct val... right. apply feval_inversion_and in H as [H1 H2].
+    apply feval_inversion_not in H1, H2. apply not_true_if.
+    apply or_false_if...
 Qed.
