@@ -60,6 +60,7 @@ Inductive simple_formula : Type :=
   | AT_False
   | AT_Pred (symbol : string) (args : list term).
 
+Unset Elimination Schemes.
 Inductive formula : Type :=
   | F_Simple (sf : simple_formula)
   | F_Not (f : formula)
@@ -69,6 +70,8 @@ Inductive formula : Type :=
   | F_Iff (f1 f2 : formula)
   | F_Exists (x : string) (f : formula)  
   | F_Forall (x : string) (f : formula).
+Set Elimination Schemes.
+Scheme formula_ind_naive := Induction for formula Sort Type.
 
 Coercion V_Nat : nat >-> value.
 Coercion V_Int : Z >-> value.
@@ -259,13 +262,7 @@ Fixpoint formula_rank f :=
   | F_Iff f1 f2 => 1 + max (formula_rank f1) (formula_rank f2)
   | F_Exists y f => 1 + (formula_rank f)
   | F_Forall y f => 1 + (formula_rank f)
-  end.  
-
-Theorem formula_rank__ge_1 : forall f,
-  formula_rank f >= 1.
-Proof.
-  intros f. induction f; simpl; try lia.
-Qed.
+  end.
 
 Fixpoint quantifier_rank f :=
   match f with
@@ -348,71 +345,6 @@ Ltac fold_qrank_subst n f x a :=
   remember (subst_formula_qrank n f x a) as R eqn:H;
   assert (H' := H); simpl in H'; rewrite H in H'; rewrite <- H' in *;
   clear H'; clear H; clear R.
-
-Theorem strong :
-  (forall m, 
-    (forall n B, n < m -> rank B = n ->
-      forall r' x a, quantifier_rank B <= r' ->
-                      subst_formula_qrank r' B x a =
-                      subst_formula_qrank (quantifier_rank B) B x a)
-    -> forall A r' x a, rank A = m ->
-                    quantifier_rank A <= r' ->
-                      subst_formula_qrank r' A x a =
-                      subst_formula_qrank (quantifier_rank A) A x a) ->
-  forall m A r' x a, rank A < m ->
-    quantifier_rank A <= r' ->
-      subst_formula_qrank r' A x a =
-      subst_formula_qrank (quantifier_rank A) A x a.
-Proof with auto.
-  intros IH m. induction m; intros A r' x a Hrm Hr'.
-  - lia.
-  - apply IH with (rank A)... intros n B H Hn r'' x' a' Hr''. subst. 
-    apply IHm; lia.
-Qed.
-
-Theorem xxx_rank0 : forall A r x a,  
-  quantifier_rank A = 0 ->
-  subst_formula_qrank r A x a = subst_formula_qrank 0 A x a.
-Proof with auto.
-  induction A; intros r x a H.
-  - destruct r; simpl...
-  - destruct r; simpl... fold_qrank_subst 0 A x a.
-    fold_qrank_subst (S r) A x a. simpl in H. f_equal...
-  - destruct r; simpl... fold_qrank_subst 0 A2 x a.
-    fold_qrank_subst 0 A1 x a. fold_qrank_subst (S r) A2 x a.
-    fold_qrank_subst (S r) A1 x a. simpl in H.
-    assert (HMax := (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + lia.
-    + rewrite H2 in *. assert (quantifier_rank A2 = 0) by lia.
-      rewrite H0 in *. rewrite H in *. f_equal...
-  - destruct r; simpl... fold_qrank_subst 0 A2 x a.
-    fold_qrank_subst 0 A1 x a. fold_qrank_subst (S r) A2 x a.
-    fold_qrank_subst (S r) A1 x a. simpl in H.
-    assert (HMax := (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + lia.
-    + rewrite H2 in *. assert (quantifier_rank A2 = 0) by lia.
-      rewrite H0 in *. rewrite H in *. f_equal...
-  - destruct r; simpl... fold_qrank_subst 0 A2 x a.
-    fold_qrank_subst 0 A1 x a. fold_qrank_subst (S r) A2 x a.
-    fold_qrank_subst (S r) A1 x a. simpl in H.
-    assert (HMax := (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + lia.
-    + rewrite H2 in *. assert (quantifier_rank A2 = 0) by lia.
-      rewrite H0 in *. rewrite H in *. f_equal...
-  - destruct r; simpl... fold_qrank_subst 0 A2 x a.
-    fold_qrank_subst 0 A1 x a. fold_qrank_subst (S r) A2 x a.
-    fold_qrank_subst (S r) A1 x a. simpl in H.
-    assert (HMax := (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + lia.
-    + rewrite H2 in *. assert (quantifier_rank A2 = 0) by lia.
-      rewrite H0 in *. rewrite H in *. f_equal...
-  - simpl in H. lia.
-  - simpl in H. lia.
-Qed.
 
 Theorem formula_rank__gt__0 : forall A, formula_rank A > 0.
 Proof.
@@ -640,14 +572,14 @@ Qed.
 Theorem fstruct_same_refl : forall A,
   fstruct_same A A = true.
 Proof with auto.
-  intros. induction A; simpl; auto; apply Bool.andb_true_iff...
+  intros. induction A using formula_ind_naive; simpl; auto; apply Bool.andb_true_iff...
 Qed.
 
 Theorem fstruct_same_sym : forall A B,
   fstruct_same A B = true ->
   fstruct_same B A = true.
 Proof with auto.
-  induction A; destruct B; try discriminate; simpl; auto;
+  induction A using formula_ind_naive; destruct B; try discriminate; simpl; auto;
   try repeat rewrite Bool.andb_true_iff; intros [H1 H2]...
 Qed.
 
@@ -656,7 +588,7 @@ Theorem fstruct_same_trans : forall A B C,
   fstruct_same B C = true ->
   fstruct_same A C = true.
 Proof with auto.
-  induction A; intros B C HAB HBC; destruct B; try discriminate;
+  induction A using formula_ind_naive; intros B C HAB HBC; destruct B; try discriminate;
     destruct C; try discriminate; simpl; 
     try solve [inversion HAB; inversion HBC;
       apply Bool.andb_true_iff in H0 as [H2 H3];
@@ -673,13 +605,13 @@ Theorem ranks_equal_if_fstruct_same : forall A B,
 Proof with auto.
   assert (Hfr: forall A B, fstruct_same A B = true ->
     formula_rank A = formula_rank B). {
-    intros A. induction A; destruct B; try discriminate; 
+    intros A; induction A using formula_ind_naive; destruct B; try discriminate; 
     intros H; simpl; auto;
     try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2]; 
       auto). }
-  assert (Hqr: forall A B, fstruct_same A B = true ->
-    quantifier_rank A = quantifier_rank B). {
-    intros A. induction A; destruct B; try discriminate; 
+    assert (Hqr: forall A B, fstruct_same A B = true ->
+      quantifier_rank A = quantifier_rank B). {
+    intros A. induction A using formula_ind_naive; destruct B; try discriminate; 
     intros H; simpl; auto;
     try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2]; 
       auto).
@@ -829,450 +761,61 @@ Proof with auto.
       apply fstruct_same_trans with F1...
 Qed.
 
-Theorem xxx : forall A x a r',
-  quantifier_rank A <= r' ->
-    subst_formula_qrank (quantifier_rank A) A x a 
-    = subst_formula_qrank r' A x a.
-Proof.
-  intros A.
-  apply (rank_induction (fun B => forall x a r',
-    quantifier_rank B <= r' ->
-    subst_formula_qrank (quantifier_rank B) B x a 
-    = subst_formula_qrank r' B x a))
-    with (S (rank A)); try lia...
-  - intros 
-
-Theorem fff_rank0 : forall A r' x a,
-  quantifier_rank A = 0 ->
-  quantifier_rank (subst_formula_qrank r' A x a) = 0.
+Theorem formula_ind : forall P,
+  (forall sf, P (F_Simple sf)) ->
+  (forall f, P f -> P <[ ~ f ]>) ->
+  (forall f1 f2, P f1 -> P f2 -> P <[ f1 /\ f2 ]>) ->
+  (forall f1 f2, P f1 -> P f2 -> P <[ f1 \/ f2 ]>) ->
+  (forall f1 f2, P f1 -> P f2 -> P <[ f1 => f2 ]>) ->
+  (forall f1 f2, P f1 -> P f2 -> P <[ f1 <=> f2 ]>) ->
+  (forall x f, (forall v, P (f[x \ v])) -> P <[ exists x, f ]>) ->
+  (forall x f, (forall v, P (f[x \ v])) -> P <[ forall x, f ]>) ->
+  forall A, P A.
 Proof with auto.
-  induction A; intros r' x a Hr0.
-  - destruct r'...
-  - destruct r'; simpl in *.
-    + fold_qrank_subst 0 A x a. apply IHA...
-    + fold_qrank_subst (S r') A x a. apply IHA...
-  - simpl in *.
-    assert (HMax := 
-      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    destruct r'; simpl in *.
-    + fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-      rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      rewrite IHA1... rewrite IHA2...
-    +
-      rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      fold_qrank_subst (S r') A2 x a.
-      fold_qrank_subst (S r') A1 x a.
-      rewrite IHA1... rewrite IHA2...
-  - simpl in *.
-    assert (HMax := 
-      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    destruct r'; simpl in *.
-    + fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-      rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      rewrite IHA1... rewrite IHA2...
-    + rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      fold_qrank_subst (S r') A2 x a.
-      fold_qrank_subst (S r') A1 x a.
-      rewrite IHA1... rewrite IHA2...
-  - simpl in *.
-    assert (HMax := 
-      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    destruct r'; simpl in *.
-    + fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-      rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      rewrite IHA1... rewrite IHA2...
-    + rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      fold_qrank_subst (S r') A2 x a.
-      fold_qrank_subst (S r') A1 x a.
-      rewrite IHA1... rewrite IHA2...
-  - simpl in *.
-    assert (HMax := 
-      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    destruct r'; simpl in *.
-    + fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-      rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      rewrite IHA1... rewrite IHA2...
-    + rewrite H2 in *. rewrite Hr0 in H1. inversion H1.
-      fold_qrank_subst (S r') A2 x a.
-      fold_qrank_subst (S r') A1 x a.
-      rewrite IHA1... rewrite IHA2...
-  - inversion Hr0.
-  - inversion Hr0.
+  intros P Hsf Hnot Hand Hor Himpl Hiff Hsome Hall A.
+  apply rank_induction with (formula_rank A + quantifier_rank A + 1).
+  - clear A. intros n IH. destruct A; intros Hrank.
+    + apply Hsf.
+    + simpl in *. assert (PA: P A). {
+      apply IH with (formula_rank A + quantifier_rank A)...
+      lia. }
+      apply Hnot. assumption.
+    + simpl in *. assert (PA1: P A1). { 
+      apply IH with (formula_rank A1 + quantifier_rank A1)...
+      lia. } assert (PA2: P A2). { 
+      apply IH with (formula_rank A2 + quantifier_rank A2)...
+      lia. } auto.
+    + simpl in *. assert (PA1: P A1). { 
+      apply IH with (formula_rank A1 + quantifier_rank A1)...
+      lia. } assert (PA2: P A2). { 
+      apply IH with (formula_rank A2 + quantifier_rank A2)...
+      lia. } auto.
+    + simpl in *. assert (PA1: P A1). { 
+      apply IH with (formula_rank A1 + quantifier_rank A1)...
+      lia. } assert (PA2: P A2). { 
+      apply IH with (formula_rank A2 + quantifier_rank A2)...
+      lia. } auto.
+    + simpl in *. assert (PA1: P A1). { 
+      apply IH with (formula_rank A1 + quantifier_rank A1)...
+      lia. } assert (PA2: P A2). { 
+      apply IH with (formula_rank A2 + quantifier_rank A2)...
+      lia. } auto.
+    + simpl in *. assert (PA: forall v, P (A[x0 \ v])). {
+      intros v.
+      apply IH with (rank (A[x0 \ v]))...
+      assert (fstruct_same A <[ A [x0 \ v] ]> = true). {
+        apply subst_preserves_structure. }
+      deduce_rank_eq H.
+      lia. } apply Hsome...
+    + simpl in *. assert (PA: forall v, P (A[x0 \ v])). {
+      intros v.
+      apply IH with (rank (A[x0 \ v]))...
+      assert (fstruct_same A <[ A [x0 \ v] ]> = true). {
+        apply subst_preserves_structure. }
+      deduce_rank_eq H.
+      lia. } apply Hall...
+  - lia.
 Qed.
-
-Theorem fff : forall A r' x a B,
-  quantifier_rank A <= r' ->
-  quantifier_rank B = quantifier_rank A ->
-  quantifier_rank A = quantifier_rank (subst_formula_qrank r' B x a).
-Proof with auto.
-  intros A. induction A; intros r' x a B Hr' H.
-  - simpl in *. symmetry. apply fff_rank0...
-  - destruct r'; simpl in *.
-    + fold_qrank_subst 0 B x a. apply IHA...
-    + fold_qrank_subst (S r') B x a. apply IHA...
-  - simpl in *.
-    assert (HMax := 
-        (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-      destruct HMax as [[H1 H2] | [H1 H2]].
-    + destruct r'; rewrite H2 in *; simpl in *; try lia.  
-      fold_qrank_subst (S r') B x a.
-      rewrite (IHA2 (S r') x a B)...
-    + rewrite H2. apply IHA1; try lia.
-  - simpl in *.
-    assert (HMax := 
-        (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-      destruct HMax as [[H1 H2] | [H1 H2]].
-    + destruct r'; rewrite H2 in *; simpl in *; try lia.  
-      fold_qrank_subst (S r') B x a.
-      rewrite (IHA2 (S r') x a B)...
-    + rewrite H2. apply IHA1; try lia.
-  - simpl in *.
-    assert (HMax := 
-        (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-      destruct HMax as [[H1 H2] | [H1 H2]].
-    + destruct r'; rewrite H2 in *; simpl in *; try lia.  
-      fold_qrank_subst (S r') B x a.
-      rewrite (IHA2 (S r') x a B)...
-    + rewrite H2. apply IHA1; try lia.
-  - simpl in *.
-    assert (HMax := 
-        (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-      destruct HMax as [[H1 H2] | [H1 H2]].
-    + destruct r'; rewrite H2 in *; simpl in *; try lia.  
-      fold_qrank_subst (S r') B x a.
-      rewrite (IHA2 (S r') x a B)...
-    + rewrite H2. apply IHA1; try lia.
-  - simpl in *. destruct r'; simpl in *; try lia...
-    fold_qrank_subst (S r') B x a. rewrite (IHA (S r') x a B).
-    +  
-    + lia Hr'.
-    + rewrite H2. apply IHA1; try lia.
-      replace (quantifier_rank (subst_formula_qrank (S r') A1 x a))
-        with (quantifier_rank A1).
-      replace (quantifier_rank (subst_formula_qrank (S r') A2 x a))
-        with (quantifier_rank A2)...
-      apply IHA1; lia.
-    + destruct r'; rewrite H2 in *; simpl in *.
-      * fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-        replace (quantifier_rank (subst_formula_qrank 0 A1 x a))
-          with (quantifier_rank A1).
-        replace (quantifier_rank (subst_formula_qrank 0 A2 x a))
-          with (quantifier_rank A2)...
-        apply IHA2; lia.
-        apply IHA1; lia.
-      * fold_qrank_subst (S r') A2 x a.
-        fold_qrank_subst (S r') A1 x a.
-        replace (quantifier_rank (subst_formula_qrank (S r') A1 x a))
-          with (quantifier_rank A1).
-        replace (quantifier_rank (subst_formula_qrank (S r') A2 x a))
-          with (quantifier_rank A2)...
-        apply IHA2; lia.
-        apply IHA1; lia.
-  - admit.
-  - admit.
-  - admit.
-  - destruct r'; simpl in *; try lia. destruct (eqb_spec x0 x)...
-    unfold quantifier_rank. rewrite <- Nat.add_1_l.
-    Search (?x + _ = ?x + _). apply Nat.add_cancel_l.
-    fold quantifier_rank.
-    fold_qrank_subst (S r') A x0 (fresh_quantifier x0 A a).
-    apply IHA.
-    fold_qrank_subst (S r') A x a.
-
-        lia.
-    destruct r'; simpl in *.
-    + fold_qrank_subst 0 A2 x a. fold_qrank_subst 0 A1 x a.
-      apply IHA1.
-Theorem xxx : forall A r' x a,
-  quantifier_rank A <= r' ->
-    subst_formula_qrank r' A x a =
-    subst_formula_qrank (quantifier_rank A) A x a.
-Proof with auto.
-  intros A r' x a. 
-  apply strong with (rank A + 1); try lia. 
-  clear. intros m IH A r' x a Hr Hrr'.
-  destruct A.
-  - destruct m; simpl; destruct r'; simpl...
-  - simpl in *. subst. destruct (quantifier_rank A) eqn:E1;
-     destruct r' eqn:E2; simpl...
-    + fold (subst_formula_qrank 0 A x a).
-      fold_qrank_subst (S n) A x a.
-      f_equal. apply xxx_rank0...
-    + lia.
-    + fold_qrank_subst (S n0) A x a. fold_qrank_subst (S n) A x a.
-      f_equal. rewrite <- E1. apply IH with (rank A); try lia.
-  - simpl in *. 
-    assert (HMax := (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; rewrite H2 in *.
-    + clear H2. destruct (quantifier_rank A2) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      simpl in *. fold_qrank_subst (S n0) A2 x a.
-      fold_qrank_subst (S n0) A1 x a. 
-      fold_qrank_subst (S n) A2 x a.
-      fold_qrank_subst (S n) A1 x a. f_equal.
-      * replace (subst_formula_qrank (S n) A1 x a)
-          with (subst_formula_qrank (quantifier_rank A1) A1 x a).
-        replace (subst_formula_qrank (S n0) A1 x a)
-          with (subst_formula_qrank (quantifier_rank A1) A1 x a).
-        reflexivity.
-        symmetry. apply IH with (rank A1); try lia.
-        symmetry. apply IH with (rank A1); try lia.
-      * replace (subst_formula_qrank (S n) A2 x a)
-          with (subst_formula_qrank (quantifier_rank A2) A2 x a).
-        replace (subst_formula_qrank (S n0) A2 x a)
-          with (subst_formula_qrank (quantifier_rank A2) A2 x a).
-        reflexivity.
-        symmetry. apply IH with (rank A2); try lia.
-        symmetry. apply IH with (rank A2); try lia.
-    + clear H2. destruct (quantifier_rank A1) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      * simpl in *.  fold_qrank_subst (S n) A2 x a.
-        fold_qrank_subst (S n) A1 x a. 
-        fold_qrank_subst 0 A2 x a.
-        fold_qrank_subst 0 A1 x a. inversion H1. rewrite H0.
-        f_equal; apply xxx_rank0; assumption.
-      * fold_qrank_subst (S n) A2 x a.
-        fold_qrank_subst (S n) A1 x a. 
-        fold_qrank_subst (S n0) A2 x a.
-        fold_qrank_subst (S n0) A1 x a. 
-        f_equal.
-        --
-          replace (subst_formula_qrank (S n) A1 x a)
-            with (subst_formula_qrank (quantifier_rank A1) A1 x a).
-          replace (subst_formula_qrank (S n0) A1 x a)
-            with (subst_formula_qrank (quantifier_rank A1) A1 x a).
-          reflexivity.
-          symmetry. apply IH with (rank A1); try lia.
-          symmetry. apply IH with (rank A1); try lia.
-        --
-          replace (subst_formula_qrank (S n) A2 x a)
-            with (subst_formula_qrank (quantifier_rank A2) A2 x a).
-          replace (subst_formula_qrank (S n0) A2 x a)
-            with (subst_formula_qrank (quantifier_rank A2) A2 x a).
-          reflexivity.
-          symmetry. apply IH with (rank A2); try lia.
-          symmetry. apply IH with (rank A2); try lia.
-  - admit.
-  - admit.
-  - admit.
-  - simpl in *. destruct r'; try lia... simpl in *.
-    fold_qrank_subst (S (quantifier_rank A)) A x0 (fresh_quantifier x0 A a).
-    fold_qrank_subst (S r') A x0 (fresh_quantifier x0 A a).
-    destruct (eqb_spec x0 x)... clear n. f_equal.
-    assert (
-      quantifier_rank 
-       (subst_formula_qrank (S (quantifier_rank A)) A x0
-       (fresh_quantifier x0 A a))
-      = quantifier_rank A
-    ).
-    {
-      
-      admit.
-      (* apply IH. *)
-    }
-    replace 
-     (subst_formula_qrank (S r') A x0 (fresh_quantifier x0 A a))
-     with (subst_formula_qrank (S (quantifier_rank A)) A x0
-      (fresh_quantifier x0 A a)).
-    apply IH.
-
-Theorem xxx : forall f x a r',
-  quantifier_rank f <= r' ->
-  subst_formula_qrank (quantifier_rank f) f x a 
-    = subst_formula_qrank r' f x a.
-Proof with auto.
-  intros f. induction f; intros x a r' H.
-  - admit.
-  - simpl in *. destruct (quantifier_rank f0) eqn:E1;
-     destruct r' eqn:E2; simpl.
-    + reflexivity. 
-    + fold (subst_formula_qrank 0 f0 x a).
-      fold_qrank_subst (S n) f0 x a. f_equal. apply IHf.
-      lia.
-    + lia.
-    + simpl in IHf. fold_qrank_subst (S n0) f0 x a.
-      fold_qrank_subst (S n) f0 x a. f_equal...
-  - simpl in *. 
-    assert (HMax := (Nat.max_spec (quantifier_rank f1) (quantifier_rank f2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + rewrite H2. clear H2. destruct (quantifier_rank f2) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      simpl in *. fold_qrank_subst (S n0) f2 x a.
-      fold_qrank_subst (S n0) f1 x a. 
-      fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. f_equal.
-      * apply Nat.max_lub_iff in H as [_ H]. 
-        rewrite <- (IHf1 x a (S n)); try lia.
-        rewrite <- (IHf1 x a (S n0)); try lia...
-      * apply Nat.max_lub_iff in H as [_ H]. apply IHf2...
-    + rewrite H2. clear H2. destruct (quantifier_rank f1) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      * inversion H1. rewrite H2 in *. clear H2 H1.
-      simpl in *. fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. 
-      fold_qrank_subst 0 f2 x a. 
-      fold_qrank_subst 0 f1 x a. f_equal...
-      * fold_qrank_subst (S n0) f2 x a.
-        fold_qrank_subst (S n0) f1 x a.
-        fold_qrank_subst (S n) f2 x a.
-        simpl in IHf1. fold_qrank_subst (S n) f1 x a.
-        apply Nat.max_lub_iff in H as [H0 _]. f_equal.
-        -- rewrite <- (IHf1 x a (S n0)); try lia...
-        -- rewrite <- (IHf2 x a (S n))...
-          rewrite <- (IHf2 x a (S n0))... try lia.
-  - simpl in *. 
-    assert (HMax := (Nat.max_spec (quantifier_rank f1) (quantifier_rank f2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + rewrite H2. clear H2. destruct (quantifier_rank f2) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      simpl in *. fold_qrank_subst (S n0) f2 x a.
-      fold_qrank_subst (S n0) f1 x a. 
-      fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. f_equal.
-      * apply Nat.max_lub_iff in H as [_ H]. 
-        rewrite <- (IHf1 x a (S n)); try lia.
-        rewrite <- (IHf1 x a (S n0)); try lia...
-      * apply Nat.max_lub_iff in H as [_ H]. apply IHf2...
-    + rewrite H2. clear H2. destruct (quantifier_rank f1) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      * inversion H1. rewrite H2 in *. clear H2 H1.
-      simpl in *. fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. 
-      fold_qrank_subst 0 f2 x a. 
-      fold_qrank_subst 0 f1 x a. f_equal...
-      * fold_qrank_subst (S n0) f2 x a.
-        fold_qrank_subst (S n0) f1 x a.
-        fold_qrank_subst (S n) f2 x a.
-        simpl in IHf1. fold_qrank_subst (S n) f1 x a.
-        apply Nat.max_lub_iff in H as [H0 _]. f_equal.
-        -- rewrite <- (IHf1 x a (S n0)); try lia...
-        -- rewrite <- (IHf2 x a (S n))...
-          rewrite <- (IHf2 x a (S n0))... try lia.
-  - simpl in *. 
-    assert (HMax := (Nat.max_spec (quantifier_rank f1) (quantifier_rank f2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + rewrite H2. clear H2. destruct (quantifier_rank f2) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      simpl in *. fold_qrank_subst (S n0) f2 x a.
-      fold_qrank_subst (S n0) f1 x a. 
-      fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. f_equal.
-      * apply Nat.max_lub_iff in H as [_ H]. 
-        rewrite <- (IHf1 x a (S n)); try lia.
-        rewrite <- (IHf1 x a (S n0)); try lia...
-      * apply Nat.max_lub_iff in H as [_ H]. apply IHf2...
-    + rewrite H2. clear H2. destruct (quantifier_rank f1) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      * inversion H1. rewrite H2 in *. clear H2 H1.
-      simpl in *. fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. 
-      fold_qrank_subst 0 f2 x a. 
-      fold_qrank_subst 0 f1 x a. f_equal...
-      * fold_qrank_subst (S n0) f2 x a.
-        fold_qrank_subst (S n0) f1 x a.
-        fold_qrank_subst (S n) f2 x a.
-        simpl in IHf1. fold_qrank_subst (S n) f1 x a.
-        apply Nat.max_lub_iff in H as [H0 _]. f_equal.
-        -- rewrite <- (IHf1 x a (S n0)); try lia...
-        -- rewrite <- (IHf2 x a (S n))...
-          rewrite <- (IHf2 x a (S n0))... try lia.
-  - simpl in *. 
-    assert (HMax := (Nat.max_spec (quantifier_rank f1) (quantifier_rank f2))).
-    destruct HMax as [[H1 H2] | [H1 H2]].
-    + rewrite H2. clear H2. destruct (quantifier_rank f2) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      simpl in *. fold_qrank_subst (S n0) f2 x a.
-      fold_qrank_subst (S n0) f1 x a. 
-      fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. f_equal.
-      * apply Nat.max_lub_iff in H as [_ H]. 
-        rewrite <- (IHf1 x a (S n)); try lia.
-        rewrite <- (IHf1 x a (S n0)); try lia...
-      * apply Nat.max_lub_iff in H as [_ H]. apply IHf2...
-    + rewrite H2. clear H2. destruct (quantifier_rank f1) eqn:E1;
-      destruct r' eqn:E2; simpl; try lia...
-      * inversion H1. rewrite H2 in *. clear H2 H1.
-      simpl in *. fold_qrank_subst (S n) f2 x a.
-      fold_qrank_subst (S n) f1 x a. 
-      fold_qrank_subst 0 f2 x a. 
-      fold_qrank_subst 0 f1 x a. f_equal...
-      * fold_qrank_subst (S n0) f2 x a.
-        fold_qrank_subst (S n0) f1 x a.
-        fold_qrank_subst (S n) f2 x a.
-        simpl in IHf1. fold_qrank_subst (S n) f1 x a.
-        apply Nat.max_lub_iff in H as [H0 _]. f_equal.
-        -- rewrite <- (IHf1 x a (S n0)); try lia...
-        -- rewrite <- (IHf2 x a (S n))...
-          rewrite <- (IHf2 x a (S n0))... try lia.
-  - simpl in *. destruct r' eqn:E1; try lia.
-    simpl in *. destruct (eqb_spec x0 x)... f_equal. 
-    fold_qrank_subst (S n) f0 x0 (fresh_quantifier x0 f0 a). 
-    fold_qrank_subst (S (quantifier_rank f0)) f0 x0 (fresh_quantifier x0 f0 a).
-    assert ((subst_formula_qrank (S (quantifier_rank f0)) f0 x0
-    (fresh_quantifier x0 f0 a)) = 
-    (subst_formula_qrank (S n) f0 x0 (fresh_quantifier x0 f0 a))).
-    { rewrite <- (IHf x0 (fresh_quantifier x0 f0 a))...
-      rewrite <- (IHf x0 (fresh_quantifier x0 f0 a) (S n))... lia. }
-    rewrite H0. clear H0. rewrite <- (IHf x _ n); try lia.
-    fold_qrank_subst n (subst_formula_qrank (S n) f0 x0 (fresh_quantifier x0 f0 a)) x a.
-      
-    + simpl.
-
-  intros f x a r'. 
-  generalize dependent f. induction r'; intros f H.
-  - apply Nat.le_0_r in H. rewrite H. reflexivity.
-  - destruct f.
-    + reflexivity.
-    + simpl in H. simpl.
-      
-     destruct (quantifier_rank f0) eqn:E.
-      * simpl. specialize IHr' with f0. forward IHr' by lia.
-        rewrite E in IHr'. simpl in IHr'. rewrite IHr'.
-        fold_qrank_subst r' f0 x a.
-
-      * admit.
-      * simpl. reflexivity. simpl. 
-  generalize dependent f. induction r.
-  - intros f Hr r' H. induction f.
-    + admit.
-    +
-  intros f qrank x a H. induction f.
-  - destruct qrank...
-  - simpl in H. forward IHf by assumption. destruct qrank; simpl.
-    + reflexivity.
-    + 
-
-Theorem xxx : forall f qrank x a,
-  quantifier_rank f = 0 ->
-  subst_formula_qrank qrank f x a = subst_formula_qrank 0 f x a.
-Proof with auto.
-  intros f qrank x a H. induction f.
-  - destruct qrank...
-  - simpl in H. forward IHf by assumption. destruct qrank; simpl.
-    + reflexivity.
-    + 
-
-
-Theorem simpl_subst_and : forall f1 f2 x a,
-  <[ (f1 /\ f2)[x \ a] ]> = <[ (f1 [x \ a]) /\ (f2 [x \ a]) ]>.
-Proof with auto.
-  intros. unfold formula_subst. simpl.
-  assert (H := (Nat.max_spec (quantifier_rank f1) (quantifier_rank f2))).
-  destruct H.
-  - destruct H as [H1 H2]. rewrite H2.
-    destruct (quantifier_rank f2).
-    + lia.
-    + simpl. f_equal. destruct (quantifier_rank f1) eqn:E.
-      * induction f1...
-        -- 
-      * simpl. reflexivity.
-  destruct (Nat.ltb_spec (quantifier_rank f1) (quantifier_rank f2)).
-  - rewrite Nat.max_spec.
-  
 
 Inductive fdef_eval (fdef : func_def) (argsv : list value) : value -> Prop :=
   | FN_Eval : forall n_args fn Hfnal value, 

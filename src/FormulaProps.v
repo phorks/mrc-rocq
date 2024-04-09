@@ -3,7 +3,6 @@ From Coq Require Import Lia.
 From MRC Require Import PredCalc.
 From MRC Require Import Tactics.
 
-
 Open Scope general_fassertion_scope.
 
 Theorem feval_inversion_and : forall st fctx pctx A B,
@@ -315,149 +314,6 @@ Proof with auto.
   - destruct val... right. apply not_true_if...
 Qed.
 
-Theorem formula_rank__gt__0 : forall A, formula_rank A > 0.
-Proof.
-  intros A. destruct A; simpl; lia.
-Qed.
-
-Theorem rank_induction : forall P,
-  (forall n,
-    (forall m, m < n -> 
-      forall B, formula_rank B + quantifier_rank B = m -> P B) ->
-    (forall A, formula_rank A + quantifier_rank A = n -> P A)) -> 
-  forall n A, formula_rank A + quantifier_rank A < n -> P A.
-Proof with auto.
-  intros P Hind n. induction n; intros A Hrank.
-  - assert (formula_rank A > 0). { apply formula_rank__gt__0. }
-    lia.
-  - apply Hind with (formula_rank A + quantifier_rank A)...
-    intros m Hlt B HB. apply IHn. lia.
-Qed.
-
-Theorem subst_preserves_rank : forall A x y,
-  formula_rank (A[x \ y]) = formula_rank A.
-Proof with auto.
-  assert (strong: forall x y, 
-    (forall n, 
-      (forall m, m < n -> 
-        forall B, formula_rank B = m -> 
-          formula_rank (B [x \ y]) = formula_rank B) ->
-      forall A, formula_rank A = n ->
-        formula_rank (A [x \ y]) = formula_rank A) ->
-    (forall n A, formula_rank A < n ->
-      formula_rank (A [x \ y]) = formula_rank A)).
-  {
-    intros x y Hind n. induction n; intros A Hrank.
-    - assert (formula_rank A > 0). { apply formula_rank__gt__0. }
-      lia.
-    - apply Hind with (formula_rank A)... intros m Hlt B HrankB.
-      apply IHn. lia.
-  }
-  intros A x y.
-  apply strong with (formula_rank A + 1); try lia.
-  clear A. intros n m B IH. destruct B...
-  - simpl. unfold formula_subst. unfold subst_formula_qrank.
-    
-  
-  intros A x y. remember (formula_rank A) as rank.
-  generalize dependent A. induction rank; intros A Hrank.
-  - admit.
-  - destruct A
-
-Theorem xxx : forall P,
-  (forall sf, P (F_Simple sf)) ->
-  (forall f, P f -> P <[ ~ f ]>) ->
-  (forall f1 f2, P f1 -> P f2 -> P <[ f1 /\ f2 ]>) ->
-  (forall f1 f2, P f1 -> P f2 -> P <[ f1 \/ f2 ]>) ->
-  (forall f1 f2, P f1 -> P f2 -> P <[ f1 => f2 ]>) ->
-  (forall f1 f2, P f1 -> P f2 -> P <[ f1 <=> f2 ]>) ->
-  (forall x f, (forall v, P (f[x \ v])) -> P <[ exists x, f ]>) ->
-  (forall x f, (forall v, P (f[x \ v])) -> P <[ forall x, f ]>) ->
-  forall A, P A.
-Proof with auto.
-  intros P Hsf Hnot Hand Hor Himpl Hiff Hex Hall A.
-  apply rank_induction with (formula_rank A + quantifier_rank A + 1).
-  - clear A. intros n IH. destruct A; intros Hrank.
-    + apply Hsf.
-    + simpl in *. assert (PA: P A). {
-      apply IH with (formula_rank A + quantifier_rank A)...
-      lia. }
-      apply Hnot. assumption.
-    + simpl in *. assert (PA1: P A1). { 
-      apply IH with (formula_rank A1 + quantifier_rank A1)...
-      lia. } assert (PA2: P A2). { 
-      apply IH with (formula_rank A2 + quantifier_rank A2)...
-      lia. } auto.
-    + simpl in *. assert (PA1: P A1). { 
-      apply IH with (formula_rank A1 + quantifier_rank A1)...
-      lia. } assert (PA2: P A2). { 
-      apply IH with (formula_rank A2 + quantifier_rank A2)...
-      lia. } auto.
-    + simpl in *. assert (PA1: P A1). { 
-      apply IH with (formula_rank A1 + quantifier_rank A1)...
-      lia. } assert (PA2: P A2). { 
-      apply IH with (formula_rank A2 + quantifier_rank A2)...
-      lia. } auto.
-    + simpl in *. assert (PA1: P A1). { 
-      apply IH with (formula_rank A1 + quantifier_rank A1)...
-      lia. } assert (PA2: P A2). { 
-      apply IH with (formula_rank A2 + quantifier_rank A2)...
-      lia. } auto.
-    + simpl in *. assert (PA: forall v, P (A[x \ v])). {
-      intros v.
-      apply IH with (formula_rank (A[x \ v]) + quantifier_rank (A[x \ v]))...
-      lia. } auto.
-    + simpl in *. assert (PA: P A). {
-      apply IH with (formula_rank A + quantifier_rank A)...
-      lia. } auto.
-  - lia.
-Qed.
-
-Theorem A_and_not_A : forall A,
-  <[ A /\ ~ A ]> == <[ false ]>.
-Proof with auto.
-  intros A fctx pctx. split; intros val st H.
-  - destruct val... exfalso. 
-    apply feval_inversion_and in H as [H1 H2].
-    apply feval_inversion_not in H2 as H2.
-    generalize dependent H2. generalize dependent H1.
-    apply (xxx (
-      fun f => feval st fctx pctx f true 
-        -> feval st fctx pctx f false 
-        -> False)).
-    + intros sf H1 H2. induction sf. 
-      * apply feval_inversion_true_false in H2. destruct H2.
-      * apply feval_inversion_false in H1. destruct H1.
-      * inversion H1; subst; clear H1. inversion H0; subst; clear H0.
-        inversion H2; subst; clear H2. inversion H0; subst; clear H0.
-        inversion H5; subst; clear H5. inversion H6; subst; clear H6.
-        rewrite H2 in H3. inversion H3; subst. clear H2. clear H3.
-        apply (Hfnal _ _ _ _ false) in H0... discriminate H0.
-    + intros f IH H1 H2. 
-      apply feval_inversion_not in H1. 
-      apply feval_inversion_not_false in H2.
-      apply IH; assumption.
-    + intros f1 f2 IH1 IH2 H1 H2. 
-      apply feval_inversion_and in H1 as [H0 H1].
-      apply feval_inversion_and_false in H2 as [H2 | H2]...
-    + intros f1 f2 IH1 IH2 H1 H2. 
-      apply feval_inversion_or_false in H2 as [H2 H3].
-      apply feval_inversion_or in H1 as [H1 | H1]...
-    + intros f1 f2 IH1 IH2 H1 H2.  
-      apply feval_inversion_implication_false in H2 as [H2 H3].
-      apply feval_inversion_implication in H1 as [H1 | H1]...
-    + intros f1 f2 IH1 IH2 H1 H2. 
-      apply feval_inversion_iff in H1 as [[H0 H1] | [H0 H1]];
-      apply feval_inversion_iff_false in H2 as [[H2 H3] | [H2 H3]]...
-    + intros x f IH H1 H2.
-      inversion H1; subst. destruct H0 as [v Hv].
-     inversion H1; subst. inversion H2; subst.
-      destruct H0 as [v Hv]. specialize H3 with v. 
-      apply IHA in H3.
-  - destruct val... right. apply feval_inversion_false in H.
-    destruct H.
-Qed.
-
 Theorem A_and_not_A : forall A,
   <[ A /\ ~ A ]> == <[ false ]>.
 Proof with auto.
@@ -486,8 +342,11 @@ Proof with auto.
     + apply feval_inversion_iff in H1 as [[H0 H1] | [H0 H1]];
       apply feval_inversion_iff_false in H2 as [[H2 H3] | [H2 H3]]...
     + inversion H1; subst. inversion H2; subst.
-      destruct H0 as [v Hv]. specialize H3 with v. 
-      apply IHA in H3.
+      destruct H3 as [v Hv]. specialize H4 with v.
+      apply H with v...
+    + inversion H1; subst. inversion H2; subst.
+      destruct H4 as [v Hv]. specialize H3 with v.
+      apply H with v...
   - destruct val... right. apply feval_inversion_false in H.
     destruct H.
 Qed.
