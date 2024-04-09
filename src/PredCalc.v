@@ -452,9 +452,9 @@ Qed.
 Theorem rank_induction : forall P,
   (forall n,
     (forall m, m < n -> 
-      forall B, formula_rank B + quantifier_rank B = m -> P B) ->
-    (forall A, formula_rank A + quantifier_rank A = n -> P A)) -> 
-  forall n A, formula_rank A + quantifier_rank A < n -> P A.
+      forall B, rank B = m -> P B) ->
+    (forall A, rank A = n -> P A)) -> 
+  forall n A, rank A < n -> P A.
 Proof with auto.
   intros P Hind n. induction n; intros A Hrank.
   - assert (formula_rank A > 0). { apply formula_rank__gt__0. }
@@ -666,61 +666,66 @@ Proof with auto.
     try solve [apply IHA with B; auto]...
 Qed.
 
-Theorem fstruct_same__formula_ranks : forall A B,
+Theorem ranks_equal_if_fstruct_same : forall A B,
   fstruct_same A B = true ->
-    formula_rank A = formula_rank B.
-Proof with auto.
-  intros A. induction A; destruct B; try discriminate; 
-    intros H; simpl; auto;
-    try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2]; 
-      auto).
-Qed.
-
-Theorem fstruct_same__quantifier_ranks : forall A B,
-  fstruct_same A B = true ->
+    formula_rank A = formula_rank B /\
     quantifier_rank A = quantifier_rank B.
 Proof with auto.
-  intros A. induction A; destruct B; try discriminate; 
+  assert (Hfr: forall A B, fstruct_same A B = true ->
+    formula_rank A = formula_rank B). {
+    intros A. induction A; destruct B; try discriminate; 
+    intros H; simpl; auto;
+    try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2]; 
+      auto). }
+  assert (Hqr: forall A B, fstruct_same A B = true ->
+    quantifier_rank A = quantifier_rank B). {
+    intros A. induction A; destruct B; try discriminate; 
     intros H; simpl; auto;
     try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2]; 
       auto).
+  }
+  auto.
 Qed.
 
-Definition rank_preservation A := forall B x a r,
-  formula_rank A = formula_rank B /\ 
-  quantifier_rank A = quantifier_rank B /\
-  fstruct_same A B = true ->
-  fstruct_same A (subst_formula_qrank r B x a) = true /\
-  formula_rank A = formula_rank (subst_formula_qrank r B x a) /\
-  quantifier_rank A = quantifier_rank (subst_formula_qrank r B x a).
+Ltac deduce_rank_eq Hsame := 
+  let Htemp := fresh in
+  let Hfr := fresh "Hfr" in
+  let Hqr := fresh "Hqr" in
+  apply ranks_equal_if_fstruct_same in Hsame as Htemp;
+  destruct Htemp as [Hfr Hqr].
 
 Hint Extern 2 (fstruct_same ?A ?A = true) =>
   apply fstruct_same_refl : core.
 
-Theorem final : forall A, rank_preservation A.
+Theorem subst_preserves_structure : forall A B x a r,
+  fstruct_same A B = true ->
+  fstruct_same A (subst_formula_qrank r B x a) = true.
 Proof with auto.
   intros A.
-  apply (rank_induction rank_preservation) with (S (rank A))...
-  clear A. intros n IH. destruct A; 
-    intros Hr B x a r [Hab1 [Hab2 Hsame]].
+  apply (rank_induction (fun P => forall B x a r,
+    fstruct_same P B = true ->
+    fstruct_same P (subst_formula_qrank r B x a) = true)) with (S (rank A))...
+  clear A. intros n IH. destruct A;
+    intros Hr B x a r Hsame.
   - apply fstruct_same_simple in Hsame as [sf' HB]. rewrite HB.
     destruct r; simpl in *...
   - apply fstruct_same_not in Hsame as [B' [HB1 HB2]]; subst.
-    specialize IH with (rank B') B'.
+    specialize IH with (m:=rank B') (B:=B').
     destruct r; simpl in *...
     + fold_qrank_subst 0 B' x a.
+      deduce_rank_eq HB2.
       forward IH; try lia. forward IH...
-      rewrite Hab2. inversion Hab1. rewrite H0. 
-      destruct (IH B' x a 0) as [H1 [H2 H3]]...
-      split; [| split]... apply fstruct_same_trans with B'...
-    + fold_qrank_subst (S r) B' x a. 
+      specialize (IH B' x a 0 (fstruct_same_refl B')).
+      apply fstruct_same_trans with B'...
+    + fold_qrank_subst (S r) B' x a.
+      deduce_rank_eq HB2.
       repeat forward IH by lia; auto.
-      destruct (IH B' x a (S r)) as [H1 [H2 H3]]...
-      split; [| split]; try lia. 
+      specialize (IH B' x a (S r) (fstruct_same_refl B'))...
       apply fstruct_same_trans with B'...
   - apply fstruct_same_and in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    subst. specialize IH with (rank A1) A1 as IH1.
-    specialize IH with (rank A2) A2 as IH2.
+    deduce_rank_eq HB1. deduce_rank_eq HB2.
+    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+    specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
@@ -728,57 +733,34 @@ Proof with auto.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff. split...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff. split...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
     + destruct r; simpl in *; rewrite H2 in *.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
   - apply fstruct_same_or in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    subst. specialize IH with (rank A1) A1 as IH1.
-    specialize IH with (rank A2) A2 as IH2.
+    deduce_rank_eq HB1. deduce_rank_eq HB2.
+    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+    specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
@@ -786,57 +768,34 @@ Proof with auto.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff. split...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff. split...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
     + destruct r; simpl in *; rewrite H2 in *.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
   - apply fstruct_same_implies in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    subst. specialize IH with (rank A1) A1 as IH1.
-    specialize IH with (rank A2) A2 as IH2.
+    deduce_rank_eq HB1. deduce_rank_eq HB2.
+    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+    specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
@@ -844,57 +803,34 @@ Proof with auto.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff. split...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff. split...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
     + destruct r; simpl in *; rewrite H2 in *.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
   - apply fstruct_same_iff in Hsame as [B1 [B2 [HB [HB1 HB2]]]].
-    subst. specialize IH with (rank A1) A1 as IH1.
-    specialize IH with (rank A2) A2 as IH2.
+    deduce_rank_eq HB1. deduce_rank_eq HB2.
+    subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+    specialize IH with (m:=rank A2) (B:=A2) as IH2.
     assert (HMax := 
       (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
@@ -902,84 +838,54 @@ Proof with auto.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff. split...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff. split...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-          apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2...
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
     + destruct r; simpl in *; rewrite H2 in *.
       * fold_qrank_subst 0 B2 x a. fold_qrank_subst 0 B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a 0) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a 0) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a 0 HB1).
+        specialize (IH2 B2 x a 0 HB2).
+        apply Bool.andb_true_iff...
       * fold_qrank_subst (S r) B2 x a.
         fold_qrank_subst (S r) B1 x a.
         repeat forward IH1 by lia; auto.
         repeat forward IH2 by lia; auto.
-        destruct (IH1 B1 x a (S r)) as [H11 [H12 H13]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H12. rewrite <- H13.
-        destruct (IH2 B2 x a (S r)) as [H21 [H22 H23]].
-        { split; [| split]... apply fstruct_same__formula_ranks...
-        apply fstruct_same__quantifier_ranks... }
-        rewrite <- H22. rewrite <- H23. rewrite H2.
-        split... apply Bool.andb_true_iff...
+        specialize (IH1 B1 x a (S r) HB1).
+        specialize (IH2 B2 x a (S r) HB2).
+        apply Bool.andb_true_iff...
   - apply fstruct_same_exists in Hsame as [y [B1 [HB1 HB2]]].
-    subst. destruct r; simpl in *.
+    deduce_rank_eq HB2. subst. destruct r; simpl in *.
     + destruct (eqb_spec y x)...
     + fold_qrank_subst (S r) B1 y (fresh_quantifier y B1 a).
       destruct (eqb_spec y x); try lia...
-      specialize IH with (rank B1) B1 as IH.
+      specialize IH with (m:=rank B1) (B:=B1) as IH.
       forward IH by lia. forward IH by auto.
-      destruct (IH B1 y (fresh_quantifier y B1 a) (S r)) as [H1 [H2 H3]].
-      { split; [| split]... }
-      destruct (IH (subst_formula_qrank (S r) B1 y (fresh_quantifier y B1 a)) x a r) as [H4 [H5 H6]].
-      { split; [| split]... } split; [| split].
-      * apply fstruct_same_trans with B1...
-      * unfold formula_rank. fold formula_rank. rewrite <- H5...
-      * unfold quantifier_rank. fold quantifier_rank. 
-        rewrite <- H6... 
+      specialize (IH B1 y (fresh_quantifier y B1 a) (S r) 
+        (fstruct_same_refl B1)) as H1.
+      specialize (IH (subst_formula_qrank (S r) 
+        B1 y (fresh_quantifier y B1 a)) x a r H1) as H2.
+      apply fstruct_same_trans with B1...
   - apply fstruct_same_forall in Hsame as [y [B1 [HB1 HB2]]].
-    subst. destruct r; simpl in *.
+    deduce_rank_eq HB2. subst. destruct r; simpl in *.
     + destruct (eqb_spec y x)...
     + fold_qrank_subst (S r) B1 y (fresh_quantifier y B1 a).
       destruct (eqb_spec y x); try lia...
-      specialize IH with (rank B1) B1 as IH.
+      specialize IH with (m:=rank B1) (B:=B1) as IH.
       forward IH by lia. forward IH by auto.
-      destruct (IH B1 y (fresh_quantifier y B1 a) (S r)) as [H1 [H2 H3]].
-      { split; [| split]... }
-      destruct (IH (subst_formula_qrank (S r) B1 y (fresh_quantifier y B1 a)) x a r) as [H4 [H5 H6]].
-      { split; [| split]... } split; [| split].
-      * apply fstruct_same_trans with B1...
-      * unfold formula_rank. fold formula_rank. rewrite <- H5...
-      * unfold quantifier_rank. fold quantifier_rank. 
-        rewrite <- H6... 
+      specialize (IH B1 y (fresh_quantifier y B1 a) (S r) 
+        (fstruct_same_refl B1)) as H1.
+      specialize (IH (subst_formula_qrank (S r) 
+        B1 y (fresh_quantifier y B1 a)) x a r H1) as H2.
+      apply fstruct_same_trans with B1...
 Qed.
 
 Theorem fff_rank0 : forall A r' x a,
