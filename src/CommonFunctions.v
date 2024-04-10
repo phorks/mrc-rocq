@@ -76,5 +76,21 @@ Qed.
 Definition int_div_fdef := FuncDef 2 int_div_frel int_div_frel_fnal.
 
 Definition default_fctx : fcontext :=
+
+Inductive eq_prel (st : state) (pctx : fcontext) : list term -> bool -> Prop :=
+  | EQValue_True : forall t1 v1 t2 v2, 
+    teval st pctx t1 v1 ->
+    teval st pctx t2 v2 ->
+    v1 = v2 ->
+    eq_prel st pctx [T_Const v1; T_Const v2] true
+  | EQValue_False : forall t1 v1 t2 v2, 
+      teval st pctx t1 v1 ->
+      teval st pctx t2 v2 ->
+      v1 <> v2 ->
+      eq_prel st pctx [T_Const v1; T_Const v2] true
+  | EQ_FuncSym : forall f args1 argsv1 args2 argsv2,
+    args_eval st pctx args1 argsv1 ->
+    args_eval st pctx args2 argsv2 ->
+    eq_prel st pctx [(T_Func f args1); (T_Func f args2)] true.
   
   

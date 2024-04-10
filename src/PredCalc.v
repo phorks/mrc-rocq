@@ -9,7 +9,6 @@ From MRC Require Import Tactics.
 
 Open Scope bool_scope.
 
-
 Inductive value : Type :=
   | V_Nat (n : nat)
   | V_Int (z : Z)
@@ -35,10 +34,65 @@ Inductive func_def : Type :=
 
 Definition fcontext := partial_map func_def.
 
+Unset Elimination Schemes.
 Inductive term : Type :=
   | T_Const (v : value)
   | T_Var (x : string)
   | T_Func (symbol : string) (args : list term).
+Set Elimination Schemes.
+
+Fixpoint term_rank t :=
+  match t with
+  | T_Const _ => 0
+  | T_Var _ => 0
+  | T_Func f args => 1 
+    + fold_right max 0 (map (fun arg => term_rank arg) args)
+  end.
+
+Theorem term_rank_app_gt_args : forall f args arg,
+  In arg args ->
+  term_rank arg < term_rank (T_Func f args).
+Proof with auto.
+  intros f args arg HIn.
+  simpl. unfold In in HIn. induction args.
+  - destruct HIn.
+  - destruct HIn as [HIn | HIn].
+    + rewrite HIn in *. simpl. lia.
+    + simpl in *. remember (fold_right Init.Nat.max 0
+        (map (fun arg0 : term => term_rank arg0) args)) as others.
+      assert (HMax := 
+        (Nat.max_spec (term_rank a) (others))).
+      destruct HMax as [[H1 H2] | [H1 H2]]; rewrite H2; try lia...
+      * forward IHargs... lia.
+Qed. (* TODO: I did this proof blindly, maybe it can be simplified *)
+
+Theorem term_rank_induction : forall P,
+  (forall n,
+    (forall m, m < n -> 
+      forall u, term_rank u = m -> P u) ->
+    (forall t, term_rank t = n -> P t)) -> 
+  forall n t, term_rank t < n -> P t.
+Proof with auto.
+  intros P Hind n. induction n; intros t Hrank.
+  - lia.
+  - apply Hind with (term_rank t)...
+    intros m Hlt u Hu. apply IHn. lia.
+Qed.
+
+Theorem term_ind : forall P,
+  (forall v, P (T_Const v)) ->
+  (forall x, P (T_Var x)) ->
+  (forall f args, 
+    (forall arg, In arg args -> P arg) -> P (T_Func f args)) ->
+  (forall t, P t).
+Proof with auto.
+  intros P Hconst Hvar Hfunc t.
+  apply (term_rank_induction P) with (term_rank t + 1); try lia...
+  clear t. intros n IH t Htr. destruct t...
+  apply Hfunc. intros arg HIn. 
+  apply term_rank_app_gt_args with (f:=symbol) in HIn.
+  apply IH with (term_rank arg); lia.
+Qed.
 
 Definition pred_rel := state -> fcontext -> list term -> bool -> Prop.
 
@@ -50,10 +104,38 @@ Definition functional_prel (prel : pred_rel) :=
 
 Inductive pred_def : Type :=
   | PredDef (n_params : nat) 
-    (pred : pred_rel)
-    (Hfnal : functional_prel pred).
+    (prel : pred_rel)
+    (Hfnal : functional_prel prel).
 
-Definition pcontext := partial_map pred_def.
+Definition pdef_prel pdef :=
+  match pdef with
+  | PredDef _ prel _ => prel
+  end.
+
+Definition eq_prel_sem (eq : pred_rel) := forall st fctx,
+  (forall t,
+    eq st fctx [t; t] true) /\
+  (forall t1 t2 b,
+    eq st fctx [t1; t2] b ->
+    eq st fctx [t2; t1] b) /\
+  (forall t1 t2 t3 b1 b2,
+    eq st fctx [t1; t2] b1 ->
+    eq st fctx [t2; t3] b2 -> 
+    eq st fctx [t1; t3] (b1 && b2)).
+
+Definition pred_map := partial_map pred_def.
+Definition pred_map_has_eq_sem pmap := exists pdef,
+  pmap "="%string = Some pdef /\ eq_prel_sem (pdef_prel pdef).
+
+Inductive pcontext : Type :=
+  | PCtx 
+    (pmap : pred_map) 
+    (has_eq_sem : pred_map_has_eq_sem pmap).
+
+Definition pctx_map pctx :=
+  match pctx with
+  | PCtx pmap _ => pmap
+  end.
 
 Inductive simple_formula : Type :=
   | AT_True
@@ -328,15 +410,6 @@ Notation "f [ x \ a ]" := (formula_subst f x a)
   (in custom formula at level 74, left associativity,
     f custom formula,
     x constr at level 0, a custom formula) : formula_scope.
-
-Theorem simpl_subst_not : forall f x a,
-  <[ (~ f)[x \ a] ]> = <[ ~ (f[x \ a]) ]>.
-Proof with auto.
-  intros f x a. unfold formula_subst.
-  assert (H: quantifier_rank <[ ~f ]> = quantifier_rank f).
-  { reflexivity. } rewrite H. clear H. destruct (quantifier_rank f);
-    reflexivity.
-Qed.
 
 Ltac fold_qrank_subst n f x a := 
   let R := fresh in
@@ -838,23 +911,6 @@ with args_eval (st : state) (fctx : fcontext) : list term -> list value -> Prop 
     args_eval st fctx ts vs ->
     args_eval st fctx (t::ts) (v::vs).
 
-
-Inductive eq_prel (st : state) (pctx : fcontext) : list term -> bool -> Prop :=
-  | EQValue_True : forall t1 v1 t2 v2, 
-    teval st pctx t1 v1 ->
-    teval st pctx t2 v2 ->
-    v1 = v2 ->
-    eq_prel st pctx [T_Const v1; T_Const v2] true
-  | EQValue_False : forall t1 v1 t2 v2, 
-      teval st pctx t1 v1 ->
-      teval st pctx t2 v2 ->
-      v1 <> v2 ->
-      eq_prel st pctx [T_Const v1; T_Const v2] true
-  | EQ_FuncSym : forall f args1 argsv1 args2 argsv2,
-    args_eval st pctx args1 argsv1 ->
-    args_eval st pctx args2 argsv2 ->
-    eq_prel st pctx [(T_Func f args1); (T_Func f args2)] true.
-
 Inductive pdef_eval (st : state) (fctx : fcontext) (pdef : pred_def) (args : list term) : bool -> Prop :=
   | Pred_Eval : forall n_args prel Hfnal pbool,
     pdef = PredDef n_args prel Hfnal ->
@@ -865,7 +921,7 @@ Inductive sfeval (st : state) (fctx : fcontext) (pctx : pcontext) : simple_formu
   | SFEval_True : sfeval st fctx pctx AT_True true
   | SFEval_False : sfeval st fctx pctx AT_False false
   | SFEval_Pred : forall f args pdef peval, 
-    pctx f = Some pdef -> 
+    (pctx_map pctx) f = Some pdef -> 
     pdef_eval st fctx pdef args peval ->
     sfeval st fctx pctx (AT_Pred f args) peval.
 
