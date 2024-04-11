@@ -5,7 +5,6 @@ From MRC Require Import PredCalc.
 From MRC Require Import FormulaProps.
 From MRC Require Import Prog.
 
-
 Open Scope general_fassertion_scope.
 Definition refines (p1 p2 : prog) fctx pctx :=
   forall A,

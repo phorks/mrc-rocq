@@ -5,7 +5,7 @@ From Coq Require Import Lists.List. Import ListNotations.
 From MRC Require Import PredCalc.
 From MRC Require Import Tactics.
 
-Open Scope general_fassertion_scope.
+(* Open Scope general_fassertion_scope. *)
 
 Theorem pctx_eq_semantics : forall pctx,
   exists eq_pdef,
@@ -231,45 +231,6 @@ Proof with auto.
   - inversion HT; subst. inversion HF; subst.
     destruct H2 as [v Hv]. specialize H1 with v.
     apply H with v...
-Qed.
-
-Theorem fequiv_refl : forall A,
-  A == A.
-Proof with auto.
-  intros A fctx pctx. split; intros val st H.
-  - destruct val...
-  - destruct val...
-Qed.
-
-Theorem fequiv_sym : forall A B,
-  A == B ->
-  B == A.
-Proof with auto.
-  intros A B Hequiv fctx pctx. split; intros val st H.
-  - destruct val... right. 
-    specialize Hequiv with fctx pctx as [_ Himpl].
-    apply Himpl in H as [H | H]... discriminate.
-  - destruct val... right. 
-    specialize Hequiv with fctx pctx as [Himpl _].
-    apply Himpl in H as [H | H]... discriminate.
-Qed.
-
-Theorem fequiv_trans : forall A B C,
-  A == B ->
-  B == C ->
-  A == C.
-Proof with auto.
-  intros A B C H1 H2 fctx pctx. split; intros val st H.
-  - destruct val... right. 
-    specialize H1 with fctx pctx as [H1 _]. apply H1 in H as [H | H].
-    + discriminate.
-    + specialize H2 with fctx pctx as [H2 _].
-      apply H2 in H as [H | H]... discriminate.
-  - destruct val... right. 
-    specialize H2 with fctx pctx as [_ H2]. apply H2 in H as [H | H].
-    + discriminate.
-    + specialize H1 with fctx pctx as [_ H1].
-      apply H1 in H as [H | H]... discriminate.
 Qed.
 
 Theorem feval_eq_refl : forall t st fctx pctx,
@@ -548,22 +509,6 @@ Proof with auto.
       rewrite Heqinner...
 Qed.
 
-Theorem subst_term_id_when_not_in_term : forall x t a,
-  appears_in_term x t = false ->
-  (subst_term t x a) = t.
-Proof with auto. 
-  intros x t a H. induction t...
-  - simpl. destruct (String.eqb_spec x0 x)... rewrite e in H.
-    simpl in H. rewrite String.eqb_refl in H. discriminate H.
-  - simpl. f_equal. induction args... simpl in H. 
-    apply Bool.orb_false_iff in H as [H1 H2].
-    simpl. f_equal.
-    + apply H0... simpl...
-    + apply IHargs.
-      * intros arg HIn Hap. apply H0... simpl...
-      * simpl. apply H2.
-Qed.
-
 Theorem simpl_subst_simple_formula : forall sf x a,
   formula_subst (F_Simple sf) x a =
   F_Simple (subst_simple_formula sf x a).
@@ -668,9 +613,72 @@ Proof with auto.
       symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
+Theorem simpl_subst_exists_neq : forall y A x a,
+  y <> x ->
+  let y' := fresh_quantifier y A a in
+  <[ (exists y, A)[x\a] ]> = <[ (exists y', A[y\y'][x\a]) ]>.
+Proof.
+  intros y A x a Hneq. simpl. unfold formula_subst. simpl.
+  apply String.eqb_neq in Hneq. rewrite Hneq. f_equal.
+  fold_qrank_subst (S (quantifier_rank A)) A y (fresh_quantifier y A a).
+  f_equal.
+  - assert (H:=subst_preserves_structure A y 
+      (fresh_quantifier y A a) (quantifier_rank A)).
+    deduce_rank_eq H. lia.
+  - symmetry. apply higher_qrank__subst_eq. lia.
+Qed.
+
+Theorem simpl_subst_exists_same : forall y A x a,
+  y = x ->
+  <[ (exists y, A)[x\a] ]> = <[ exists y, A ]>.
+Proof with auto.
+  intros y A x a Heq. unfold formula_subst. simpl.
+  apply String.eqb_eq in Heq. rewrite Heq...
+Qed.
+
+Theorem simpl_subst_forall_neq : forall y A x a,
+  y <> x ->
+  let y' := fresh_quantifier y A a in
+  <[ (forall y, A)[x\a] ]> = <[ (forall y', A[y\y'][x\a]) ]>.
+Proof.
+  intros y A x a Hneq. simpl. unfold formula_subst. simpl.
+  apply String.eqb_neq in Hneq. rewrite Hneq. f_equal.
+  fold_qrank_subst (S (quantifier_rank A)) A y (fresh_quantifier y A a).
+  f_equal.
+  - assert (H:=subst_preserves_structure A y 
+      (fresh_quantifier y A a) (quantifier_rank A)).
+    deduce_rank_eq H. lia.
+  - symmetry. apply higher_qrank__subst_eq. lia.
+Qed.
+
+Theorem simpl_subst_forall_same : forall y A x a,
+  y = x ->
+  <[ (forall y, A)[x\a] ]> = <[ forall y, A ]>.
+Proof with auto.
+  intros y A x a Heq. unfold formula_subst. simpl.
+  apply String.eqb_eq in Heq. rewrite Heq...
+Qed.
+    
+
 Theorem subst_eq_congr : forall st fctx pctx A x t u b,
   feval st fctx pctx <[ t = u ]> true ->
   feval st fctx pctx <[ A[x\t] ]> b ->
   feval st fctx pctx <[ A[x\u] ]> b.
 Proof with auto.
 Admitted.
+
+Theorem subst_term_id_when_not_in_term : forall x t a,
+  appears_in_term x t = false ->
+  (subst_term t x a) = t.
+Proof with auto. 
+  intros x t a H. induction t...
+  - simpl. destruct (String.eqb_spec x0 x)... rewrite e in H.
+    simpl in H. rewrite String.eqb_refl in H. discriminate H.
+  - simpl. f_equal. induction args... simpl in H. 
+    apply Bool.orb_false_iff in H as [H1 H2].
+    simpl. f_equal.
+    + apply H0... simpl...
+    + apply IHargs.
+      * intros arg HIn Hap. apply H0... simpl...
+      * simpl. apply H2.
+Qed.

@@ -92,109 +92,109 @@ Ltac prove_equiv :=
     prove_equiv_by_inversion.
 
 Theorem and_comm : forall A B,
-  <[ A /\ B ]> == <[ B /\ A ]>.
+  <[ A /\ B ]> === <[ B /\ A ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_comm : forall A B,
-  <[ A \/ B ]> == <[ B \/ A ]>.
+  <[ A \/ B ]> === <[ B \/ A ]>.
 Proof. prove_equiv. Qed.
 
 Theorem and_idemp : forall A,
-  <[ A /\ A ]> == <[ A ]>.
+  <[ A /\ A ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_idemp : forall A,
-  <[ A \/ A ]> == <[ A ]>.
+  <[ A \/ A ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
 Theorem and_assoc : forall A B C,
-  <[ A /\ (B /\ C) ]> == <[ (A /\ B) /\ C ]>.
+  <[ A /\ (B /\ C) ]> === <[ (A /\ B) /\ C ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_assoc : forall A B C,
-  <[ A \/ (B \/ C) ]> == <[ (A \/ B) \/ C ]>.
+  <[ A \/ (B \/ C) ]> === <[ (A \/ B) \/ C ]>.
 Proof. prove_equiv. Qed.
 
 Theorem and_absorption : forall A B,
-  <[ A /\ (A \/ B) ]> == A.
+  <[ A /\ (A \/ B) ]> === A.
 Proof. prove_equiv. Qed.
 
 Theorem or_absorption : forall A B,
-  <[ A \/ (A /\ B) ]> == A.
+  <[ A \/ (A /\ B) ]> === A.
 Proof. prove_equiv. Qed.
 
 Theorem and_or_distr : forall A B C,
-  <[ A /\ (B \/ C) ]> == <[ (A /\ B) \/ (A /\ C) ]>.
+  <[ A /\ (B \/ C) ]> === <[ (A /\ B) \/ (A /\ C) ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_and_distr : forall A B C,
-  <[ A \/ (B /\ C) ]> == <[ (A \/ B) /\ (A \/ C) ]>.
+  <[ A \/ (B /\ C) ]> === <[ (A \/ B) /\ (A \/ C) ]>.
 Proof. prove_equiv. Qed.  
 
 Theorem and_true : forall A,
-  <[ A /\ true ]> == A.
+  <[ A /\ true ]> === A.
 Proof. prove_equiv. Qed.
 
 Theorem or_true : forall A,
-  <[ A \/ true ]> == <[ true ]>.
+  <[ A \/ true ]> === <[ true ]>.
 Proof. prove_equiv. Qed.
 
 Theorem and_false : forall A,
-  <[ A /\ false ]> == <[ false ]>.
+  <[ A /\ false ]> === <[ false ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_false : forall A,
-  <[ A \/ false ]> == <[ A ]>.
+  <[ A \/ false ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
-Theorem not_true : <[ ~ true ]> == <[ false ]>.
+Theorem not_true : <[ ~ true ]> === <[ false ]>.
 Proof. prove_equiv. Qed.
 
-Theorem not_false : <[ ~ false ]> == <[ true ]>.
+Theorem not_false : <[ ~ false ]> === <[ true ]>.
 Proof. prove_equiv. Qed.
 
 Theorem A_and_not_A : forall A,
-  <[ A /\ ~ A ]> == <[ false ]>.
+  <[ A /\ ~ A ]> === <[ false ]>.
 Proof. prove_equiv. Qed.
 
 Theorem excluded_middle : forall A,
-  <[ A \/ ~ A ]> == <[ true ]>.
+  <[ A \/ ~ A ]> === <[ true ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
 Qed. 
 
 Theorem not_involutive : forall A,
-  <[ ~ ~ A ]> == <[ A ]>.
+  <[ ~ ~ A ]> === <[ A ]>.
 Proof. prove_equiv. Qed.  
 
 Theorem not_and : forall A B,
-  <[ ~ (A /\ B) ]> == <[ ~ A \/ ~ B ]>.
+  <[ ~ (A /\ B) ]> === <[ ~ A \/ ~ B ]>.
 Proof. prove_equiv. Qed.
 
 Theorem not_or : forall A B,
-  <[ ~ (A \/ B) ]> == <[ ~ A /\ ~ B ]>.
+  <[ ~ (A \/ B) ]> === <[ ~ A /\ ~ B ]>.
 Proof. prove_equiv. Qed.
 
 Theorem or_neg_absorption : forall A B,
-  <[ A \/ (~ A /\ B) ]> == <[ A \/ B ]>.
+  <[ A \/ (~ A /\ B) ]> === <[ A \/ B ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
 Qed.
 
 Theorem and_neg_absorption : forall A B,
-  <[ A /\ (~ A \/ B) ]> == <[ A /\ B ]>.
+  <[ A /\ (~ A \/ B) ]> === <[ A /\ B ]>.
 Proof. prove_equiv. Qed.
 
 (* A.22 *)
 Theorem implication_equiv_or : forall A B,
-  <[ A => B ]> == <[ ~ A \/ B ]>.
+  <[ A => B ]> === <[ ~ A \/ B ]>.
 Proof. prove_equiv. Qed.
 
 (* A.23 *)
 Theorem A_implies_A__true : forall A,
-  <[ A => A ]> == <[ true ]>.
+  <[ A => A ]> === <[ true ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -202,82 +202,82 @@ Qed.
 
 (* A.24 *)
 Theorem implication_as_not_and : forall A B,
-  <[ A => B ]> == <[ ~ (A /\ ~ B) ]>.
+  <[ A => B ]> === <[ ~ (A /\ ~ B) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.25 *)
 Theorem not_implication_as_and : forall A B,
-  <[ ~ (A => B) ]> == <[ A /\ ~ B ]>.
+  <[ ~ (A => B) ]> === <[ A /\ ~ B ]>.
 Proof. prove_equiv. Qed.
 
 (* A.26 *)
 Theorem contrapositive_law : forall A B,
-  <[ A => B ]> == <[ ~ B => ~ A ]>.
+  <[ A => B ]> === <[ ~ B => ~ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.27 *)
 Theorem everything_implies_true : forall A,
-  <[ A => true ]> == <[ true ]>.
+  <[ A => true ]> === <[ true ]>.
 Proof. prove_equiv. Qed.
 
 (* A.28 *)
 Theorem true_implies_A : forall A,
-  <[ true => A ]> == <[ A ]>.
+  <[ true => A ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.29 *)
 Theorem A_implies_false : forall A,
-  <[ A => false ]> == <[ ~ A ]>.
+  <[ A => false ]> === <[ ~ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.30 *)
 Theorem false_implies_everything : forall A,
-  <[ false => A ]> == <[ true ]>.
+  <[ false => A ]> === <[ true ]>.
 Proof. prove_equiv. Qed.
 
 (* A.31 *)
 Theorem A_implies_not_A : forall A,
-  <[ A => ~ A ]> == <[ ~ A ]>.
+  <[ A => ~ A ]> === <[ ~ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.32 *)
 Theorem not_A_implies_A : forall A,
-  <[ ~ A => A ]> == <[ A ]>.
+  <[ ~ A => A ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.33 *)
 Theorem implication_distr1 : forall A B C,
-  <[ C => (A /\ B) ]> == <[ (C => A) /\ (C => B) ]>.
+  <[ C => (A /\ B) ]> === <[ (C => A) /\ (C => B) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.34 *)
 Theorem implication_distr2 : forall A B C,
-  <[ (A \/ B) => C ]> == <[ (A => C) /\ (B => C) ]>.
+  <[ (A \/ B) => C ]> === <[ (A => C) /\ (B => C) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.35 *)
 Theorem implication_distr3 : forall A B C,
-  <[ C => (A \/ B) ]> == <[ (C => A) \/ (C => B) ]>.
+  <[ C => (A \/ B) ]> === <[ (C => A) \/ (C => B) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.36 *)
 Theorem implication_distr4 : forall A B C,
-  <[ (A /\ B) => C ]> == <[ (A => C) \/ (B => C) ]>.
+  <[ (A /\ B) => C ]> === <[ (A => C) \/ (B => C) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.37 *)
 Theorem successive_hypotheses : forall A B C,
-  <[ A => (B => C) ]> == <[ (A /\ B) => C ]>.
+  <[ A => (B => C) ]> === <[ (A /\ B) => C ]>.
 Proof. prove_equiv. Qed.
 
 (* A.37 *)
 Theorem successive_hypotheses' : forall A B C,
-  <[ B => (A => C) ]> == <[ (A /\ B) => C ]>.
+  <[ B => (A => C) ]> === <[ (A /\ B) => C ]>.
 Proof. prove_equiv. Qed.
 
 (* A.38 *)
 Theorem def_by_cases : forall A B C,
-  <[ (A => B) /\ (~A => C) ]> == <[ (A /\ B) \/ (~A /\ C) ]>.
+  <[ (A => B) /\ (~A => C) ]> === <[ (A /\ B) \/ (~A /\ C) ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -285,22 +285,22 @@ Qed.
 
 (* A.39 *)
 Theorem iff_equiv1 : forall A B,
-  <[ A <=> B ]> == <[ (A => B) /\ (B => A) ]>.
+  <[ A <=> B ]> === <[ (A => B) /\ (B => A) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.40 *)
 Theorem iff_equiv2 : forall A B,
-  <[ A <=> B ]> == <[ (A /\ B) \/ ~(A \/ B) ]>.
+  <[ A <=> B ]> === <[ (A /\ B) \/ ~(A \/ B) ]>.
 Proof. prove_equiv. Qed.
 
 (* A.41 *)
 Theorem iff_equiv3 : forall A B,
-  <[ A <=> B ]> == <[ ~A <=> ~B ]>.
+  <[ A <=> B ]> === <[ ~A <=> ~B ]>.
 Proof. prove_equiv. Qed.
 
 (* A.42 *)
 Theorem A_iff_A : forall A,
-  <[ A <=> A]> == <[ true ]>.
+  <[ A <=> A]> === <[ true ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -308,22 +308,22 @@ Qed.
 
 (* A.43 *)
 Theorem A_iff_not_A : forall A,
-  <[ A <=> ~ A ]> == <[ false ]>.
+  <[ A <=> ~ A ]> === <[ false ]>.
 Proof. prove_equiv. Qed.
 
 (* A.44 *)
 Theorem iff_true_id : forall A,
-  <[ A <=> true ]> == <[ A ]>.
+  <[ A <=> true ]> === <[ A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.45 *)
 Theorem iff_false_neg : forall A,
-  <[ A <=> false ]> == <[ ~A ]>.
+  <[ A <=> false ]> === <[ ~A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.46 *)
 Theorem implication_equiv_iff1 : forall A B,
-  <[ A => B ]> == <[ A <=> (A /\ B) ]>.
+  <[ A => B ]> === <[ A <=> (A /\ B) ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -331,7 +331,7 @@ Qed.
 
 (* A.47 *)
 Theorem implication_equiv_iff2 : forall A B,
-  <[ B => A ]> == <[ A <=> (A \/ B) ]>.
+  <[ B => A ]> === <[ A <=> (A \/ B) ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -339,7 +339,7 @@ Qed.
 
 (* A.48 *)
 Theorem or_equiv_iff : forall A B C,
-  <[ A \/ (B <=> C) ]> == <[ (A \/ B) <=> (A \/ C) ]>.
+  <[ A \/ (B <=> C) ]> === <[ (A \/ B) <=> (A \/ C) ]>.
 Proof with auto. 
   prove_equiv.
   destruct (feval_excluded_middle A st fctx pctx)...
@@ -347,18 +347,18 @@ Qed.
 
 (* A.49 *)
 Theorem equiv_comm : forall A B,
-  <[ A <=> B ]> == <[ B <=> A ]>.
+  <[ A <=> B ]> === <[ B <=> A ]>.
 Proof. prove_equiv. Qed.
 
 (* A.50 *)
 Theorem equiv_assoc : forall A B C,
-  <[ A <=> (B <=> C) ]> == <[ (A <=> B) <=> C ]>.
+  <[ A <=> (B <=> C) ]> === <[ (A <=> B) <=> C ]>.
 Proof. prove_equiv. Qed.
 
 (* A.56 *)
 Theorem universal_one_point : forall x a A,
   appears_in_term x a = false ->
-  <[ forall x, x = a => A ]> == <[ A[x \ a] ]>.
+  <[ forall x, x = a => A ]> === <[ A[x \ a] ]>.
 Proof with auto. prove_equiv. 
   - inversion H0; subst. clear H0. rename H2 into H1. 
     specialize H1 with a. rewrite simpl_subst_implication in H1.

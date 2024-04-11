@@ -980,22 +980,3 @@ Inductive feval (st : state) (fctx : fcontext) (pctx : pcontext) : formula -> bo
     feval st fctx pctx (F_Forall x f) false.
 
 Hint Constructors feval : core.
-
-Definition formula_implies (f1 f2 : formula) fctx pctx : Prop :=
-  forall f1val st,
-    feval st fctx pctx f1 f1val ->
-    (f1val = false) \/ (feval st fctx pctx f2 true).
-
-Definition formula_equiv (f1 f2 : formula) fctx pctx : Prop :=
-  formula_implies f1 f2 fctx pctx /\
-  formula_implies f2 f1 fctx pctx.
-
-Declare Scope general_fassertion_scope.
-Declare Custom Entry fassertion.
-
-Notation "P '==>' Q" := (forall fctx pctx, formula_implies P Q fctx pctx)
-                  (at level 50) : general_fassertion_scope.
-
-Notation "P '==' Q" := (forall fctx pctx, 
-                    (formula_implies P Q fctx pctx) /\ (formula_implies Q P fctx pctx))
-                          (at level 50) : general_fassertion_scope. 
