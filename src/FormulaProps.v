@@ -1,6 +1,7 @@
 From Coq Require Import Arith.PeanoNat. Import Nat.
 From Coq Require Import Lia.
 From MRC Require Import PredCalc.
+From MRC Require Import PredCalcEquiv.
 From MRC Require Import PredCalcProps.
 From MRC Require Import Tactics.
 
@@ -88,7 +89,7 @@ Ltac prove_equiv_by_inversion :=
   clear HFF.
 
 Ltac prove_equiv := 
-    intros; split; intros val; intros; destruct val; auto; 
+    intros; split; intros fctx pctx val; intros; destruct val; auto; 
     prove_equiv_by_inversion.
 
 Theorem and_comm : forall A B,

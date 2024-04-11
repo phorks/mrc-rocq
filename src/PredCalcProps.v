@@ -5,8 +5,6 @@ From Coq Require Import Lists.List. Import ListNotations.
 From MRC Require Import PredCalc.
 From MRC Require Import Tactics.
 
-(* Open Scope general_fassertion_scope. *)
-
 Theorem pctx_eq_semantics : forall pctx,
   exists eq_pdef,
     (pctx_map pctx) "="%string = Some eq_pdef /\
@@ -15,6 +13,14 @@ Proof.
   intros pctx. destruct pctx. destruct has_eq_sem as [eq_pdef H].
   exists eq_pdef. simpl. assumption.
 Qed.
+
+Axiom fresh_quantifier_spec : forall x A a,
+  (appears_in_term x a = false /\ x = fresh_quantifier x A a) \/
+  (appears_in_term (fresh_quantifier x A a) a = false /\
+    (appears_in_term x a = true ->
+      is_free_in (fresh_quantifier x A a) A = false)).
+(* This doesn't actually hold, if [a] contains all lowercase
+    ascii characters, x' in a appear as free *)
 
 Theorem feval_not_true_iff : forall st fctx pctx A,
   feval st fctx pctx <[ ~ A ]> true <->
@@ -669,7 +675,7 @@ Admitted.
 
 Theorem subst_term_id_when_not_in_term : forall x t a,
   appears_in_term x t = false ->
-  (subst_term t x a) = t.
+  subst_term t x a = t.
 Proof with auto. 
   intros x t a H. induction t...
   - simpl. destruct (String.eqb_spec x0 x)... rewrite e in H.

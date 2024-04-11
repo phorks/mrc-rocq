@@ -268,12 +268,12 @@ Definition subst_simple_formula sf x a :=
   | _ => sf
   end.
 
-(* only characters from 33 to 254 (inclusive) have visual symbols *)
+(* characters from in [97, 122] *)
 Definition ascii_succ ch :=
   let nch := Ascii.nat_of_ascii ch in
-  let nres := if (andb (32 <=? nch) (nch <=? 253))%nat 
+  let nres := if (andb (97 <=? nch) (nch <=? 121))%nat 
     then (nch + 1)%nat 
-    else (33)%nat in
+    else (97)%nat in
   Ascii.ascii_of_nat nres.
 
 (* Fixpoint ascii_succ_n ch n :=
@@ -325,12 +325,14 @@ Fixpoint fresh_quantifier_n qch qf a n :=
 
 Definition fresh_quantifier qx qf a :=
   match qx with
-  | EmptyString => String (fresh_quantifier_n "a"%char qf a 222) ""
+  | EmptyString => String (fresh_quantifier_n "a"%char qf a 25) ""
   | String qch qs => match qs with
     | EmptyString => if (appears_in_term qx a)
-      then String (fresh_quantifier_n (ascii_succ qch) qf a 221) ""
+      then String (fresh_quantifier_n (ascii_succ qch) qf a 25) ""
       else String qch ""
-    | _ => String (fresh_quantifier_n "a"%char qf a 222) ""
+    | _  => if (appears_in_term qx a)
+      then String (fresh_quantifier_n "x"%char qf a 25) ""
+      else qx
     end
   end.
 
