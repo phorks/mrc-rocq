@@ -1,0 +1,11 @@
+opam-version: "1.0"
+maintainer: "Amir Ayyam <amf.ayyam@gmail.com>"
+
+synopsis: "Morgan's Refinement Calculus"
+
+depends: [
+  "coq-stdpp"
+]
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]

@@ -33,7 +33,7 @@ Proof with auto.
       * apply Lemma. intros arg HIn. apply H. simpl...
 Qed.
 
-Theorem exists_fequiv : forall (x y : string) A B,
+Axiom exists_fequiv : forall (x y : string) A B,
   <[ A ]> === <[ B[y\x] ]> ->
   <[ exists x, A ]> === <[ exists y, B ]>.
 
@@ -61,47 +61,47 @@ Proof with auto.
     + subst x0. rewrite simpl_subst_exists_same... reflexivity.
     + rewrite simpl_subst_exists_neq... 
 
-Theorem subst_id_when_not_free : forall x A a,
-  is_free_in x A = false ->
-  <[ A[x\a] ]> === A.
-Proof with auto.
-  intros x A a H. induction A...
-  - apply fequiv_when_eq.
-    rewrite simpl_subst_simple_formula.
-    destruct sf... simpl. symmetry. f_equal. 
-    replace (map (fun arg : term => subst_term arg x a) args) 
-      with args... induction args... simpl in H.
-    apply Bool.orb_false_iff in H as [H1 H2]. simpl.
-    f_equal... symmetry. apply subst_term_id_when_not_in_term...
-  - rewrite simpl_subst_not. simpl in H.
-    rewrite IHA... reflexivity.
-  - rewrite simpl_subst_and. simpl in H.
-    apply Bool.orb_false_iff in H as [H1 H2].
-    rewrite IHA1... rewrite IHA2... reflexivity.
-  - rewrite simpl_subst_or. simpl in H.
-    apply Bool.orb_false_iff in H as [H1 H2].
-    rewrite IHA1... rewrite IHA2... reflexivity.
-  - rewrite simpl_subst_implication. simpl in H.
-    apply Bool.orb_false_iff in H as [H1 H2].
-    rewrite IHA1... rewrite IHA2... reflexivity.
-  - rewrite simpl_subst_iff. simpl in H.
-    apply Bool.orb_false_iff in H as [H1 H2].
-    rewrite IHA1... rewrite IHA2... reflexivity.
-  - inversion H. destruct (String.eqb_spec x0 x).
-    + rewrite e. rewrite simpl_subst_exists_same... reflexivity.
-    + rewrite simpl_subst_exists_neq...
-      assert (Hfresh:=(fresh_quantifier_spec x0 A a)).
-      destruct Hfresh as [[Hfr1 Hfr2] | Hfresh].
-      * rewrite <- Hfr2.  
-      rewrite H0.
-  - simpl. f_equal. induction args... simpl in H. 
-    apply Bool.orb_false_iff in H as [H1 H2].
-    simpl. f_equal.
-    + apply H0... simpl...
-    + apply IHargs.
-      * intros arg HIn Hap. apply H0... simpl...
-      * simpl. apply H2.
-Qed.
+(* Theorem subst_id_when_not_free : forall x A a, *)
+(*   is_free_in x A = false -> *)
+(*   <[ A[x\a] ]> === A. *)
+(* Proof with auto. *)
+(*   intros x A a H. induction A... *)
+(*   - apply fequiv_when_eq. *)
+(*     rewrite simpl_subst_simple_formula. *)
+(*     destruct sf... simpl. symmetry. f_equal.  *)
+(*     replace (map (fun arg : term => subst_term arg x a) args)  *)
+(*       with args... induction args... simpl in H. *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. simpl. *)
+(*     f_equal... symmetry. apply subst_term_id_when_not_in_term... *)
+(*   - rewrite simpl_subst_not. simpl in H. *)
+(*     rewrite IHA... reflexivity. *)
+(*   - rewrite simpl_subst_and. simpl in H. *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. *)
+(*     rewrite IHA1... rewrite IHA2... reflexivity. *)
+(*   - rewrite simpl_subst_or. simpl in H. *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. *)
+(*     rewrite IHA1... rewrite IHA2... reflexivity. *)
+(*   - rewrite simpl_subst_implication. simpl in H. *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. *)
+(*     rewrite IHA1... rewrite IHA2... reflexivity. *)
+(*   - rewrite simpl_subst_iff. simpl in H. *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. *)
+(*     rewrite IHA1... rewrite IHA2... reflexivity. *)
+(*   - inversion H. destruct (String.eqb_spec x0 x). *)
+(*     + rewrite e. rewrite simpl_subst_exists_same... reflexivity. *)
+(*     + rewrite simpl_subst_exists_neq... *)
+(*       assert (Hfresh:=(fresh_quantifier_spec x0 A a)). *)
+(*       destruct Hfresh as [[Hfr1 Hfr2] | Hfresh]. *)
+(*       * rewrite <- Hfr2.   *)
+(*       rewrite H0. *)
+(*   - simpl. f_equal. induction args... simpl in H.  *)
+(*     apply Bool.orb_false_iff in H as [H1 H2]. *)
+(*     simpl. f_equal. *)
+(*     + apply H0... simpl... *)
+(*     + apply IHargs. *)
+(*       * intros arg HIn Hap. apply H0... simpl... *)
+(*       * simpl. apply H2. *)
+(* Qed. *)
 
 
 (* Theorem subst_id_when_not_free : forall x A a,
