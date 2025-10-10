@@ -533,71 +533,226 @@ Proof with auto.
   - f_equal; auto using subst_commute_term.
   - f_equal. induction args... repeat rewrite map_cons. f_equal... apply subst_commute_term...
 Qed.
+(* NOTE: Subst doesn't commute in feval:
+          consider (∃ x, x₁ = x)[x₁ \ x][x₂ \ y] and (∃ x, x₁ = x)[x₂ \ y][x₁ \ x]:
+          its behavior depends on how fresh_quantifier picks a new quantifier
+          LHS:  since to avoid capture, x must be renamed in theree exists,
+                if the algorithm picks x₂ (it can because it is free in both the body and the value being substituted for (x))
+                then LHS becomes:  (∃ x₂, x = x₂)[x₂\y] ≡ (∃) )*)
 
-Theorem feval_subst_commute : forall M σ φ x₁ t₁ x₂ t₂,
-    x₁ <> x₂ ->
-    negb $ appears_in_term x₁ t₂ ->
-    negb $ appears_in_term x₂ t₁ ->
-    feval M σ <! φ[x₁ \ t₁][x₂ \ t₂] !> <-> feval M σ <! φ[x₂ \ t₂][x₁ \ t₁] !>.
+Lemma is_free_in_term_iff : forall x t,
+    Is_true $ appears_in_term x t <-> (x ∈ term_fvars t).
 Proof with auto.
-  intros M σ φ. generalize dependent σ.
-  induction φ using formula_ind; intros σ x₁ t₁ x₂ t₂ Hneq Hf1 Hf2.
-  - unfold formula_subst. simpl. rewrite subst_commute_sf...
-  - do 4 rewrite simpl_subst_not. simpl. rewrite IHφ...
-  - do 4 rewrite simpl_subst_and. simpl. rewrite IHφ1... rewrite IHφ2...
-  - do 4 rewrite simpl_subst_or. simpl. rewrite IHφ1... rewrite IHφ2...
-  - do 4 rewrite simpl_subst_implication. simpl. rewrite IHφ1... rewrite IHφ2...
-  - destruct (String.eqb_spec x x₁); destruct (String.eqb_spec x x₂); subst.
-    + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq...
-      rewrite simpl_subst_exists_eq...
-    + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_ne...
-      rewrite simpl_subst_exists_eq... apply fresh_quantifier_not_in_term...
-    + rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_eq...
-      2: { apply fresh_quantifier_not_in_term... }
-      rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_ne...
-    + rewrite simpl_subst_exists_ne...
-      destruct (String.eqb_spec (fresh_quantifier x φ t₁) x₂).
-      * rewrite simpl_subst_exists_eq... subst. rewrite simpl_subst_exists_ne...
-        destruct (String.eqb_spec (fresh_quantifier x φ t₂) x₁); subst.
-        -- apply not_eq_sym in n, n0. apply fresh_quantifier_ne in n, n0.
-           exfalso. apply Hneq. unfold fresh_quantifier.
-           apply Is_true_true in n, n0. rewrite n. rewrite n0. reflexivity.
-        -- apply not_eq_sym in n0. apply fresh_quantifier_ne in n0. clear Hf2.
-           rewrite simpl_subst_exists_ne... simpl. split; intros [v Hv]; exists v.
-           ++
-             remember (fresh_quantifier x φ t₁) as xf₁.
-             remember (fresh_quantifier x φ t₂) as xf₂.
-             assert (Heq : xf₁ =  fresh_quantifier xf₂ <! φ [x \ xf₂] [xf₁ \ t₂] !> t₁).
-             { subst.  }
+  intros x t. induction t; simpl.
+  - rewrite elem_of_empty... 
+  - destruct (String.eqb_spec x0 x); subst...
+    + rewrite elem_of_singleton. split...
+    + rewrite elem_of_singleton. split... contradiction.
+  - rename H into IH. induction args.
+    + simpl. rewrite elem_of_empty. split...
+    + simpl. destruct (appears_in_term x a) eqn:E.
+      * simpl. split... intros _. apply elem_of_union_l. apply IH... left...
+      * simpl. split; intros H.
+        -- apply elem_of_union_r. apply IHargs... intros. apply IH. right...
+        -- apply elem_of_union in H. destruct H.
+           ++ apply IH in H. rewrite E in H. contradiction. left...
+           ++ apply IHargs... intros. apply IH. right...
+Qed.
 
-(*         -- apply  *)
+Lemma is_free_in_sf_iff : forall x sf,
+    Is_true $ appears_in_simple_formula x sf <-> (x ∈ simple_formula_fvars sf).
+Proof with auto.
+  destruct sf; simpl.
+  - rewrite elem_of_empty...
+  - rewrite elem_of_empty...
+  - split; intros H.
+    + apply orb_True in H.
+      destruct H; [apply elem_of_union_l | apply elem_of_union_r]; apply is_free_in_term_iff...
+    + rewrite elem_of_union in H. apply orb_True.
+      destruct H; [left | right]; apply is_free_in_term_iff...
+  - induction args; simpl.
+    + rewrite elem_of_empty...
+    + destruct (appears_in_term x a) eqn:E.
+      * simpl. split... intros _. apply elem_of_union_l. apply is_free_in_term_iff...
+      * simpl. split; intros H.
+        -- apply elem_of_union_r. apply IHargs...
+        -- apply elem_of_union in H. destruct H.
+           ++ apply is_free_in_term_iff in H. rewrite E in H. contradiction.
+           ++ apply IHargs...
+Qed.
+
+Lemma is_free_iff : forall x φ,
+    Is_true $ is_free_in x φ <-> (x ∈ formula_fvars φ).
+Proof with auto.
+  induction φ; simpl.
+  - apply is_free_in_sf_iff.
+  - assumption.
+  - rewrite orb_True. rewrite elem_of_union.
+    split; (destruct 1; [left; apply IHφ1 | right; apply IHφ2])...
+  - rewrite orb_True. rewrite elem_of_union.
+    split; (destruct 1; [left; apply IHφ1 | right; apply IHφ2])...
+  - rewrite orb_True. rewrite elem_of_union.
+    split; (destruct 1; [left; apply IHφ1 | right; apply IHφ2])...
+  - destruct (String.eqb_spec x0 x); subst.
+    + split; intros; try contradiction. apply not_elem_of_difference in H0... right.
+      apply elem_of_singleton...
+    + split; intros H'.
+      * apply elem_of_difference. split; [apply H | apply not_elem_of_singleton]...
+      * apply elem_of_difference in H'. destruct H'. apply H...
+  - destruct (String.eqb_spec x0 x); subst.
+    + split; intros; try contradiction. apply not_elem_of_difference in H0... right.
+      apply elem_of_singleton...
+    + split; intros H'.
+      * apply elem_of_difference. split; [apply H | apply not_elem_of_singleton]...
+      * apply elem_of_difference in H'. destruct H'. apply H...
+Qed.
+
+(* Lemma fresh_quantifier_in_eq_sf_eq_iff : forall x t₁ t₂ t x', *)
+(*     let φ := <! t₁ = t₂ !> in *)
+(*     fresh_quantifier x φ t = x' -> *)
+(*       (negb $ appears_in_term x t /\ x = x') \/ *)
+(*         (appears_in_term x t /\ negb $ is_free_in x' φ). *)
+(* Proof with auto. *)
+(*   simpl. intros x t₁ t₂ t x' H.  *)
+(*   destruct (appears_in_term x t) eqn:E.  *)
+(*   2: {  left. split... admit. } *)
+(*   - right. split... induction t₁; induction t₂; simpl in *... *)
+(*     + unfold fresh_quantifier in H. *)
+(*       assert (Heq : formula_fvars <! v = x0 !> = {[x0]}). *)
+(*       { simpl. rewrite union_empty_l_L... } rewrite E, Heq in H. *)
+(*       rewrite size_singleton in H...  *)
+(*     +  *)
+(*   simpl. induction t₁. *)
+
+(*   - induction t₂. *)
+(*     +  *)
+(*   intros  *)
+
+Lemma fresh_quantifier_eq_iff : forall x φ t x',
+    fresh_quantifier x φ t = x' ->
+      (negb $ appears_in_term x t /\ x = x') \/
+        (appears_in_term x t /\ negb $ is_free_in x' φ).
+Proof with auto.
+  admit.
+Admitted.
+  (* intros x φ t x' H. destruct (appears_in_term x t) eqn:E. *)
+  (* - right. split... induction φ. *)
+  (*   + destruct sf. *)
+  (*     * simpl... *)
+  (*     * simpl... *)
+  (*     * simpl. unfold fresh_quantifier in H. rewrite E in H.  *)
+  (*     * simpl. *)
 
 
-(*            split. intros [v Hv]; exists v. *)
-(*            apply H... *)
-(*            exfalso. apply hneq. unfold fresh_quantifier. *)
-(*            apply is_true_true in n, n0. rewrite n. rewrite n0. reflexivity. *)
-(* -  *)
-
-        -- rewrite simpl_subst_exists_ne... simpl. split; intros [v Hv]; exists v.
-           ++ 
-           admit. admit.
-      * admit.
-           fresh_quantifier_idem.
-           ++ apply H...
-           
-           Search (Is_true ?b -> ?b = true).
 
 
-           rewrite Is_true_eq_true in n.
+  (*   remember (formula_fvars φ) as fvars. *)
+  (*   generalize dependent φ. *)
+  (*   induction fvars using set_ind_L; try rename H into H1; intros φ Heqfvars H. *)
+  (*   + destruct (is_free_in x' φ) eqn:E'... *)
+  (*     apply Is_true_eq_left in E'. apply is_free_iff in E'. *)
+  (*     rewrite <- Heqfvars in E'. apply elem_of_empty in E'... *)
+  (*   + rewrite size_union in H. rewrite size_singleton in H. simpl in H. *)
+  (*     destruct (String.eqb_spec (x ++ "_" ++ "0")%string x0). *)
+  (*     * rewrite e in H. *)
+  (*       assert (x0 ∈ {[x0]} ∪ X). { apply elem_of_union_l. apply elem_of_singleton... } *)
+  (*       destruct (decide (x0 ∈ {[x0]} ∪ X)) eqn:E'. *)
+  (*       rewrite <- bool_decide_spec in H1.  *)
+  (*       replace (decide (x0 ∈ {[x0]} ∪ X)) with (left H1) in H. *)
+  (*       rewrite Is_true_eq_true in H1. *)
+  (*       rewrite H1 in H. *)
+  (*     rewrite E' in H. *)
+  (*     rewrite elem_of_equiv_empty in E. specialize E with x'. contradiction. *)
 
 
-          rewrite simpl_subst_exists_eq... subst. simpl. split; intros [v Hv]; exists v.
-           ++ apply H...
-              ** apply not_eq_sym in n. apply fresh_quantifier_ne in n.
 
-              2: { apply fresh_quantifier_not_in_term... }
-  -
+  (*   induction (size $ formula_fvars φ) eqn:E. *)
+  (*   + subst. apply size_empty_inv in E. unfold negb. destruct (is_free_in x' φ) eqn:E'... *)
+  (*     apply Is_true_eq_left in E'. apply is_free_iff in E'. *)
+  (*     rewrite elem_of_equiv_empty in E. specialize E with x'. contradiction. *)
+  (*   + simpl in *. assert (E' : size (formula_fvars φ) > 0) by lia. *)
+  (*     apply size_pos_elem_of in E' as [x₀ H₀]. *)
+  (*     destruct (decide ((x ++ "_" ++ "0")%string ∈ formula_fvars φ)) eqn:E'; simpl in *. *)
+  (*     * apply IHn.  *)
+
+Lemma fresh_quantifier_free : forall x φ t,
+    (negb $ appears_in_term x t /\ x = fresh_quantifier x φ t) \/
+      (appears_in_term x t /\ negb $ is_free_in (fresh_quantifier x φ t) φ).
+Proof with auto.
+  admit.
+Admitted.
+(* Lemma fresh_quantifier_free : forall , *)
+(*     appears_ fresh_quantifier x φ t *)
+
+(* Theorem feval_subst_commute : forall M σ φ x₁ t₁ x₂ t₂, *)
+(*     x₁ <> x₂ -> *)
+(*     negb $ appears_in_term x₁ t₂ -> *)
+(*     negb $ appears_in_term x₂ t₁ -> *)
+(*     feval M σ <! φ[x₁ \ t₁][x₂ \ t₂] !> <-> feval M σ <! φ[x₂ \ t₂][x₁ \ t₁] !>. *)
+(* Proof with auto. *)
+(*   intros M σ φ. generalize dependent σ. *)
+(*   induction φ using formula_ind; intros σ x₁ t₁ x₂ t₂ Hneq Hf1 Hf2. *)
+(*   - unfold formula_subst. simpl. rewrite subst_commute_sf... *)
+(*   - do 4 rewrite simpl_subst_not. simpl. rewrite IHφ... *)
+(*   - do 4 rewrite simpl_subst_and. simpl. rewrite IHφ1... rewrite IHφ2... *)
+(*   - do 4 rewrite simpl_subst_or. simpl. rewrite IHφ1... rewrite IHφ2... *)
+(*   - do 4 rewrite simpl_subst_implication. simpl. rewrite IHφ1... rewrite IHφ2... *)
+(*   - destruct (String.eqb_spec x x₁); destruct (String.eqb_spec x x₂); subst. *)
+(*     + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq... *)
+(*       rewrite simpl_subst_exists_eq... *)
+(*     + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_ne... *)
+(*       rewrite simpl_subst_exists_eq... apply fresh_quantifier_not_in_term... *)
+(*     + rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_eq... *)
+(*       2: { apply fresh_quantifier_not_in_term... } *)
+(*       rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_ne... *)
+(*     + rewrite simpl_subst_exists_ne... *)
+(*       destruct (String.eqb_spec (fresh_quantifier x φ t₁) x₂). *)
+(*       * rewrite simpl_subst_exists_eq... *)
+(*         assert (H1 := fresh_quantifier_free x φ t₁). subst. *)
+(*         destruct H1. 1:{ destruct H0 as [_ H0]. contradiction. } *)
+(*         subst. rewrite simpl_subst_exists_ne... *)
+(*         destruct (String.eqb_spec (fresh_quantifier x φ t₂) x₁); subst. *)
+(*         -- apply not_eq_sym in n, n0. apply fresh_quantifier_ne in n, n0. *)
+(*            exfalso. apply Hneq. unfold fresh_quantifier. *)
+(*            apply Is_true_true in n, n0. rewrite n. rewrite n0. reflexivity. *)
+(*         -- apply not_eq_sym in n0. apply fresh_quantifier_ne in n0. *)
+
+(*            clear Hf2. *)
+(*            rewrite simpl_subst_exists_ne... simpl. split; intros [v Hv]; exists v. *)
+(*            ++ *)
+(*              remember (fresh_quantifier x φ t₁) as xf₁. *)
+(*              remember (fresh_quantifier x φ t₂) as xf₂. *)
+(*              assert (Heq : xf₁ =  fresh_quantifier xf₂ <! φ [x \ xf₂] [xf₁ \ t₂] !> t₁). *)
+(*              { subst.  } *)
+
+(* (*         -- apply  *) *)
+
+
+(* (*            split. intros [v Hv]; exists v. *) *)
+(* (*            apply H... *) *)
+(* (*            exfalso. apply hneq. unfold fresh_quantifier. *) *)
+(* (*            apply is_true_true in n, n0. rewrite n. rewrite n0. reflexivity. *) *)
+(* (* -  *) *)
+
+(*         -- rewrite simpl_subst_exists_ne... simpl. split; intros [v Hv]; exists v. *)
+(*            ++ *)
+(*            admit. admit. *)
+(*       * admit. *)
+(*            fresh_quantifier_idem. *)
+(*            ++ apply H... *)
+
+(*            Search (Is_true ?b -> ?b = true). *)
+
+
+(*            rewrite Is_true_eq_true in n. *)
+
+
+(*           rewrite simpl_subst_exists_eq... subst. simpl. split; intros [v Hv]; exists v. *)
+(*            ++ apply H... *)
+(*               ** apply not_eq_sym in n. apply fresh_quantifier_ne in n. *)
+
+(*               2: { apply fresh_quantifier_not_in_term... } *)
+(*   - *)
 (*     formula_subst (formula_subst φ x₁ t₁) x₂ t₂ = *)
 (*       formula_subst (formula_subst φ x₂ t₂) x₁ t₁. *)
 
@@ -673,87 +828,100 @@ Proof with auto.
       * simpl. apply H2.
 Qed.
 
-Theorem teval_subst : forall M σ t x (xv v : value),
-  teval M (<[x:=xv]>σ) t v <-> teval M σ (subst_term t x xv) v.
+Theorem teval_subst : forall {M σ t t' x} {v' v : value} (H : teval M σ t' v'),
+  teval M (<[x:=v']>σ) t v <-> teval M σ (subst_term t x t') v.
 Proof with auto.
- intros M σ t x xv v. split.
-  - generalize dependent v.
-    apply teval_ind_mut with
-      (P:=λ t v _, teval M σ (subst_term t x xv) v)
-      (P0:=λ args vargs _, teval_args M σ (map (λ arg, subst_term arg x xv) args) vargs).
-    + intros v. constructor.
-    + intros x0 v H. simpl. destruct (String.eqb_spec x0 x).
-      * apply lookup_insert_Some in H.
-        destruct H as [[<- ->] | [H₁ H₂]].
-        -- constructor.
-        -- exfalso. apply H₁. symmetry. auto.
-      * apply lookup_insert_Some in H.
-        destruct H as [[<- ->] | [H₁ H₂]].
+ intros M σ t t' x v' v. split.
+  - intros H'. generalize dependent t'. generalize dependent v.
+    assert (Hind:=teval_ind_mut M (<[x:=v']>σ)
+      (λ t v _, forall t', teval M σ t' v' -> teval M σ (subst_term t x t') v)
+      (λ args vargs _, forall t', teval M σ t' v' -> teval_args M σ (map (λ arg, subst_term arg x t') args) vargs)).
+    simpl in Hind. apply Hind; clear Hind.
+    + constructor.
+    + rename x into x'. intros x v H t' Heval. destruct (String.eqb_spec x x').
+      * apply lookup_insert_Some in H. destruct H as [[<- ->] | [H₁ H₂]].
+        -- assumption.
+        -- exfalso. apply H₁...
+      * apply lookup_insert_Some in H. destruct H as [[<- ->] | [H₁ H₂]].
         -- contradiction.
-        -- constructor. assumption.
+        -- constructor...
     + intros.
       (* TODO: rename TEval_Func to TEval_App and argsv to vargs  *)
-      apply TEval_Func with argsv; assumption.
-    + simpl. constructor.
-    + intros. constructor; assumption.
-  - remember (subst_term t x xv) as t'. intros H.
+      apply TEval_Func with argsv...
+    + constructor.
+    + constructor; [apply H | apply H0]...
+  - remember (subst_term t x t') as tpre. intros H'.
     assert (Hind:=teval_ind_mut M σ
-      (λ t v _, forall t', t = subst_term t' x xv -> teval M (<[x:=xv]>σ) t' v)
-      (λ args vargs _, forall args', args = (map (λ arg, subst_term arg x xv) args') -> teval_args M (<[x:=xv]>σ) args' vargs)).
-    simpl in Hind. apply Hind with t'; auto; subst; clear Hind.
-    + intros. destruct t'; simpl in H0.
+      (λ t v _, forall t', teval M σ t' v' -> forall tpre, t = subst_term tpre x t' -> teval M (<[x:=v']>σ) tpre v)
+      (λ args vargs _, forall t', teval M σ t' v' -> forall args',
+            args = (map (λ arg, subst_term arg x t') args') ->
+            teval_args M (<[x:=v']>σ) args' vargs)).
+    generalize dependent Heqtpre. generalize dependent t. generalize dependent H.
+    generalize dependent t'. generalize dependent H'. generalize dependent v.
+    generalize dependent tpre. simpl in Hind. apply Hind; clear Hind.
+    + intros. destruct tpre; simpl in H0.
       * inversion H0. subst. constructor.
-      * destruct (String.eqb_spec x0 x); try discriminate.
-        subst. apply TEval_Var. inversion H0; subst. apply lookup_insert_Some...
+      * destruct (String.eqb_spec x0 x); try discriminate. subst. inversion H; subst.
+        constructor. apply lookup_insert_Some...
       * discriminate.
-    + intros. destruct t'; simpl in H0; try discriminate.
-      destruct (String.eqb_spec x1 x); try discriminate.
-      apply TEval_Var. inversion H0; subst. apply lookup_insert_Some...
-    + intros. destruct t'; simpl in H1; try discriminate.
-      * destruct (String.eqb_spec x0 x); discriminate.
-      * inversion H1. subst. clear H1. apply TEval_Func with argsv. apply H0. reflexivity. assumption.
-    + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor.
+    + intros. destruct tpre; simpl in H0; try discriminate.
+      simpl in H0. destruct (String.eqb_spec x1 x); subst.
+      * apply TEval_Var. inversion H; subst. rewrite e in H1. inversion H1. apply lookup_insert_Some...
+      * inversion H0. subst. apply TEval_Var.  apply lookup_insert_Some...
+    + intros. destruct tpre; simpl in H1; try discriminate.
+      * destruct (String.eqb_spec x0 x); try discriminate. inversion H1; subst.
+        inversion H0; subst. inversion H6; subst. inversion f0; subst.
+        rewrite H1 in H5. inversion H5; subst fdef0. clear H5.
+        assert (Heq := teval_args_det H4 t0). subst.
+        assert (Heq := UIP_nat _ _ hlen hlen0 ). subst.
+        assert (Heq := fdef_functional _ H3 H7). subst.
+        constructor. apply lookup_insert_Some...
+      * inversion H1. subst. apply TEval_Func with argsv... apply H with t'...
+    + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor...
     + intros. symmetry in H2. apply map_eq_cons in H2. destruct H2 as (y&ys&H3&H4&H5).
       subst. constructor.
-      * apply H0...
-      * apply H1...
+      * apply H with t'...
+      * apply H0 with t'...
 Qed.
 
-Theorem teval_args_subst : forall M σ x (v : value) args vargs,
+Theorem teval_args_subst : forall {M σ x t} {v : value} {args vargs},
+    teval M σ t v ->
     teval_args M (<[x:=v]>σ) args vargs <->
-    teval_args M σ (map (λ arg : term, subst_term arg x v) args) vargs.
+    teval_args M σ (map (λ arg : term, subst_term arg x t) args) vargs.
 Proof with auto.
-  intros M σ x v args vargs. split.
+  intros M σ x t v args vargs Ht. split.
   - induction 1.
     + constructor.
-    + constructor; [(apply teval_subst; assumption)|]. assumption.
+    + constructor; [(apply (teval_subst Ht); assumption)|]. assumption.
   - remember (map (λ arg, subst_term arg x v) args) as args'.
     generalize dependent vargs.
     generalize dependent args'.
     induction args; intros args' Heq vargs H.
     + subst. inversion H; subst. constructor.
-    + subst. inversion H; subst. constructor; [(apply teval_subst; assumption)|]. eapply IHargs.
+    + subst. inversion H; subst. constructor; [(apply (teval_subst Ht); assumption)|].
+      eapply IHargs.
       * reflexivity.
       * assumption.
 Qed.
 
-Theorem sfeval_subst : forall M σ sf x (v : value),
-  sfeval M (<[x:=v]>σ) sf <-> sfeval M σ (subst_simple_formula sf x v).
+Theorem sfeval_subst : forall {M σ sf x t} {v : value},
+    teval M σ t v ->
+    sfeval M (<[x:=v]>σ) sf <-> sfeval M σ (subst_simple_formula sf x t).
 Proof with auto.
-  intros. split.
+  intros M σ sf x t v Ht. split.
   - destruct sf; simpl; intros H...
     + apply SFEval_True.
     + inversion H.
-    + inversion H; subst. apply teval_subst in H2, H3. apply SFEval_Eq with v0; assumption.
+    + inversion H; subst. apply (teval_subst Ht) in H2, H3. apply SFEval_Eq with v0; assumption.
     + inversion H; subst. apply SFEval_Pred with vargs.
-      * apply teval_args_subst. assumption.
+      * apply (teval_args_subst Ht). assumption.
       * assumption.
   - destruct sf; simpl; intros H...
     + apply SFEval_True.
     + inversion H.
-    + inversion H; subst. apply teval_subst in H2, H3. apply SFEval_Eq with v0; assumption.
+    + inversion H; subst. apply (teval_subst Ht) in H2, H3. apply SFEval_Eq with v0; assumption.
     + inversion H; subst. apply SFEval_Pred with vargs.
-      * apply teval_args_subst. assumption.
+      * apply (teval_args_subst Ht). assumption.
       * assumption.
 Qed.
 
@@ -904,123 +1072,151 @@ Proof with auto.
       * rewrite (insert_commute σ)... apply H...
 Qed.
 
-Theorem feval_subst_subst_context : forall M σ φ (x x' : string) (v : value),
-    negb $ is_free_in x' φ ->
-    feval M (<[x':=v]> σ) <! φ [x \ x'] !> <-> feval M σ <! φ [x \ v] !>.
+(* Theorem feval_subst_subst_context : forall M σ φ (x x' : string) (v : value), *)
+(*     negb $ is_free_in x' φ -> *)
+(*     feval M (<[x':=v]> σ) <! φ [x \ x'] !> <-> feval M σ <! φ [x \ v] !>. *)
+(* Proof with auto. *)
+(*   intros M σ φ x x₀' v Hfree. generalize dependent v. generalize dependent x. *)
+(*   generalize dependent σ. *)
+(*   induction φ using formula_ind; intros σ x₀ v₀; simpl in Hfree. *)
+(*   - admit. *)
+(*   - do 2 rewrite simpl_subst_not. simpl. split; intros H; intros contra; *)
+(*     apply H; apply IHφ; assumption. *)
+(*   - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂]. *)
+(*     do 2 rewrite simpl_subst_and. simpl. split. *)
+(*     + intros [? ?]. split; [apply IHφ1 | apply IHφ2]; assumption. *)
+(*     + intros [? ?]. split; [apply IHφ1 | apply IHφ2]; assumption. *)
+(*   - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂]. *)
+(*     do 2 rewrite simpl_subst_or. simpl. split. *)
+(*     + intros [? | ?]; [left; apply IHφ1 | right; apply IHφ2]; assumption. *)
+(*     + intros [? | ?]; [left; apply IHφ1 | right; apply IHφ2]; assumption. *)
+(*   - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂]. *)
+(*     do 2 rewrite simpl_subst_implication. simpl. split. *)
+(*     + intros Himp H.  apply IHφ2... apply Himp. apply IHφ1... *)
+(*     + intros Himp H.  apply IHφ2... apply Himp. apply IHφ1... *)
+(*   - destruct (String.eqb_spec x x₀); destruct (String.eqb_spec x₀ x₀'); subst; simpl. *)
+(*     + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq... simpl. split. *)
+(*       * intros [v H₁]. subst. exists v. rewrite (insert_insert σ) in H₁. assumption. *)
+(*       * intros [v H₁]. subst. exists v. rewrite (insert_insert σ). assumption. *)
+(*     + rewrite (proj2 (String.eqb_neq x₀ x₀') n) in Hfree. *)
+(*       rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq... *)
+(*       simpl. split. *)
+(*       * intros [v H₁]. exists v. rewrite (insert_commute σ) in H₁... *)
+(*         apply feval_delete_nonfree_variable_in_context in H₁... *)
+(*       * intros [v H₁]. exists v. rewrite (insert_commute σ)... *)
+(*         apply feval_delete_nonfree_variable_in_context... *)
+(*     + rewrite (proj2 (String.eqb_neq x x₀') n) in Hfree. *)
+(*       rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne... *)
+(*       rewrite fresh_quantifier_for_var_ne... simpl. split. *)
+(*       * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term. *)
+(*         repeat rewrite subst_same_formula in *. apply H... *)
+(*         rewrite subst_same_formula. rewrite (insert_commute σ)... *)
+(*       * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term in H₁. *)
+(*         repeat rewrite subst_same_formula in *. apply H in H₁... *)
+(*         rewrite subst_same_formula in H₁. rewrite (insert_commute σ) in H₁... *)
+(*     + destruct (String.eqb_spec x x₀'); simpl in *; subst. *)
+(*       * rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne... *)
+(*         rewrite fresh_quantifier_for_value_term. simpl. split. *)
+(*         -- intros [v Hv]. exists v. rewrite subst_same_formula. *)
+(*            rewrite (insert_commute σ) in Hv... *)
+(*            2:{ admit. } *)
+(*            apply H in Hv... *)
+(*            2:{ apply subst_preserves_shape_aux'. } *)
+(*            2:{ admit. } *)
+
+
+
+(*         admit. *)
+(*       * simpl in Hfree. *)
+
+
+(*       rewrite (proj2 (String.eqb_neq x x₀') n) in Hfree. *)
+(*       rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne... *)
+(*       rewrite fresh_quantifier_for_var_ne... simpl. split. *)
+(*       * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term. *)
+(*         repeat rewrite subst_same_formula in *. apply H... *)
+(*         rewrite subst_same_formula. rewrite (insert_commute σ)... *)
+(*       * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term in H₁. *)
+(*         repeat rewrite subst_same_formula in *. apply H in H₁... *)
+(*         rewrite subst_same_formula in H₁. rewrite (insert_commute σ) in H₁... *)
+(*     + rewrite *)
+(*       * *)
+(*         rewrite H in H₁. *)
+(*         rewrite (insert_commute σ) in H₁... *)
+(*         apply feval_delete_nonfree_variable_in_context in H₁... *)
+(*       * intros [v H₁]. exists v. rewrite (insert_commute σ)... *)
+(*         apply feval_delete_nonfree_variable_in_context... *)
+(*       * *)
+(*     + *)
+(*       * *)
+
+(*       assert (Hneq := String.eqb_neq x₀ x₀'). *)
+
+(*       rewrite <- String.eqb_neq in n. simpl in Hfree. rewrite n in Hfree. *)
+(*     + *)
+(*       * *)
+(*       * intros [v H1]. subst. simpl. exists v. rewrite (insert_insert σ). assumption. *)
+(*       * *)
+(*       * intros [v' H']. exists v'. apply H. *)
+(*   - induction φ using formula_ind; simpl in *. *)
+(*     + apply sfeval_subst in H. admit. *)
+(*     + rewrite simpl_subst_not in *. simpl in *. *)
+(*   - *)
+(*   - split. *)
+(*   ∃ v : value, *)
+(*     feval M (<[fresh_quantifier x φ v₀:=v]> σ) <! φ [x \ (fresh_quantifier x φ v₀)] [x₀ \ v₀] !> *)
+
+
+Theorem feval_subst : forall {M σ φ x t} {v : value},
+    teval M σ t v ->
+    feval M (<[x:=v]>σ) φ <-> feval M σ (φ[x \ t]).
 Proof with auto.
-  intros M σ φ x x₀' v Hfree. generalize dependent v. generalize dependent x.
-  generalize dependent σ.
-  induction φ using formula_ind; intros σ x₀ v₀; simpl in Hfree.
-  - admit.
-  - do 2 rewrite simpl_subst_not. simpl. split; intros H; intros contra;
-    apply H; apply IHφ; assumption.
-  - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂].
-    do 2 rewrite simpl_subst_and. simpl. split.
-    + intros [? ?]. split; [apply IHφ1 | apply IHφ2]; assumption.
-    + intros [? ?]. split; [apply IHφ1 | apply IHφ2]; assumption.
-  - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂].
-    do 2 rewrite simpl_subst_or. simpl. split.
-    + intros [? | ?]; [left; apply IHφ1 | right; apply IHφ2]; assumption.
-    + intros [? | ?]; [left; apply IHφ1 | right; apply IHφ2]; assumption.
-  - rewrite negb_orb in Hfree. apply andb_prop_elim in Hfree. destruct Hfree as [H₁ H₂].
-    do 2 rewrite simpl_subst_implication. simpl. split.
-    + intros Himp H.  apply IHφ2... apply Himp. apply IHφ1...
-    + intros Himp H.  apply IHφ2... apply Himp. apply IHφ1...
-  - destruct (String.eqb_spec x x₀); destruct (String.eqb_spec x₀ x₀'); subst; simpl.
-    + rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq... simpl. split.
-      * intros [v H₁]. subst. exists v. rewrite (insert_insert σ) in H₁. assumption.
-      * intros [v H₁]. subst. exists v. rewrite (insert_insert σ). assumption.
-    + rewrite (proj2 (String.eqb_neq x₀ x₀') n) in Hfree.
-      rewrite simpl_subst_exists_eq... rewrite simpl_subst_exists_eq...
-      simpl. split.
-      * intros [v H₁]. exists v. rewrite (insert_commute σ) in H₁...
-        apply feval_delete_nonfree_variable_in_context in H₁...
-      * intros [v H₁]. exists v. rewrite (insert_commute σ)...
-        apply feval_delete_nonfree_variable_in_context...
-    + rewrite (proj2 (String.eqb_neq x x₀') n) in Hfree.
-      rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne...
-      rewrite fresh_quantifier_for_var_ne... simpl. split.
-      * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term.
-        repeat rewrite subst_same_formula in *. apply H...
-        rewrite subst_same_formula. rewrite (insert_commute σ)...
-      * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term in H₁.
-        repeat rewrite subst_same_formula in *. apply H in H₁...
-        rewrite subst_same_formula in H₁. rewrite (insert_commute σ) in H₁...
-    + destruct (String.eqb_spec x x₀'); simpl in *; subst.
-      * rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne...
-        rewrite fresh_quantifier_for_value_term. simpl. split.
-        -- intros [v Hv]. exists v. rewrite subst_same_formula.
-           rewrite (insert_commute σ) in Hv...
-           2:{ admit. }
-           apply H in Hv...
-           2:{ apply subst_preserves_shape_aux'. }
-           2:{ admit. }
-
-
-
-        admit.
-      * simpl in Hfree.
-
-
-      rewrite (proj2 (String.eqb_neq x x₀') n) in Hfree.
-      rewrite simpl_subst_exists_ne... rewrite simpl_subst_exists_ne...
-      rewrite fresh_quantifier_for_var_ne... simpl. split.
-      * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term.
-        repeat rewrite subst_same_formula in *. apply H...
-        rewrite subst_same_formula. rewrite (insert_commute σ)...
-      * intros [v H₁]. exists v. rewrite fresh_quantifier_for_value_term in H₁.
-        repeat rewrite subst_same_formula in *. apply H in H₁...
-        rewrite subst_same_formula in H₁. rewrite (insert_commute σ) in H₁...
-    + rewrite
-      *
-        rewrite H in H₁.
-        rewrite (insert_commute σ) in H₁...
-        apply feval_delete_nonfree_variable_in_context in H₁...
-      * intros [v H₁]. exists v. rewrite (insert_commute σ)...
-        apply feval_delete_nonfree_variable_in_context...
-      *
-    +
-      *
-
-      assert (Hneq := String.eqb_neq x₀ x₀').
-
-      rewrite <- String.eqb_neq in n. simpl in Hfree. rewrite n in Hfree.
-    +
-      *
-      * intros [v H1]. subst. simpl. exists v. rewrite (insert_insert σ). assumption.
-      *
-      * intros [v' H']. exists v'. apply H.
-  - induction φ using formula_ind; simpl in *.
-    + apply sfeval_subst in H. admit.
-    + rewrite simpl_subst_not in *. simpl in *.
-  -
-  - split.
-  ∃ v : value,
-    feval M (<[fresh_quantifier x φ v₀:=v]> σ) <! φ [x \ (fresh_quantifier x φ v₀)] [x₀ \ v₀] !>
-
-
-Theorem feval_subst : forall M σ φ x (v : value),
-    feval M (<[x:=v]>σ) φ <-> feval M σ (φ[x \ v]).
-Proof with auto.
-  intros M σ φ. generalize dependent σ. induction φ using formula_ind; intros σ x₀ v₀.
-  - split; apply sfeval_subst.
+  intros M σ φ. generalize dependent σ. induction φ using formula_ind; intros σ x₀ t v₀ Ht.
+  - split; apply sfeval_subst...
   - rewrite simpl_subst_not. simpl. split;
-    intros H contra; apply H; apply IHφ; assumption.
-  - rewrite simpl_subst_and. split; intros [? ?].
-    + split; [apply IHφ1|apply IHφ2]; assumption.
-    + split; [apply IHφ1|apply IHφ2]; assumption.
-  - rewrite simpl_subst_or. split.
-    + intros [?|?]; [left; apply IHφ1 | right; apply IHφ2]; auto.
-    + intros [?|?]; [left; apply IHφ1 | right; apply IHφ2]; auto.
-  - rewrite simpl_subst_implication. simpl. split.
-    + intros. apply IHφ2. apply H. apply IHφ1...
-    + intros. apply IHφ2. apply H. apply IHφ1...
+      intros H contra; apply H; apply (IHφ _ _ _ _ Ht); assumption.
+  - rewrite simpl_subst_and. split; intros [? ?];
+      (split; [apply (IHφ1 _ _ _ _ Ht)|apply (IHφ2 _ _ _ _ Ht)]; assumption).
+  - rewrite simpl_subst_or. split;
+      (intros [?|?]; [left; apply (IHφ1 _ _ _ _ Ht) | right; apply (IHφ2 _ _ _ _ Ht)]; auto).
+  - rewrite simpl_subst_implication. simpl. split;
+      (intros; apply (IHφ2 _ _ _ _ Ht); apply H; apply (IHφ1 _ _ _ _ Ht); auto).
   - destruct (String.eqb_spec x x₀).
-    + rewrite simpl_subst_exists_same... split.
+    + rewrite simpl_subst_exists_eq... split.
       * intros [v H1]. subst. rewrite (insert_insert σ) in H1. exists v. assumption.
       * intros [v H1]. subst. simpl. exists v. rewrite (insert_insert σ). assumption.
-    + rewrite simpl_subst_exists_neq... simpl. split.
-      * intros [v H1]. exists v. rewrite <- H by apply subst_preserves_shape_aux'.
+    + rewrite simpl_subst_exists_ne... simpl. split.
+      * intros [v H1]. exists v.
+        destruct (String.eqb_spec (fresh_quantifier x φ t) x₀).
+        -- subst. apply not_eq_sym in n.
+           assert (Hne := n). apply fresh_quantifier_ne in Hne.
+           assert (Ht' : teval M (<[fresh_quantifier x φ t:=v]>σ) t v). { admit. }
+           rewrite <- H.
+           2: { apply subst_preserves_shape_aux'. }
+           2: { apply Ht'. } clear Ht'.
+           rewrite <- H...
+           2: { apply TEval_Var. apply lookup_insert_Some... }
+           admit.
+        --
+
+          destruct (String.eqb_spec (fresh_quantifier x φ t) x₀).
+        -- subst. apply not_eq_sym in n. apply fresh_quantifier_ne in n.
+
+
+
+
+
+           rewrite <- H...
+           2:{ apply TEval_Var. apply lookup_insert_Some... }
+
+        rewrite <- H...
+        2: {
+
+
+
+        assert (H := H φ). forward H by apply shape_eq_refl.
+        assert (H := H (<[x₀:=v₀]> (<[fresh_quantifier x φ v₀:=v]> σ)) x (fresh_quantifier x φ v₀)).
+        rewrite <- H by apply subst_preserves_shape_aux'.
         destruct (String.eqb_spec (fresh_quantifier x φ v₀) x₀); subst; simpl.
         -- rewrite (insert_insert σ). apply H. apply subst_preserves_shape_aux'.
            admit.

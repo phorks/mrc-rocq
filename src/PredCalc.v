@@ -3,18 +3,15 @@ From Stdlib Require Import Numbers.DecimalString.
 From Stdlib Require Import Lia.
 From Stdlib Require Import ZArith.ZArith.
 From Stdlib Require Import Reals.Reals.
-From stdpp Require Import gmap.
+From stdpp Require Import gmap vector.
 From MRC Require Import Tactics.
 
-Record vec (A : Type) (n : nat) := {
-  vec_to_list : list A;
-  vec_to_list_length : length vec_to_list = n
-}.
+Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
+  eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
-Definition list_to_vec_n {A n} (l : list A) (hlen : length l = n) : vec A n := {|
-  vec_to_list := l;
-  vec_to_list_length := hlen
-|}.
+Lemma list_to_vec_n_eq {A n} (l : list A) (H1 : length l = n) (H2 : length l = n) :
+  list_to_vec_n l H1 = list_to_vec_n l H2.
+Proof. assert (Heq := UIP_nat _ _ H1 H2). subst. reflexivity. Qed.
 
 Open Scope bool_scope.
 
@@ -769,7 +766,7 @@ Definition state := gmap string value.
 Record fdef := mkFdef {
     fdef_arity : nat;
     fdef_rel : vec value fdef_arity -> value -> Prop;
-    fdef_functional : forall args v₁ v₂, fdef_rel args v₁ /\ fdef_rel args v₂
+    fdef_functional : forall {args v₁ v₂}, fdef_rel args v₁ -> fdef_rel args v₂ -> v₁ = v₂
 }.
 
 Record pdef := mkPdef {
@@ -805,6 +802,38 @@ with teval_args (M : semantics) (σ : state) : list term -> list value -> Prop :
 
 Scheme teval_ind_mut := Induction for teval Sort Prop
 with teval_args_ind_mut := Induction for teval_args Sort Prop.
+
+Lemma teval_det : forall {M σ t v₁ v₂},
+    teval M σ t v₁ -> teval M σ t v₂ -> v₁ = v₂.
+Proof with auto.
+  intros M σ t v₁ v₂ H1 H2. generalize dependent v₂.
+  generalize dependent v₁. generalize dependent t.
+  apply (teval_ind_mut M σ (λ t v₁ _, forall v₂, teval M σ t v₂ -> v₁ = v₂)
+           (λ args vargs₁ _, forall vargs₂, teval_args M σ args vargs₂ -> vargs₁ = vargs₂)).
+  - intros. inversion H...
+  - intros. inversion H; subst. rewrite e in H1. inversion H1...
+  - intros. inversion H0; subst. inversion H5; subst. inversion f0; subst.
+    apply H in H3. subst argsv0. rewrite H1 in H4. inversion H4; subst.
+    assert (Hlen : hlen = hlen0). { apply UIP_nat. } subst.
+    apply (fdef_functional _ H2) in H6...
+  - inversion 1...
+  - intros. destruct vargs₂.
+    + inversion H1.
+    + inversion H1; subst. f_equal.
+      * apply H...
+      * apply H0...
+Qed.
+
+Lemma teval_args_det : forall {M σ args vargs₁ vargs₂},
+    teval_args M σ args vargs₁ -> teval_args M σ args vargs₂ ->
+    vargs₁ = vargs₂.
+Proof with auto.
+  intros M σ. induction args; intros vargs₁ vargs₂ H1 H2.
+  - inversion H1. inversion H2...
+  - inversion H1; subst. inversion H2; subst. f_equal.
+    + eapply teval_det. apply H3. apply H4.
+    + apply IHargs...
+Qed.
 
 Inductive pred_eval (M : semantics) (pSym : string) (vargs : list value) : Prop :=
   | PredEval : forall pdef,
