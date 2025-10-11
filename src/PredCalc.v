@@ -5,34 +5,66 @@ From Stdlib Require Import ZArith.ZArith.
 From Stdlib Require Import Reals.Reals.
 From stdpp Require Import gmap vector.
 From MRC Require Import Tactics.
+Open Scope bool_scope.
 
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
-Lemma list_to_vec_n_eq {A n} (l : list A) (H1 : length l = n) (H2 : length l = n) :
-  list_to_vec_n l H1 = list_to_vec_n l H2.
-Proof. assert (Heq := UIP_nat _ _ H1 H2). subst. reflexivity. Qed.
-
-Open Scope bool_scope.
-
-(* Inductive value : Type := *)
-(*   | VNat (n : nat) *)
-(*   | VInt (z : Z) *)
-(*   | VReal (r : R). *)
 
 Definition value := {t : Type & t}.
 
-(* Definition value_to_R (v : value) := *)
-(* match v with *)
-(*   | VNat n => INR n *)
-(*   | VInt z => IZR z *)
-(*   | VReal r => r *)
-(* end. *)
+Record variable := mkVar {
+  var_name : string;
+  var_sub : nat;
+  var_is_initial : bool;
+}.
+
+Global Instance variable_eq_dec : EqDecision variable. Proof. solve_decision. Defined.
+Global Instance variable_countable : Countable variable.
+Proof.
+  refine (
+    {| encode v := encode (var_name v, var_sub v, var_is_initial v);
+       decode t :=
+         match decode t with
+         | Some (n, s, i) => Some (mkVar n s i)
+         | None => None
+         end
+    |}).
+  intros [n s i]. simpl. rewrite decode_encode. reflexivity.
+Defined.
+
+Definition simple_var name := mkVar name 0 false.
+Definition var_with_sub x i :=
+  mkVar (var_name var) (i) (var_is_initial var).
+Definition var_increase_sub x i :=
+  var_with_sub x (var_sub x + i).
+
+Lemma var_with_sub_var_sub_id : forall x,
+    var_with_sub x (var_sub x) = x.
+Proof. intros. unfold var_with_sub. destruct x. reflexivity. Qed.
+Lemma var_with_sub_idemp : forall x i j,
+  var_with_sub (var_with_sub x j) i = var_with_sub x i.
+Proof. intros. unfold var_with_sub. reflexivity. Qed.
+Lemma var_sub_of_var_with_sub : forall x i,
+    var_sub (var_with_sub x i) = i.
+Proof. reflexivity. Qed.
+(* Lemma var_with_sub_var_sub_id : forall x, *)
+(*     var_with_sub x (var_sub x) = x. *)
+(* Proof. intros. unfold var_with_sub. destruct x. reflexivity. Qed. *)
+
+Hint Rewrite var_with_sub_var_sub_id : core.
+Hint Rewrite var_with_sub_idemp : core.
+(* Lemma var_with_sub_eq_increase_sub : forall x n, *)
+(*     var_sub x <= n -> *)
+(*     var_with_sub x (n) = var_increase_sub x (n - var_sub x). *)
+(* Proof. *)
+
+Coercion simple_var : string >-> variable.
 
 Unset Elimination Schemes.
 Inductive term : Type :=
   | TConst (v : value)
-  | TVar (x : string)
+  | TVar (x : variable)
   | TApp (symbol : string) (args : list term).
 Set Elimination Schemes.
 
@@ -135,8 +167,8 @@ Inductive formula : Type :=
   | F_And (f₁ f₂ : formula)
   | F_Or (f₁ f₂ : formula)
   | F_Implies (f₁ f₂ : formula)
-  | F_Exists (x : string) (f : formula)
-  | F_Forall (x : string) (f : formula).
+  | F_Exists (x : variable) (f : formula)
+  | F_Forall (x : variable) (f : formula).
 Set Elimination Schemes.
 Scheme formula_ind_naive := Induction for formula Sort Type.
 
@@ -149,7 +181,7 @@ Coercion Z_to_value : Z >-> value.
 Coercion R_to_value : R >-> value.
 
 Coercion TConst : value >-> term.
-Coercion TVar : string >-> term.
+Coercion TVar : variable >-> term.
 Coercion F_Simple : simple_formula >-> formula.
 
 
@@ -203,41 +235,36 @@ Notation "'∀' x .. y '●' f" := (F_Forall x .. (F_Forall y f) ..) (in custom 
 
 Open Scope formula_scope.
 
-(* TODO: rename to is_free_in_term *)
-Fixpoint appears_in_term x t :=
+Fixpoint is_free_in_term x t :=
   match t with
   | TConst v => false
-  | TVar y => if (y =? x)%string
-    then true
-    else false
-  | TApp sym args =>
-    foldr orb false (map (fun arg => appears_in_term x arg) args)
+  | TVar y => if decide (y = x) then true else false
+  | TApp sym args => foldr orb false (map (fun arg => is_free_in_term x arg) args)
   end.
 
-(* TODO: rename to is_free_in_simple_formula *)
-Definition appears_in_simple_formula x sf :=
+Definition is_free_in_sf x sf :=
   match sf with
-  | AT_Eq t₁ t₂ => appears_in_term x t₁ || appears_in_term x t₂
+  | AT_Eq t₁ t₂ => is_free_in_term x t₁ || is_free_in_term x t₂
   | AT_Pred sym args =>
-    fold_right orb false (map (fun arg => appears_in_term x arg) args)
+    fold_right orb false (map (fun arg => is_free_in_term x arg) args)
   | _ => false
   end.
 
-Fixpoint is_free_in x f :=
+Fixpoint is_free_in (x : variable) f :=
   match f with
-  | F_Simple sf => appears_in_simple_formula x sf
+  | F_Simple sf => is_free_in_sf x sf
   | F_Not f₁ => is_free_in x f₁
   | F_And f₁ f₂ => is_free_in x f₁ ||  is_free_in x f₂
   | F_Or f₁ f₂ => is_free_in x f₁ || is_free_in x f₂
   | F_Implies f₁ f₂ => is_free_in x f₁ || is_free_in x f₂
-  | F_Exists y f₁ => if (y =? x)%string then false else (is_free_in x f₁)
-  | F_Forall y f₁ => if (y =? x)%string then false else (is_free_in x f₁)
+  | F_Exists y f₁ => if decide (y = x) then false else (is_free_in x f₁)
+  | F_Forall y f₁ => if decide (y = x) then false else (is_free_in x f₁)
   end.
 
 Fixpoint subst_term t x a :=
   match t with
   | TConst v => TConst v
-  | TVar y => if (y =? x)%string then a else TVar y
+  | TVar y => if decide (y = x) then a else TVar y
   | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
   end.
 
@@ -248,7 +275,7 @@ Definition subst_simple_formula sf x a :=
   | _ => sf
   end.
 
-Fixpoint term_fvars t : gset string :=
+Fixpoint term_fvars t : gset variable :=
   match t with
   | TConst v => ∅
   | TVar y => {[y]}
@@ -256,7 +283,7 @@ Fixpoint term_fvars t : gset string :=
     foldr (∪) ∅ (map (fun arg => term_fvars arg) args)
   end.
 
-Definition simple_formula_fvars sf : gset string :=
+Definition simple_formula_fvars sf : gset variable :=
   match sf with
   | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
   | AT_Pred _ args =>
@@ -264,7 +291,7 @@ Definition simple_formula_fvars sf : gset string :=
   | _ => ∅
   end.
 
-Fixpoint formula_fvars (f : formula) : gset string :=
+Fixpoint formula_fvars (f : formula) : gset variable :=
   match f with
   | F_Simple sf => simple_formula_fvars sf
   | F_Not f => formula_fvars f
@@ -275,17 +302,15 @@ Fixpoint formula_fvars (f : formula) : gset string :=
   | F_Forall x f => formula_fvars f ∖ {[x]}
   end.
 
-Open Scope string_scope.
-Definition fresh_quantifier (x : string) f a : string :=
-  let fvars := formula_fvars f in
-  let fix go i (x : string) f fuel : string
-    := match fuel with
-        | O => x (* there are no fvars in the formula *)
-        | S fuel =>
-          let x' := x ++ "_" ++ (NilZero.string_of_uint $ Nat.to_uint i) in
-          if decide (x' ∈ fvars) then go (S i) x f fuel else x'
-      end in
-  if appears_in_term x a then go 0 x f (size fvars) else x.
+Fixpoint fresh_quantifier_aux x (fvars : gset variable) fuel :=
+  match fuel with
+  | O => x (* there are no fvars in the formula *)
+  | S fuel =>
+      if decide (x ∈ fvars) then fresh_quantifier_aux (var_increase_sub x 1) fvars fuel else x
+  end.
+
+Definition fresh_quantifier (x : variable) (fvars : gset variable) : variable :=
+  fresh_quantifier_aux x fvars (size fvars + 1).
 
 Fixpoint formula_rank f :=
   match f with
@@ -315,6 +340,31 @@ Open Scope formula_props.
 Notation "'rank' A" := (formula_rank A + quantifier_rank A)
   (at level 20) : formula_props.
 
+(*
+  For (Qy. φ)[x \ t] (where Q ∈ {∃, ∀}), when x ≠ y and y ∈ FV(t),
+  we need to pick a fresh quantifier y'. But there are two limitations:
+  1. y' ∉ FV(φ): or else we will incorrectly capture
+  2. y' ∉ FV(t): Let's assume (Qy. y = x)[x \ z],
+    If y' = c:
+      (Qy. y = x)[x \ c + y] ≡ (Qc. (c = x)[x \ c + y]) ≡ (Qc. c = c + y)
+    If y' = z a universally fresh quantifier:
+      (Qy. y = x)[x \ c + y] ≡ (Qz. (z = x)[x \ c + y]) ≡ (Qz. z = c + y)
+    These two are not α-equivalent.
+
+
+  The following is not a limitation:
+  1. y' can be x:
+    (Qy. φ)[x \ t] ≡ (Qx. φ[y \ x][x \ t]) ≡ (Qx. φ[y \ x])
+    This discards the substition; picking a universally fresh quantifier z, yields:
+    (Qz. φ)[x \ t] ≡ (Qz. φ[y \ z][x \ t])
+    It seems like these two are not α-equivalent; but:
+    Since y' = x, we must have x ∉ FV(φ) which means (Qz. φ[y \ z][x \ t]) ≡ (Qz. φ[y \ z])
+ *)
+
+(* if x' = fresh_quantifier x fvars, then x ∉ fvars *)
+(* if x ∉ FV(φ), then (Qy. φ)[x \ t] ≡ (Qy. φ) *)
+(* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *)
+(* if (Qy. φ)[x \ t] = (Qx. φ)[x \ t], then x ∉ FV(φ) hence ≡ (Qx. φ) *)
 Fixpoint subst_formula_qrank qrank :=
   fix subst_aux f x a :=
     match f with
@@ -329,30 +379,32 @@ Fixpoint subst_formula_qrank qrank :=
     | F_Implies f₁ f₂ => F_Implies
       (subst_aux f₁ x a)
       (subst_aux f₂ x a)
-    | F_Exists y f => if (y =? x)%string then F_Exists y f else
-      let y' := fresh_quantifier y f a in
-      match qrank with
-      | 0 => F_Exists y f
-      | S qrank => F_Exists y' 
-          (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
-      end
-    | F_Forall y f => if (y =? x)%string then F_Forall y f else
-      let y' := fresh_quantifier y f a in
-      match qrank with
-      | 0 => F_Forall y f
-      | S qrank => F_Forall y' 
-          (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
-      end
+    | F_Exists y f =>
+        if decide (y = x) then F_Exists y f else
+          let y' := fresh_quantifier y (formula_fvars f ∪ term_fvars a) in
+          match qrank with
+          | 0 => F_Exists y f
+          | S qrank => F_Exists y'
+                        (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
+          end
+    | F_Forall y f =>
+        if decide (y = x) then F_Forall y f else
+          let y' := fresh_quantifier y (formula_fvars f ∪ term_fvars a) in
+          match qrank with
+          | 0 => F_Forall y f
+          | S qrank => F_Forall y'
+                        (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
+          end
 end.
 
-Definition formula_subst f x a :=
+Definition subst_formula f x a :=
   subst_formula_qrank (quantifier_rank f) f x a.
 
-Notation "f [ x \ a ]" := (formula_subst f x a)
+Notation "f [ x \ a ]" := (subst_formula f x a)
   (at level 10, left associativity,
    x at next level) : formula_scope.
 
-Notation "f [ x \ a ]" := (formula_subst f x a)
+Notation "f [ x \ a ]" := (subst_formula f x a)
   (in custom formula at level 74, left associativity,
     f custom formula,
     x constr at level 0, a custom formula) : formula_scope.
@@ -705,33 +757,33 @@ Proof with auto.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
   - subst. destruct r; simpl in *.
-    + destruct (String.eqb_spec x x')...
-    + fold_qrank_subst (S r) φ x (fresh_quantifier x φ a).
-      destruct (String.eqb_spec x x'); try lia...
-      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x φ a))
+    + destruct (decide (x = x'))...
+    + fold_qrank_subst (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)).
+      destruct (decide (x = x')); try lia...
+      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)))
         as φ₁. (* the first substitution *)
       remember (subst_formula_qrank r φ₁ x' a)
         as φ₂. (* the second substituion *)
       specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
       specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
       forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_quantifier x φ a) (S r)). (* φ₁ *)
+      specialize (IHφ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)) (S r)). (* φ₁ *)
       forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
       forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
       rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
       apply shape_eq_trans with φ₁...
   - subst. destruct r; simpl in *.
-    + destruct (String.eqb_spec x x')...
-    + fold_qrank_subst (S r) φ x (fresh_quantifier x φ a).
-      destruct (String.eqb_spec x x'); try lia...
-      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x φ a))
+    + destruct (decide (x = x'))...
+    + fold_qrank_subst (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)).
+      destruct (decide (x = x')); try lia...
+      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)))
         as φ₁. (* the first substitution *)
       remember (subst_formula_qrank r φ₁ x' a)
         as φ₂. (* the second substituion *)
       specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
       specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
       forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_quantifier x φ a) (S r)). (* φ₁ *)
+      specialize (IHφ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)) (S r)). (* φ₁ *)
       forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
       forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
       rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
@@ -761,7 +813,7 @@ Proof with auto.
     apply rank_eq_if_shape_eq in H. lia.
 Qed.
 
-Definition state := gmap string value.
+Definition state := gmap variable value.
 
 Record fdef := mkFdef {
     fdef_arity : nat;
@@ -860,3 +912,89 @@ Fixpoint feval (M : semantics) (σ : state) (φ : formula) : Prop :=
   | F_Exists x φ => exists v, feval M (<[x:=v]>σ) φ
   | F_Forall x φ => forall v, feval M (<[x:=v]>σ) φ
   end.
+
+
+Notation var_seq x i n := (map (λ j, var_with_sub x j) (seq i n)).
+
+Lemma var_seq_cons : forall x i n,
+    var_with_sub x i :: var_seq x (S i) n = var_seq x i (S n).
+Proof. reflexivity. Qed.
+
+Lemma var_seq_app_r : forall x i n,
+    var_seq x i (S n) = var_seq x i n ++ [var_with_sub x (i + n)].
+Proof with auto.
+  intros. replace (S n) with (n + 1) by lia. rewrite seq_app.
+  rewrite map_app. f_equal.
+Qed.
+
+Lemma var_seq_eq : forall x₁ x₂ i n,
+    var_name x₁ = var_name x₂ ->
+    var_is_initial x₁ = var_is_initial x₂ ->
+    var_seq x₁ i n = var_seq x₂ i n.
+Proof with auto.
+  intros. apply list_fmap_ext. intros j k H1. unfold var_with_sub. f_equal...
+Qed.
+
+Lemma length_var_seq : forall x i n,
+    length (var_seq x i n) = n.
+Proof. intros. rewrite length_map. rewrite length_seq. reflexivity. Qed.
+
+
+Lemma not_elem_of_var_seq : forall x i n,
+    i > var_sub x ->
+    x ∉ var_seq x i n.
+Proof with auto.
+  induction n.
+  - intros. simpl. apply not_elem_of_nil.
+  - intros. simpl. apply not_elem_of_cons. split.
+    * unfold var_with_sub. destruct x. simpl. inversion 1. destruct H0. subst. simpl in H.
+      lia.
+    * forward IHn by assumption. intros contra. apply IHn. destruct n.
+      -- simpl in contra. apply elem_of_nil in contra. contradiction.
+      -- rewrite var_seq_app_r in contra. apply elem_of_app in contra.
+         destruct contra.
+         2:{ apply elem_of_list_singleton in H0. unfold var_with_sub in H0. destruct x.
+             simpl in H0. simpl in H. inversion H0. lia. }
+        apply elem_of_list_fmap in H0 as [j [H1 H2]]. apply elem_of_list_fmap.
+         exists j. split... apply elem_of_seq. apply elem_of_seq in H2. lia.
+Qed.
+
+Theorem fresh_quantifier_fresh_aux : forall x fvars fuel,
+    fuel > 0 ->
+      var_seq x (var_sub x) fuel ⊆+ elements fvars \/
+      fresh_quantifier_aux x fvars fuel ∉ fvars.
+Proof with auto.
+  intros x fvars fuel. generalize dependent x. induction fuel; try lia.
+  intros. destruct fuel.
+  - simpl. destruct (decide (x ∈ fvars))... rewrite var_with_sub_var_sub_id. left.
+    apply singleton_submseteq_l. apply elem_of_elements...
+  - forward (IHfuel (var_increase_sub x 1)) by lia.
+    destruct IHfuel.
+    + simpl. destruct (decide (x ∈ fvars))... left.
+      rewrite var_seq_cons. rename fuel into fuel'. remember (S fuel') as fuel.
+      assert (fuel > 0) by lia. clear Heqfuel. clear fuel'.
+      simpl in H0. rewrite var_with_sub_var_sub_id. apply NoDup_submseteq.
+      * apply NoDup_cons. split.
+        -- apply not_elem_of_var_seq. lia.
+        -- apply NoDup_fmap.
+           ++ intros i j H2. unfold var_with_sub in H2. inversion H2...
+           ++ apply NoDup_seq.
+      * intros v H2. apply elem_of_elements. apply elem_of_cons in H2. destruct H2; subst...
+        assert (var_seq (var_increase_sub x 1) (var_sub x + 1) fuel =
+                  var_seq x (S (var_sub x)) fuel) as Heq.
+        { replace (var_sub x + 1) with (S (var_sub x)) by lia. apply var_seq_eq...  }
+        rewrite Heq in *. clear Heq. apply (elem_of_submseteq _ _ _ H2) in H0.
+        apply elem_of_elements in H0...
+    + simpl. destruct (decide (x ∈ fvars))...
+Qed.
+
+Theorem fresh_quantifier_fresh : forall {x x' fvars},
+    x' = fresh_quantifier x fvars ->
+    x' ∉ fvars.
+Proof with auto.
+  intros. assert (Haux := fresh_quantifier_fresh_aux x fvars (size fvars + 1)).
+  forward Haux by lia. destruct Haux.
+  - exfalso. apply submseteq_length in H0. rewrite length_var_seq in H0.
+    unfold size, set_size in H0. simpl in *. lia.
+  - subst...
+Qed.
