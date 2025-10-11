@@ -35,7 +35,7 @@ Defined.
 
 Definition simple_var name := mkVar name 0 false.
 Definition var_with_sub x i :=
-  mkVar (var_name var) (i) (var_is_initial var).
+  mkVar (var_name x) (i) (var_is_initial x).
 Definition var_increase_sub x i :=
   var_with_sub x (var_sub x + i).
 
@@ -302,15 +302,15 @@ Fixpoint formula_fvars (f : formula) : gset variable :=
   | F_Forall x f => formula_fvars f ∖ {[x]}
   end.
 
-Fixpoint fresh_quantifier_aux x (fvars : gset variable) fuel :=
+Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
   match fuel with
   | O => x (* there are no fvars in the formula *)
   | S fuel =>
-      if decide (x ∈ fvars) then fresh_quantifier_aux (var_increase_sub x 1) fvars fuel else x
+      if decide (x ∈ fvars) then fresh_var_aux (var_increase_sub x 1) fvars fuel else x
   end.
 
-Definition fresh_quantifier (x : variable) (fvars : gset variable) : variable :=
-  fresh_quantifier_aux x fvars (size fvars + 1).
+Definition fresh_var (x : variable) (fvars : gset variable) : variable :=
+  fresh_var_aux x fvars (S (size fvars)).
 
 Fixpoint formula_rank f :=
   match f with
@@ -360,45 +360,62 @@ Notation "'rank' A" := (formula_rank A + quantifier_rank A)
     It seems like these two are not α-equivalent; but:
     Since y' = x, we must have x ∉ FV(φ) which means (Qz. φ[y \ z][x \ t]) ≡ (Qz. φ[y \ z])
  *)
+Definition quant_subst_fvars φ x t := formula_fvars φ ∪ term_fvars t ∪ {[x]}.
+Lemma quant_subst_fvars_inv : forall y φ x t,
+    y ∉ quant_subst_fvars φ x t -> y ∉ formula_fvars φ /\ y ∉ term_fvars t /\ y ≠ x.
+Proof with auto.
+  intros. unfold quant_subst_fvars in H.
+  apply not_elem_of_union in H as [H H1]. apply not_elem_of_singleton in H1.
+  apply not_elem_of_union in H as [H2 H3]...
+Qed.
 
-(* if x' = fresh_quantifier x fvars, then x ∉ fvars *)
-(* if x ∉ FV(φ), then (Qy. φ)[x \ t] ≡ (Qy. φ) *)
-(* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *)
-(* if (Qy. φ)[x \ t] = (Qx. φ)[x \ t], then x ∉ FV(φ) hence ≡ (Qx. φ) *)
-Fixpoint subst_formula_qrank qrank :=
-  fix subst_aux f x a :=
-    match f with
-    | F_Simple sf => F_Simple (subst_simple_formula sf x a)
-    | F_Not f => F_Not (subst_aux f x a)
-    | F_And f₁ f₂ => F_And
-      (subst_aux f₁ x a)
-      (subst_aux f₂ x a)
-    | F_Or f₁ f₂ => F_Or
-      (subst_aux f₁ x a)
-      (subst_aux f₂ x a)
-    | F_Implies f₁ f₂ => F_Implies
-      (subst_aux f₁ x a)
-      (subst_aux f₂ x a)
-    | F_Exists y f =>
-        if decide (y = x) then F_Exists y f else
-          let y' := fresh_quantifier y (formula_fvars f ∪ term_fvars a) in
+Inductive sum_quant_subst_skip_cond y φ x :=
+  | SumQuantSubstSkipCond_False (H : y = x \/ x ∉ formula_fvars φ)
+  | SumQuantSubstSkipCond_True (H1 : y <> x) (H2: x ∈ formula_fvars φ).
+
+Definition quant_subst_skip_cond y φ x : sum_quant_subst_skip_cond y φ x.
+Proof with auto.
+  destruct (decide (y = x \/ x ∉ formula_fvars φ)).
+  - apply SumQuantSubstSkipCond_False...
+  - apply Decidable.not_or in n as [H1 H2]. destruct (decide (x ∈ formula_fvars φ)).
+    + apply SumQuantSubstSkipCond_True...
+    + contradiction.
+Defined.
+
+Fixpoint subst_formula_aux qrank :=
+  fix subst_aux φ x t :=
+    match φ with
+    | F_Simple sf => F_Simple (subst_simple_formula sf x t)
+    | F_Not φ => F_Not (subst_aux φ x t)
+    | F_And φ₁ φ₂ => F_And
+      (subst_aux φ₁ x t)
+      (subst_aux φ₂ x t)
+    | F_Or φ₁ φ₂ => F_Or
+      (subst_aux φ₁ x t)
+      (subst_aux φ₂ x t)
+    | F_Implies φ₁ φ₂ => F_Implies
+      (subst_aux φ₁ x t)
+      (subst_aux φ₂ x t)
+    | F_Exists y φ =>
+        if quant_subst_skip_cond y φ x then F_Exists y φ else
+          let y' := fresh_var y (quant_subst_fvars φ x t) in
           match qrank with
-          | 0 => F_Exists y f
+          | 0 => F_Exists y φ
           | S qrank => F_Exists y'
-                        (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
+                        (subst_formula_aux qrank (subst_aux φ y (TVar y')) x t)
           end
-    | F_Forall y f =>
-        if decide (y = x) then F_Forall y f else
-          let y' := fresh_quantifier y (formula_fvars f ∪ term_fvars a) in
+    | F_Forall y φ =>
+        if quant_subst_skip_cond y φ x then F_Forall y φ else
+          let y' := fresh_var y (quant_subst_fvars φ x t) in
           match qrank with
-          | 0 => F_Forall y f
+          | 0 => F_Forall y φ
           | S qrank => F_Forall y'
-                        (subst_formula_qrank qrank (subst_aux f y (TVar y')) x a)
+                        (subst_formula_aux qrank (subst_aux φ y (TVar y')) x t)
           end
 end.
 
-Definition subst_formula f x a :=
-  subst_formula_qrank (quantifier_rank f) f x a.
+Definition subst_formula φ x t :=
+  subst_formula_aux (quantifier_rank φ) φ x t.
 
 Notation "f [ x \ a ]" := (subst_formula f x a)
   (at level 10, left associativity,
@@ -409,13 +426,16 @@ Notation "f [ x \ a ]" := (subst_formula f x a)
     f custom formula,
     x constr at level 0, a custom formula) : formula_scope.
 
-Ltac fold_qrank_subst n f x a := 
+Ltac fold_qrank_subst n φ x t :=
   let R := fresh in
   let H := fresh in
   let H' := fresh in
-  remember (subst_formula_qrank n f x a) as R eqn:H;
+  remember (subst_formula_aux n φ x t) as R eqn:H;
   assert (H' := H); simpl in H'; rewrite H in H'; rewrite <- H' in *;
   clear H'; clear H; clear R.
+
+Ltac fold_qrank_subst_fresh n φ x x' t :=
+  fold_qrank_subst n φ x (fresh_var x (quant_subst_fvars φ x' t)).
 
 Theorem formula_rank_gt_zero : forall A, formula_rank A > 0.
 Proof.
@@ -681,11 +701,11 @@ Hint Extern 2 (shape_eq ?A ?A = true) =>
   apply shape_eq_refl : core.
 
 Theorem subst_preserves_shape : forall A x a r,
-  shape_eq A (subst_formula_qrank r A x a) = true.
+  shape_eq A (subst_formula_aux r A x a) = true.
 Proof with auto.
   intros A.
   apply (formula_rank_ind (fun P => forall x a r,
-      shape_eq P (subst_formula_qrank r P x a) = true))...
+      shape_eq P (subst_formula_aux r P x a) = true))...
   clear A. intros n IH. destruct φ;
     intros Hr x' a r.
   - destruct r; simpl in *...
@@ -744,8 +764,8 @@ Proof with auto.
       * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
         fold_qrank_subst (S r) φ1 x' a.
+      * fold_qrank_subst (S r) φ2 x' a.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
@@ -757,33 +777,33 @@ Proof with auto.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
   - subst. destruct r; simpl in *.
-    + destruct (decide (x = x'))...
-    + fold_qrank_subst (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)).
-      destruct (decide (x = x')); try lia...
-      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)))
+    + destruct (quant_subst_skip_cond x φ x')...
+    + fold_qrank_subst_fresh (S r) φ x x' a.
+      destruct (quant_subst_skip_cond x φ x'); try lia...
+      remember (subst_formula_aux (S r) φ x (fresh_var x (quant_subst_fvars φ x' a)))
         as φ₁. (* the first substitution *)
-      remember (subst_formula_qrank r φ₁ x' a)
+      remember (subst_formula_aux r φ₁ x' a)
         as φ₂. (* the second substituion *)
       specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
       specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
       forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)) (S r)). (* φ₁ *)
+      specialize (IHφ x (fresh_var x (quant_subst_fvars φ x' a)) (S r)). (* φ₁ *)
       forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
       forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
       rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
       apply shape_eq_trans with φ₁...
   - subst. destruct r; simpl in *.
-    + destruct (decide (x = x'))...
-    + fold_qrank_subst (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)).
-      destruct (decide (x = x')); try lia...
-      remember (subst_formula_qrank (S r) φ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)))
+    + destruct (quant_subst_skip_cond x φ x')...
+    + fold_qrank_subst_fresh (S r) φ x x' a.
+      destruct (quant_subst_skip_cond x φ x'); try lia...
+      remember (subst_formula_aux (S r) φ x (fresh_var x (quant_subst_fvars φ x' a)))
         as φ₁. (* the first substitution *)
-      remember (subst_formula_qrank r φ₁ x' a)
+      remember (subst_formula_aux r φ₁ x' a)
         as φ₂. (* the second substituion *)
       specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
       specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
       forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_quantifier x (formula_fvars φ ∪ term_fvars a)) (S r)). (* φ₁ *)
+      specialize (IHφ x (fresh_var x (quant_subst_fvars φ x' a)) (S r)). (* φ₁ *)
       forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
       forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
       rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
@@ -913,6 +933,17 @@ Fixpoint feval (M : semantics) (σ : state) (φ : formula) : Prop :=
   | F_Forall x φ => forall v, feval M (<[x:=v]>σ) φ
   end.
 
+Axiom feval_lem : forall M σ φ, feval M σ φ \/ ~ feval M σ φ.
+
+Theorem feval_dec : forall M σ φ, Decidable.decidable (feval M σ φ).
+Proof. exact feval_lem. Qed.
+
+Theorem feval_dne : forall M σ φ,
+  ~ ~ feval M σ φ <-> feval M σ φ.
+Proof with auto.
+  intros.
+  apply (Decidable.not_not_iff _ (feval_dec M σ φ)).
+Qed.
 
 Notation var_seq x i n := (map (λ j, var_with_sub x j) (seq i n)).
 
@@ -959,10 +990,10 @@ Proof with auto.
          exists j. split... apply elem_of_seq. apply elem_of_seq in H2. lia.
 Qed.
 
-Theorem fresh_quantifier_fresh_aux : forall x fvars fuel,
+Lemma fresh_var_fresh_aux : forall x fvars fuel,
     fuel > 0 ->
       var_seq x (var_sub x) fuel ⊆+ elements fvars \/
-      fresh_quantifier_aux x fvars fuel ∉ fvars.
+      fresh_var_aux x fvars fuel ∉ fvars.
 Proof with auto.
   intros x fvars fuel. generalize dependent x. induction fuel; try lia.
   intros. destruct fuel.
@@ -988,13 +1019,34 @@ Proof with auto.
     + simpl. destruct (decide (x ∈ fvars))...
 Qed.
 
-Theorem fresh_quantifier_fresh : forall {x x' fvars},
-    x' = fresh_quantifier x fvars ->
-    x' ∉ fvars.
+Lemma fresh_var_fresh : forall x fvars,
+    fresh_var x fvars ∉ fvars.
 Proof with auto.
-  intros. assert (Haux := fresh_quantifier_fresh_aux x fvars (size fvars + 1)).
-  forward Haux by lia. destruct Haux.
-  - exfalso. apply submseteq_length in H0. rewrite length_var_seq in H0.
-    unfold size, set_size in H0. simpl in *. lia.
-  - subst...
+  intros. assert (Haux := fresh_var_fresh_aux x fvars (S (size fvars))).
+  forward Haux by lia. destruct Haux...
+  exfalso. apply submseteq_length in H. rewrite length_var_seq in H.
+  unfold size, set_size in H. simpl in *. lia.
 Qed.
+
+Lemma fresh_var_free : forall {x fvars},
+    x ∉ fvars ->
+    fresh_var x fvars = x.
+Proof with auto.
+  intros. unfold fresh_var. unfold fresh_var_aux.
+  destruct (decide (x ∈ fvars))... contradiction.
+Qed.
+
+Lemma fexists_subst_not_free : forall y φ x t,
+    x ∉ formula_fvars φ ->
+    <! (exists y, φ)[x \ t] !> = <! exists y, φ !>.
+Proof with auto.
+  intros. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y φ x)...
+  contradiction.
+Qed.
+
+(* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
+(* (* if (Qy. φ)[x \ t] = (Qx. φ[x \ t]), then x ∉ FV(φ) hence ≡ (Qx. φ) *) *)
+(* Lemma temp : forall (x y : variable) φ, *)
+(*     x ∈ formula_fvars φ -> *)
+(*     formula_fvars (<! φ[x \ y] !>) = formula_fvars φ ∪ {[y]} ∖ {[x]}. *)
+(* Proof. *)
