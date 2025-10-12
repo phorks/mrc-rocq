@@ -76,7 +76,7 @@ Fixpoint term_rank t :=
     + fold_right max 0 (map (fun arg => term_rank arg) args)
   end.
 
-Theorem term_rank_app_gt_args : forall f args arg,
+Lemma term_rank_app_gt_args : forall f args arg,
   In arg args ->
   term_rank arg < term_rank (TApp f args).
 Proof with auto.
@@ -93,7 +93,7 @@ Proof with auto.
       * forward IHargs... lia.
 Qed. (* TODO: I did this proof blindly, maybe it can be simplified *)
 
-Theorem term_formula_rank_ind : forall P,
+Lemma term_formula_rank_ind : forall P,
   (forall n,
     (forall m, m < n ->
       forall u, term_rank u = m -> P u) ->
@@ -106,7 +106,7 @@ Proof with auto.
     intros m Hlt u Hu. apply IHn. lia.
 Qed.
 
-Theorem term_ind : forall P,
+Lemma term_ind : forall P,
   (forall v, P (TConst v)) ->
   (forall x, P (TVar x)) ->
   (forall f args,
@@ -268,7 +268,7 @@ Fixpoint subst_term t x a :=
   | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
   end.
 
-Definition subst_simple_formula sf x a :=
+Definition subst_sf sf x a :=
   match sf with
   | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
   | AT_Pred sym args => AT_Pred sym (map (fun arg => subst_term arg x a) args)
@@ -385,7 +385,7 @@ Defined.
 Fixpoint subst_formula_aux qrank :=
   fix subst_aux φ x t :=
     match φ with
-    | F_Simple sf => F_Simple (subst_simple_formula sf x t)
+    | F_Simple sf => F_Simple (subst_sf sf x t)
     | F_Not φ => F_Not (subst_aux φ x t)
     | F_And φ₁ φ₂ => F_And
       (subst_aux φ₁ x t)
@@ -437,12 +437,12 @@ Ltac fold_qrank_subst n φ x t :=
 Ltac fold_qrank_subst_fresh n φ x x' t :=
   fold_qrank_subst n φ x (fresh_var x (quant_subst_fvars φ x' t)).
 
-Theorem formula_rank_gt_zero : forall A, formula_rank A > 0.
+Lemma formula_rank_gt_zero : forall A, formula_rank A > 0.
 Proof.
   intros A. destruct A; simpl; lia.
 Qed.
 
-Theorem formula_rank_nonzero : forall A,
+Lemma formula_rank_nonzero : forall A,
   formula_rank A <> 0.
 Proof.
   intros A. assert (formula_rank A > 0) by apply formula_rank_gt_zero.
@@ -460,7 +460,7 @@ Hint Extern 2 =>
     apply eq_sym in H; apply formula_rank_nonzero in H;
     destruct H end : core.
 
-Theorem formula_rank_one_is_simple : forall A,
+Lemma formula_rank_one_is_simple : forall A,
   formula_rank A = 1 -> 
   exists sf, A = F_Simple sf.
 Proof with auto.
@@ -472,7 +472,7 @@ Proof with auto.
   - exists sf...
 Qed.
 
-Theorem formula_rank_ind : forall P,
+Lemma formula_rank_ind : forall P,
   (forall n,
     (forall m, m < n -> 
       forall ψ, rank ψ = m -> P ψ) ->
@@ -521,49 +521,49 @@ Fixpoint shape_eq A B :=
   | _, _ => false
   end.
 
-Theorem shape_eq__cons_eq : forall A B,
+Lemma shape_eq__cons_eq : forall A B,
   shape_eq A B = true ->
     cons_eq A B = true.
 Proof with auto.
   intros. destruct A; destruct B; try discriminate...
 Qed.
 
-Theorem cons_eq_simple : forall sf B,
+Lemma cons_eq_simple : forall sf B,
   cons_eq (F_Simple sf) B = true ->
   exists sf', B = F_Simple sf'.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists sf0...
 Qed.
 
-Theorem shape_eq_simple : forall sf B,
+Lemma shape_eq_simple : forall sf B,
   shape_eq (F_Simple sf) B = true ->
   exists sf', B = F_Simple sf'.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists sf0...
 Qed.
 
-Theorem cons_eq_not : forall A1 B,
+Lemma cons_eq_not : forall A1 B,
   cons_eq <! ~ A1 !> B = true ->
   exists B1, B = <! ~ B1 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists B...
 Qed.
 
-Theorem shape_eq_not : forall A1 B,
+Lemma shape_eq_not : forall A1 B,
   shape_eq <! ~ A1 !> B = true ->
   exists B1, B = <! ~ B1 !> /\ shape_eq A1 B1 = true.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists B...
 Qed.
 
-Theorem cons_eq_and : forall A1 A2 B,
+Lemma cons_eq_and : forall A1 A2 B,
   cons_eq <! A1 /\ A2 !> B = true ->
   exists B1 B2, B = <! B1 /\ B2 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists B1, B2...
 Qed.
 
-Theorem shape_eq_and : forall A1 A2 B,
+Lemma shape_eq_and : forall A1 A2 B,
   shape_eq <! A1 /\ A2 !> B = true ->
   exists B1 B2, B = <! B1 /\ B2 !> /\
     shape_eq A1 B1 = true /\
@@ -573,14 +573,14 @@ Proof with auto.
   apply Bool.andb_true_iff in H. exists B1, B2...
 Qed.
 
-Theorem cons_eq_or : forall A1 A2 B,
+Lemma cons_eq_or : forall A1 A2 B,
   cons_eq <! A1 \/ A2 !> B = true ->
   exists B1 B2, B = <! B1 \/ B2 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists B1, B2...
 Qed.
 
-Theorem shape_eq_or : forall A1 A2 B,
+Lemma shape_eq_or : forall A1 A2 B,
   shape_eq <! A1 \/ A2 !> B = true ->
   exists B1 B2, B = <! B1 \/ B2 !> /\
     shape_eq A1 B1 = true /\
@@ -590,14 +590,14 @@ Proof with auto.
   apply Bool.andb_true_iff in H. exists B1, B2...
 Qed.
 
-Theorem cons_eq_implies : forall A1 A2 B,
+Lemma cons_eq_implies : forall A1 A2 B,
   cons_eq <! A1 => A2 !> B = true ->
   exists B1 B2, B = <! B1 => B2 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists B1, B2...
 Qed.
 
-Theorem shape_eq_implies : forall A1 A2 B,
+Lemma shape_eq_implies : forall A1 A2 B,
   shape_eq <! A1 => A2 !> B = true ->
   exists B1 B2, B = <! B1 => B2 !> /\
     shape_eq A1 B1 = true /\
@@ -607,41 +607,41 @@ Proof with auto.
   apply Bool.andb_true_iff in H. exists B1, B2...
 Qed.
 
-Theorem cons_eq_exists : forall x A1 B,
+Lemma cons_eq_exists : forall x A1 B,
   cons_eq <! exists x, A1 !> B = true ->
   exists y B1, B = <! exists y, B1 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists x0, B...
 Qed.
 
-Theorem shape_eq_exists : forall x A1 B,
+Lemma shape_eq_exists : forall x A1 B,
   shape_eq <! exists x, A1 !> B = true ->
   exists y B1, B = <! exists y, B1 !> /\ shape_eq A1 B1 = true.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists x0, B...
 Qed.
 
-Theorem cons_eq_forall : forall x A1 B,
+Lemma cons_eq_forall : forall x A1 B,
   cons_eq <! forall x, A1 !> B = true ->
   exists y B1, B = <! forall y, B1 !>.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists x0, B...
 Qed.
 
-Theorem shape_eq_forall : forall x A1 B,
+Lemma shape_eq_forall : forall x A1 B,
   shape_eq <! forall x, A1 !> B = true ->
   exists y B1, B = <! forall y, B1 !> /\ shape_eq A1 B1 = true.
 Proof with auto.
   intros. simpl in H. destruct B; try discriminate. exists x0, B...
 Qed.
 
-Theorem shape_eq_refl : forall A,
+Lemma shape_eq_refl : forall A,
   shape_eq A A = true.
 Proof with auto.
   intros. induction A using formula_ind_naive; simpl; auto; apply Bool.andb_true_iff...
 Qed.
 
-Theorem shape_eq_sym : forall A B,
+Lemma shape_eq_sym : forall A B,
   shape_eq A B = true ->
   shape_eq B A = true.
 Proof with auto.
@@ -649,7 +649,7 @@ Proof with auto.
   try repeat rewrite Bool.andb_true_iff; intros [H1 H2]...
 Qed.
 
-Theorem shape_eq_trans : forall A B C,
+Lemma shape_eq_trans : forall A B C,
   shape_eq A B = true ->
   shape_eq B C = true ->
   shape_eq A C = true.
@@ -664,7 +664,7 @@ Proof with auto.
     try solve [apply IHA with B; auto]...
 Qed.
 
-Theorem ranks_equal_if_shape_eq : forall A B,
+Lemma ranks_equal_if_shape_eq : forall A B,
   shape_eq A B = true ->
     formula_rank A = formula_rank B /\
     quantifier_rank A = quantifier_rank B.
@@ -685,7 +685,7 @@ Proof with auto.
   auto.
 Qed.
 
-Theorem rank_eq_if_shape_eq : forall φ ψ,
+Lemma rank_eq_if_shape_eq : forall φ ψ,
     shape_eq φ ψ = true ->
     rank φ = rank ψ.
 Proof. intros. apply ranks_equal_if_shape_eq in H. lia. Qed.
@@ -697,10 +697,9 @@ Ltac deduce_rank_eq Hsame :=
   apply ranks_equal_if_shape_eq in Hsame as Htemp;
   destruct Htemp as [Hfr Hqr].
 
-Hint Extern 2 (shape_eq ?A ?A = true) =>
-  apply shape_eq_refl : core.
+Hint Resolve shape_eq_refl : core.
 
-Theorem subst_preserves_shape : forall A x a r,
+Lemma subst_preserves_shape_aux : forall A x a r,
   shape_eq A (subst_formula_aux r A x a) = true.
 Proof with auto.
   intros A.
@@ -764,8 +763,8 @@ Proof with auto.
       * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
-        fold_qrank_subst (S r) φ1 x' a.
-      * fold_qrank_subst (S r) φ2 x' a.
+      * fold_qrank_subst (S r) φ1 x' a.
+        fold_qrank_subst (S r) φ2 x' a.
         apply Bool.andb_true_iff. split;
           [apply IH1|apply IH2]; lia...
     + destruct r; simpl in *; rewrite H2 in *.
@@ -810,7 +809,14 @@ Proof with auto.
       apply shape_eq_trans with φ₁...
 Qed.
 
-Theorem formula_ind : forall P,
+Lemma subst_preserves_shape : forall φ x a,
+  shape_eq (φ[x \ a]) φ  = true.
+Proof with auto.
+  intros. unfold subst_formula. apply shape_eq_sym. apply subst_preserves_shape_aux. Qed.
+
+Hint Resolve subst_preserves_shape : core.
+
+Lemma formula_ind : forall P,
   (forall sf, P (F_Simple sf)) ->
   (forall φ, P φ -> P <! ~ φ !>) ->
   (forall φ₁ φ₂, P φ₁ -> P φ₂ -> P <! φ₁ /\ φ₂ !>) ->
@@ -861,9 +867,9 @@ Inductive fn_eval (M : semantics) (fSym : string) (vargs : list value) : value -
 Inductive teval (M : semantics) (σ : state) : term -> value -> Prop :=
   | TEval_Const : forall v, teval M σ (TConst v) v
   | TEval_Var : forall x v, σ !! x = Some v -> teval M σ (TVar x) v
-  | TEval_Func : forall f args argsv fval,
-    teval_args M σ args argsv ->
-    fn_eval M f argsv fval ->
+  | Teval_App : forall f args vargs fval,
+    teval_args M σ args vargs ->
+    fn_eval M f vargs fval ->
     teval M σ (TApp f args) (fval)
 with teval_args (M : semantics) (σ : state) : list term -> list value -> Prop :=
   | TEvalArgs_Nil : teval_args M σ [] []
@@ -885,7 +891,7 @@ Proof with auto.
   - intros. inversion H...
   - intros. inversion H; subst. rewrite e in H1. inversion H1...
   - intros. inversion H0; subst. inversion H5; subst. inversion f0; subst.
-    apply H in H3. subst argsv0. rewrite H1 in H4. inversion H4; subst.
+    apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
     assert (Hlen : hlen = hlen0). { apply UIP_nat. } subst.
     apply (fdef_functional _ H2) in H6...
   - inversion 1...
@@ -935,15 +941,19 @@ Fixpoint feval (M : semantics) (σ : state) (φ : formula) : Prop :=
 
 Axiom feval_lem : forall M σ φ, feval M σ φ \/ ~ feval M σ φ.
 
-Theorem feval_dec : forall M σ φ, Decidable.decidable (feval M σ φ).
+Lemma feval_dec : forall M σ φ, Decidable.decidable (feval M σ φ).
 Proof. exact feval_lem. Qed.
 
-Theorem feval_dne : forall M σ φ,
+Lemma feval_dne : forall M σ φ,
   ~ ~ feval M σ φ <-> feval M σ φ.
 Proof with auto.
   intros.
   apply (Decidable.not_not_iff _ (feval_dec M σ φ)).
 Qed.
+
+(* ******************************************************************* *)
+(* fresh_var specification                                             *)
+(* ******************************************************************* *)
 
 Notation var_seq x i n := (map (λ j, var_with_sub x j) (seq i n)).
 
@@ -969,7 +979,6 @@ Qed.
 Lemma length_var_seq : forall x i n,
     length (var_seq x i n) = n.
 Proof. intros. rewrite length_map. rewrite length_seq. reflexivity. Qed.
-
 
 Lemma not_elem_of_var_seq : forall x i n,
     i > var_sub x ->
@@ -1044,6 +1053,7 @@ Proof with auto.
   contradiction.
 Qed.
 
+(* TODO: remove this *)
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
 (* (* if (Qy. φ)[x \ t] = (Qx. φ[x \ t]), then x ∉ FV(φ) hence ≡ (Qx. φ) *) *)
 (* Lemma temp : forall (x y : variable) φ, *)
