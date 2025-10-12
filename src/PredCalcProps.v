@@ -43,6 +43,41 @@ Proof with auto.
       rewrite (feval_delete_state_var_head y')...
 Qed.
 
+Lemma fequiv_subst_not_free : forall A t x,
+    x ∉ formula_fvars A ->
+    <! A [x \ t] !> ≡ <! A !>.
+Proof with auto.
+  intros A t x. generalize dependent A.
+  pose proof (@subst_formula_ind x t  (λ A B, x ∉ formula_fvars B -> A ≡ B)). simpl in H.
+  apply H; clear H; intros...
+  - rewrite subst_sf_not_free...
+  - rewrite H... 
+  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
+  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
+  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
+  - intros M σ. simpl.
+    remember (fresh_var y (quant_subst_fvars φ x t)) as y'.
+    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ t] !> ↔ feval M (<[y:=v]> σ) φ).
+    { split; intros [v Hv]; exists v; apply H3... }
+    intros v. apply not_elem_of_difference in H2 as [|]; [contradiction|].
+    apply elem_of_singleton in H2. symmetry in H2. contradiction.
+  - intros M σ. simpl.
+    remember (fresh_var y (quant_subst_fvars φ x t)) as y'.
+    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ t] !> ↔ feval M (<[y:=v]> σ) φ).
+    { split; intros v Hv; apply H3... }
+    intros v. apply not_elem_of_difference in H2 as [|]; [contradiction|].
+    apply elem_of_singleton in H2. symmetry in H2. contradiction.
+Qed.
+
+Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
+    x₁ ≠ x₂ ->
+    x₁ ∉ term_fvars t₂ →
+    x₂ ∉ term_fvars t₁ →
+    <! A[x₁ \ t₁][x₂ \ t₂] !> ≡ <! A[x₂ \ t₂][x₁ \ t₁] !>.
+Proof with auto.
+Admitted.
+
+
 Lemma fequiv_exists_alpha_equiv : forall x x' A,
     x' ∉ formula_fvars A ->
     <! exists x, A !> ≡ <! exists x', A[x \ x'] !>.
@@ -75,15 +110,6 @@ Qed.
 
 Lemma fequiv_exists_subst_skip : ∀ y A x t,
 
-(* HACK: subst_formula_not_free *)
-(* HACK: subst_formula_commute *)
-
-(* Lemma feval_subst_commute : forall M σ φ x₁ t₁ x₂ t₂, *)
-(*     x₁ <> x₂ -> *)
-(*     negb $ is_free_in_term x₁ t₂ -> *)
-(*     negb $ is_free_in_term x₂ t₁ -> *)
-(*     feval M σ <! φ[x₁ \ t₁][x₂ \ t₂] !> <-> feval M σ <! φ[x₂ \ t₂][x₁ \ t₁] !>. *)
-(* Proof with auto. *)
 
 (* Lemma subst_eq_congr : forall M σ φ x t u b, *)
 (*   feval M σ <! t = u !> -> *)

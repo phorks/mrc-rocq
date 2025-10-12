@@ -121,39 +121,6 @@ Proof with auto.
   apply IH with (term_rank arg); lia.
 Qed.
 
-
-(* Instance eq_pdef : symPdef "=" := { *)
-(*   sym_pdef := {| *)
-(*     pdef_arity := 2; *)
-(*     pdef_rel args := args !!! 0 = args !!! 1; *)
-(*   |} *)
-(* }. *)
-
-(* Definition eq_prel_sem (eq : pred_rel) := forall st fctx, *)
-(*   (forall t, *)
-(*     eq st fctx [t; t] true) /\ *)
-(*   (forall t1 t2 b, *)
-(*     eq st fctx [t1; t2] b -> *)
-(*     eq st fctx [t2; t1] b) /\ *)
-(*   (forall t1 t2 t3 b1 b2, *)
-(*     eq st fctx [t1; t2] b1 -> *)
-(*     eq st fctx [t2; t3] b2 ->  *)
-(*     eq st fctx [t1; t3] (b1 && b2)). *)
-
-(* Definition pred_map := partial_map pred_def. *)
-(* Definition pred_map_has_eq_sem pmap := exists pdef, *)
-(*   pmap "="%string = Some pdef /\ eq_prel_sem (pdef_prel pdef). *)
-
-(* Inductive pcontext : Type := *)
-(*   | PCtx  *)
-(*     (pmap : pred_map)  *)
-(*     (has_eq_sem : pred_map_has_eq_sem pmap). *)
-
-(* Definition pctx_map pctx := *)
-(*   match pctx with *)
-(*   | PCtx pmap _ => pmap *)
-(*   end. *)
-
 Inductive simple_formula : Type :=
   | AT_True
   | AT_False
@@ -304,7 +271,7 @@ Fixpoint formula_fvars (f : formula) : gset variable :=
 
 Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
   match fuel with
-  | O => x (* there are no fvars in the formula *)
+  | O => x
   | S fuel =>
       if decide (x ∈ fvars) then fresh_var_aux (var_increase_sub x 1) fvars fuel else x
   end.
@@ -340,26 +307,6 @@ Open Scope formula_props.
 Notation "'rank' A" := (formula_rank A + quantifier_rank A)
   (at level 20) : formula_props.
 
-(*
-  For (Qy. φ)[x \ t] (where Q ∈ {∃, ∀}), when x ≠ y and y ∈ FV(t),
-  we need to pick a fresh quantifier y'. But there are two limitations:
-  1. y' ∉ FV(φ): or else we will incorrectly capture
-  2. y' ∉ FV(t): Let's assume (Qy. y = x)[x \ z],
-    If y' = c:
-      (Qy. y = x)[x \ c + y] ≡ (Qc. (c = x)[x \ c + y]) ≡ (Qc. c = c + y)
-    If y' = z a universally fresh quantifier:
-      (Qy. y = x)[x \ c + y] ≡ (Qz. (z = x)[x \ c + y]) ≡ (Qz. z = c + y)
-    These two are not α-equivalent.
-
-
-  The following is not a limitation:
-  1. y' can be x:
-    (Qy. φ)[x \ t] ≡ (Qx. φ[y \ x][x \ t]) ≡ (Qx. φ[y \ x])
-    This discards the substition; picking a universally fresh quantifier z, yields:
-    (Qz. φ)[x \ t] ≡ (Qz. φ[y \ z][x \ t])
-    It seems like these two are not α-equivalent; but:
-    Since y' = x, we must have x ∉ FV(φ) which means (Qz. φ[y \ z][x \ t]) ≡ (Qz. φ[y \ z])
- *)
 Definition quant_subst_fvars φ x t := formula_fvars φ ∪ term_fvars t ∪ {[x]}.
 Lemma quant_subst_fvars_inv : forall y φ x t,
     y ∉ quant_subst_fvars φ x t -> y ∉ formula_fvars φ /\ y ∉ term_fvars t /\ y ≠ x.
@@ -382,6 +329,26 @@ Proof with auto.
     + contradiction.
 Defined.
 
+(*
+  For (Qy. φ)[x \ t] (where Q ∈ {∃, ∀}), when x ≠ y and y ∈ FV(t),
+  we need to pick a fresh quantifier y'. But there are two limitations:
+  1. y' ∉ FV(φ): or else we will incorrectly capture
+  2. y' ∉ FV(t): Let's assume (Qy. y = x)[x \ z],
+    If y' = c:
+      (Qy. y = x)[x \ c + y] ≡ (Qc. (c = x)[x \ c + y]) ≡ (Qc. c = c + y)
+    If y' = z a universally fresh quantifier:
+      (Qy. y = x)[x \ c + y] ≡ (Qz. (z = x)[x \ c + y]) ≡ (Qz. z = c + y)
+    These two are not α-equivalent.
+
+
+  The following is not a limitation; however we envforce it to make proofs easier
+  1. y' can be x but we don't allow it:
+    (Qy. φ)[x \ t] ≡ (Qx. φ[y \ x][x \ t]) ≡ (Qx. φ[y \ x])
+    This discards the substition; picking a universally fresh quantifier z, yields:
+    (Qz. φ)[x \ t] ≡ (Qz. φ[y \ z][x \ t])
+    It seems like these two are not α-equivalent; but:
+    Since y' = x, we must have x ∉ FV(φ) which means (Qz. φ[y \ z][x \ t]) ≡ (Qz. φ[y \ z])
+ *)
 Fixpoint subst_formula_aux qrank :=
   fix subst_aux φ x t :=
     match φ with

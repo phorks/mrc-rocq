@@ -430,6 +430,17 @@ Proof with auto.
     * apply IHargs... intros. apply H0... simpl. right...
 Qed.
 
+Lemma subst_sf_not_free : forall sf x t,
+    x ∉ simple_formula_fvars sf ->
+    subst_sf sf x t = sf.
+Proof with auto.
+  intros. destruct sf; simpl; try reflexivity.
+  - simpl in H. apply not_elem_of_union in H as [? ?]. f_equal; apply subst_term_not_free...
+  - f_equal. simpl in H. induction args... simpl in *. apply not_elem_of_union in H as [? ?].
+    f_equal.
+    + simpl in H. apply subst_term_not_free...
+    + apply IHargs...
+Qed.
 
 Lemma subst_term_commute : forall t x₁ t₁ x₂ t₂,
     x₁ ≠ x₂ ->
@@ -800,43 +811,3 @@ Proof with auto.
          rewrite (delete_insert_delete (<[x₀:=v₀]> σ)).
          rewrite (delete_insert_ne (<[x₀:=v₀]> σ))...
 Qed.
-(* -------------------------------------------------------- *)
-(* Lemma feval_exists_equiv : forall M σ x x' φ, *)
-(*     x' ∉ formula_fvars φ -> *)
-(*     feval M σ <! exists x, φ !> <-> feval M σ <! exists x', φ[x \ x'] !>. *)
-(* Proof with auto. *)
-(*   intros. generalize dependent σ. induction φ. *)
-(*   - simpl.  admit. *)
-(*   - admit. *)
-(*   - admit. *)
-(*   - admit. *)
-(*   - admit. *)
-(*   - simpl. intros σ. split; intros [v Hv]; exists v. *)
-(*     + destruct Hv as [v' Hv]. simpl in H. *)
-(*       apply not_elem_of_difference in H. rewrite elem_of_singleton in H. *)
-(*       destruct H. *)
-(*       * admit. *)
-(*       * subst. *)
-(*       rewrite simpl_subst_exists_skip... *)
-(*       2: { destruct H... } *)
-
-
-(*   split; intros [v Hv]; exists v. *)
-(*   - *)
-
-(* (* (* if (Qy. φ)[x \ t] = (Qx. φ)[x \ t], then x ∉ FV(φ) hence ≡ (Qx. φ) *) *) *)
-(* Lemma temp : forall M σ y φ x t, *)
-(*     <! (exists y, φ)[x \ t] !> = <! exists x, φ[x \ t] !> -> *)
-(*     feval M σ <! (exists y, φ)[x \ t] !> <-> feval M σ <! exists y, φ !>. *)
-(* Proof with auto. *)
-(*   intros. destruct (formula_). *)
-(*   - rewrite simpl_subst_exists_skip... *)
-(*   - apply Decidable.not_or in n as [H1 H2]. *)
-(*     destruct (decide (x ∈ formula_fvars φ)); try contradiction. *)
-(*     clear H2. rename e into H2. rewrite simpl_subst_exists_propagate... *)
-(*     simpl. split; intros [v Hv]; exists v. *)
-(*     + *)
-
-
-(* (*     rewrite simpl_subst_exists_propagate... *) *)
-(* (*     + rewrite simpl_ subst. *) *)
