@@ -5,12 +5,12 @@ From Stdlib Require Import Lists.List. Import ListNotations.
 From MRC Require Import Tactics PredCalc PredCalcSubst PredCalcEquiv.
 From stdpp Require Import gmap fin_maps.
 
-Lemma fequiv_subst_id : forall A x,
+Lemma fequiv_subst_diag : forall A x,
     <! A[x \ x] !> ≡ A.
 Proof with auto.
   intros A x. generalize dependent A.
   apply subst_formula_ind with (P:=λ A B, A ≡ B); intros...
-  - rewrite subst_sf_id...
+  - rewrite subst_sf_diag...
   - rewrite H. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
   - rewrite H. rewrite H0. reflexivity.

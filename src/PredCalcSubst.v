@@ -390,7 +390,7 @@ Proof with auto.
     + rewrite simpl_subst_forall_propagate; try contradiction...
 Qed.
 
-Lemma subst_term_id : forall t x,
+Lemma subst_term_diag : forall t x,
     subst_term t x x = t.
 Proof with auto.
   intros t x. induction t using term_ind; simpl...
@@ -400,12 +400,12 @@ Proof with auto.
     * apply IHargs. intros. apply H. simpl. right...
 Qed.
 
-Lemma subst_sf_id : forall sf x,
+Lemma subst_sf_diag : forall sf x,
     subst_sf sf x x = sf.
 Proof with auto.
   intros sf x. destruct sf...
-  - simpl... f_equal; apply subst_term_id.
-  - simpl. f_equal. induction args... rewrite map_cons. f_equal; auto; apply subst_term_id.
+  - simpl... f_equal; apply subst_term_diag.
+  - simpl. f_equal. induction args... rewrite map_cons. f_equal; auto; apply subst_term_diag.
 Qed.
 
 Hint Resolve simpl_subst_sf : core.
@@ -414,8 +414,8 @@ Hint Rewrite simpl_subst_and : core.
 Hint Rewrite simpl_subst_or : core.
 Hint Rewrite simpl_subst_implication : core.
 Hint Rewrite simpl_subst_iff : core.
-Hint Rewrite subst_term_id : core.
-Hint Rewrite subst_sf_id : core.
+Hint Rewrite subst_term_diag : core.
+Hint Rewrite subst_sf_diag : core.
 
 Lemma subst_term_non_free : forall t x t',
     x ∉ term_fvars t ->
