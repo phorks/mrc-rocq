@@ -72,8 +72,7 @@ Fixpoint term_rank t :=
   match t with
   | TConst _ => 0
   | TVar _ => 0
-  | TApp f args => 1
-    + fold_right max 0 (map (fun arg => term_rank arg) args)
+  | TApp f args => 1 + max_list_with term_rank args
   end.
 
 Lemma term_rank_app_gt_args : forall f args arg,
@@ -85,13 +84,10 @@ Proof with auto.
   - destruct HIn.
   - destruct HIn as [HIn | HIn].
     + rewrite HIn in *. simpl. lia.
-    + simpl in *. remember (fold_right Init.Nat.max 0
-        (map (fun arg0 : term => term_rank arg0) args)) as others.
-      assert (HMax :=
-        (Nat.max_spec (term_rank a) (others))).
-      destruct HMax as [[H1 H2] | [H1 H2]]; rewrite H2; try lia...
-      * forward IHargs... lia.
-Qed. (* TODO: I did this proof blindly, maybe it can be simplified *)
+    + simpl in *. remember (max_list_with term_rank args) as rest.
+      destruct (Nat.max_spec (term_rank a) (rest)) as [[_ H] | [_ H]]; rewrite H; try lia...
+      forward IHargs... lia.
+Qed.
 
 Lemma term_formula_rank_ind : forall P,
   (forall n,
@@ -202,32 +198,6 @@ Notation "'∀' x .. y '●' f" := (F_Forall x .. (F_Forall y f) ..) (in custom 
 
 Open Scope formula_scope.
 
-Fixpoint is_free_in_term x t :=
-  match t with
-  | TConst v => false
-  | TVar y => if decide (y = x) then true else false
-  | TApp sym args => foldr orb false (map (fun arg => is_free_in_term x arg) args)
-  end.
-
-Definition is_free_in_sf x sf :=
-  match sf with
-  | AT_Eq t₁ t₂ => is_free_in_term x t₁ || is_free_in_term x t₂
-  | AT_Pred sym args =>
-    fold_right orb false (map (fun arg => is_free_in_term x arg) args)
-  | _ => false
-  end.
-
-Fixpoint is_free_in (x : variable) f :=
-  match f with
-  | F_Simple sf => is_free_in_sf x sf
-  | F_Not f₁ => is_free_in x f₁
-  | F_And f₁ f₂ => is_free_in x f₁ ||  is_free_in x f₂
-  | F_Or f₁ f₂ => is_free_in x f₁ || is_free_in x f₂
-  | F_Implies f₁ f₂ => is_free_in x f₁ || is_free_in x f₂
-  | F_Exists y f₁ => if decide (y = x) then false else (is_free_in x f₁)
-  | F_Forall y f₁ => if decide (y = x) then false else (is_free_in x f₁)
-  end.
-
 Fixpoint subst_term t x a :=
   match t with
   | TConst v => TConst v
@@ -246,15 +216,13 @@ Fixpoint term_fvars t : gset variable :=
   match t with
   | TConst v => ∅
   | TVar y => {[y]}
-  | TApp sym args =>
-    foldr (∪) ∅ (map (fun arg => term_fvars arg) args)
+  | TApp sym args => ⋃ (map term_fvars args)
   end.
 
 Definition simple_formula_fvars sf : gset variable :=
   match sf with
   | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
-  | AT_Pred _ args =>
-    foldr (∪) ∅ (map (fun arg => term_fvars arg) args)
+  | AT_Pred _ args => ⋃ (map term_fvars args)
   | _ => ∅
   end.
 
@@ -922,7 +890,7 @@ Qed.
 (* fresh_var specification                                             *)
 (* ******************************************************************* *)
 
-Notation var_seq x i n := (map (λ j, var_with_sub x j) (seq i n)).
+Notation var_seq x i n := (map (var_with_sub x) (seq i n)).
 
 Lemma var_seq_cons : forall x i n,
     var_with_sub x i :: var_seq x (S i) n = var_seq x i (S n).
@@ -1012,14 +980,7 @@ Proof with auto.
   destruct (decide (x ∈ fvars))... contradiction.
 Qed.
 
-Lemma fexists_subst_not_free : forall y φ x t,
-    x ∉ formula_fvars φ ->
-    <! (exists y, φ)[x \ t] !> = <! exists y, φ !>.
-Proof with auto.
-  intros. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y φ x)...
-  contradiction.
-Qed.
-
+(* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
 (* TODO: remove this *)
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
 (* (* if (Qy. φ)[x \ t] = (Qx. φ[x \ t]), then x ∉ FV(φ) hence ≡ (Qx. φ) *) *)
