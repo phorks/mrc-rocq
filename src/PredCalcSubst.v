@@ -3,9 +3,9 @@ From Stdlib Require Import Nat.
 From Stdlib Require Import Arith.PeanoNat.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Lists.List. Import ListNotations.
+From stdpp Require Import gmap fin_maps.
 From MRC Require Import PredCalc.
 From MRC Require Import Tactics.
-From stdpp Require Import gmap fin_maps.
 
 Lemma higher_qrank__subst_eq : forall φ x a r',
   quantifier_rank φ <= r' ->
@@ -482,7 +482,8 @@ Proof with auto.
     apply elem_of_list_fmap. eexists. split; [reflexivity|]...
 Qed.
 
-Lemma subst_term_fvars : ∀ t x t',
+
+Lemma subst_term_free_fvars : ∀ t x t',
     x ∈ term_fvars t ->
     term_fvars (subst_term t x t') = (term_fvars t ∖ {[x]}) ∪ term_fvars t'.
 Proof with auto.
@@ -530,17 +531,121 @@ Proof with auto.
         eexists. split; [reflexivity|]... apply fvar_subst_fvars_subseteq...
 Qed.
 
-(* Lemma subst_fvars : ∀ A x t, *)
-(*     (x ∈ formula_fvars A /\ formula_fvars (A[x \ t]) = (formula_fvars A ∖ {[x]}) ∪ term_fvars t) \/ *)
-(*       (x ∉ formula_fvars A /\ formula_fvars (A[x \ t]) = formula_fvars A). *)
-(* Proof with auto. *)
-(*   intros. destruct (decide (x ∈ formula_fvars A)). *)
-(*   2: { right. split... rewrite subst_non_free... } *)
-(*   left. split... apply leibniz_equiv.  *)
-(*   generalize dependent A. induction A using subst_formula_ind; simpl; intros. *)
-(*   - rewrite difference_union_distr_l. *)
-(*     rewrite *)
-(*     formula_fvars A = *)
+Lemma subst_sf_free_fvars : ∀ sf x t',
+    x ∈ simple_formula_fvars sf ->
+    simple_formula_fvars (subst_sf sf x t') = (simple_formula_fvars sf ∖ {[x]}) ∪ term_fvars t'.
+Proof with auto.
+  intros. destruct sf.
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in *. apply elem_of_union in H. destruct H.
+    + rewrite subst_term_free_fvars... destruct (decide (x ∈ term_fvars t₂)).
+      * rewrite subst_term_free_fvars... set_solver.
+      * rewrite subst_term_non_free... set_solver.
+    + rewrite (subst_term_free_fvars t₂)... destruct (decide (x ∈ term_fvars t₁)).
+      * rewrite subst_term_free_fvars... set_solver.
+      * rewrite subst_term_non_free... set_solver.
+  - simpl in *. apply leibniz_equiv. intros a.
+    apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
+    apply elem_of_list_fmap in H1 as (x_arg&->&H1). split; intros H.
+    + apply elem_of_union_list in H as (a_arg_fvars&H3&H4).
+      apply elem_of_list_fmap in H3 as (a_fvars&->&H3).
+      apply elem_of_list_fmap in H3 as (a_arg&->&H3).
+      destruct (decide (x ∈ term_fvars a_arg)).
+      * apply elem_of_union.
+        rewrite subst_term_free_fvars in H4... apply elem_of_union in H4 as [?|?]... left.
+        apply elem_of_difference in H as [? ?]. apply elem_of_difference. split...
+        apply elem_of_union_list. exists (term_fvars a_arg). split...
+        apply elem_of_list_fmap. exists a_arg. split...
+      * rewrite subst_term_non_free in H4... apply elem_of_union.
+        destruct (decide (a = x)). subst; try contradiction.
+        left. apply elem_of_difference. split.
+        -- apply elem_of_union_list. exists (term_fvars a_arg).
+           split... apply elem_of_list_fmap. exists a_arg. split...
+        -- apply not_elem_of_singleton...
+    + apply elem_of_union in H. destruct H.
+      * apply elem_of_difference in H as [H3 H4]. apply not_elem_of_singleton in H4.
+        apply elem_of_union_list in H3 as (a_arg_fvars&?&?).
+        apply elem_of_list_fmap in H as (a_arg&->&?).
+        apply elem_of_union_list. apply elem_of_list_In in H as H'.
+        exists (term_fvars (subst_term a_arg x t')). rewrite elem_of_list_fmap.
+        destruct (decide (x ∈ term_fvars a_arg)).
+        -- split.
+           ++ eexists. split; [reflexivity|]. apply elem_of_list_fmap.
+              eexists. split; [reflexivity|]...
+           ++ rewrite (subst_term_free_fvars)... apply elem_of_union. left. apply elem_of_difference.
+              rewrite not_elem_of_singleton. split...
+        -- rewrite subst_term_non_free... split... eexists. split; [reflexivity|].
+           apply elem_of_list_fmap. exists a_arg. rewrite subst_term_non_free...
+      * apply elem_of_union_list. exists (term_fvars (subst_term x_arg x t')).
+        split... apply elem_of_list_fmap. eexists. split; [reflexivity|]. apply elem_of_list_fmap.
+        eexists. split; [reflexivity|]... apply fvar_subst_fvars_subseteq...
+Qed.
+
+Lemma subst_non_free_fvars A x t :
+  x ∉ formula_fvars A →
+  formula_fvars (A[x \ t]) = formula_fvars A.
+Proof with auto. intros. rewrite subst_non_free... Qed.
+
+Lemma subst_free_fvars : ∀ A x t,
+    x ∈ formula_fvars A →
+    formula_fvars (A[x \ t]) = (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
+Proof with auto.
+  intros.
+  generalize dependent t. generalize dependent x.
+  induction A; simpl; intros.
+  - rewrite subst_sf_free_fvars...
+  - rewrite simpl_subst_not. simpl. rewrite IHA...
+  - rewrite simpl_subst_and. simpl. apply elem_of_union in H as [|].
+    + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
+      * rewrite IHA2... set_solver.
+      * rewrite subst_non_free... set_solver.
+    + rewrite IHA2... destruct (decide (x ∈ formula_fvars A1)).
+      * rewrite IHA1... set_solver.
+      * rewrite subst_non_free... set_solver.
+  - rewrite simpl_subst_or. simpl. apply elem_of_union in H as [|].
+    + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
+      * rewrite IHA2... set_solver.
+      * rewrite subst_non_free... set_solver.
+    + rewrite IHA2... destruct (decide (x ∈ formula_fvars A1)).
+      * rewrite IHA1... set_solver.
+      * rewrite subst_non_free... set_solver.
+  - rewrite simpl_subst_implication. simpl. apply elem_of_union in H as [|].
+    + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
+      * rewrite IHA2... set_solver.
+      * rewrite subst_non_free... set_solver.
+    + rewrite IHA2... destruct (decide (x ∈ formula_fvars A1)).
+      * rewrite IHA1... set_solver.
+      * rewrite subst_non_free... set_solver.
+  - apply elem_of_difference in H0 as [? ?]. apply not_elem_of_singleton in H1.
+    destruct (quant_subst_skip_cond x A x0).
+    + destruct H2 as [|]; subst; contradiction.
+    + rewrite simpl_subst_exists_propagate... simpl.
+      rewrite H...
+      * pose proof (fresh_var_fresh x (quant_subst_fvars A x0 t)) as Hfresh.
+        apply quant_subst_fvars_inv in Hfresh as (Hfresh1&Hfresh2&Hfresh3).
+        destruct (decide (x ∈ formula_fvars A)).
+        -- rewrite H... set_solver.
+        -- rewrite subst_non_free... set_solver.
+      * destruct (decide (x ∈ formula_fvars A)).
+        -- rewrite H... apply elem_of_union. left. apply elem_of_difference. split...
+           apply not_elem_of_singleton...
+        -- rewrite subst_non_free...
+  - apply elem_of_difference in H0 as [? ?]. apply not_elem_of_singleton in H1.
+    destruct (quant_subst_skip_cond x A x0).
+    + destruct H2 as [|]; subst; contradiction.
+    + rewrite simpl_subst_forall_propagate... simpl.
+      rewrite H...
+      * pose proof (fresh_var_fresh x (quant_subst_fvars A x0 t)) as Hfresh.
+        apply quant_subst_fvars_inv in Hfresh as (Hfresh1&Hfresh2&Hfresh3).
+        destruct (decide (x ∈ formula_fvars A)).
+        -- rewrite H... set_solver.
+        -- rewrite subst_non_free... set_solver.
+      * destruct (decide (x ∈ formula_fvars A)).
+        -- rewrite H... apply elem_of_union. left. apply elem_of_difference. split...
+           apply not_elem_of_singleton...
+        -- rewrite subst_non_free...
+Qed.
 
 Lemma subst_term_commute : forall t x₁ t₁ x₂ t₂,
     x₁ ≠ x₂ ->

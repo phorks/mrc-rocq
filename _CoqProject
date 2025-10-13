@@ -1,4 +1,5 @@
 -Q src MRC
+src/Stdppp.v
 src/Tactics.v
 src/PredCalc.v
 src/PredCalcSubst.v

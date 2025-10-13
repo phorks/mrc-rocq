@@ -972,7 +972,7 @@ Proof with auto.
   unfold size, set_size in H. simpl in *. lia.
 Qed.
 
-Lemma fresh_var_free : forall {x fvars},
+Lemma fresh_var_free : forall x fvars,
     x ∉ fvars ->
     fresh_var x fvars = x.
 Proof with auto.
@@ -980,6 +980,19 @@ Proof with auto.
   destruct (decide (x ∈ fvars))... contradiction.
 Qed.
 
+Theorem fresh_var_ne_inv x A x' t :
+  fresh_var x (quant_subst_fvars A x' t) ≠ x ->
+  x ∈ formula_fvars A \/ x = x' \/ x ∈ term_fvars t.
+Proof with auto.
+  intros. unfold fresh_var, fresh_var_aux in H.
+  destruct (size (quant_subst_fvars A x' t)); destruct (decide (x ∈ quant_subst_fvars A x' t)).
+  - unfold quant_subst_fvars in e. do 2 rewrite elem_of_union in e. rewrite elem_of_singleton in e.
+    destruct e... destruct H0...
+  - contradiction.
+  - unfold quant_subst_fvars in e. do 2 rewrite elem_of_union in e. rewrite elem_of_singleton in e.
+    destruct e... destruct H0...
+  - contradiction.
+Qed.
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
 (* TODO: remove this *)
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)

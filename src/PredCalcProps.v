@@ -43,14 +43,14 @@ Proof with auto.
       rewrite (feval_delete_state_var_head y')...
 Qed.
 
-Lemma fequiv_subst_not_free : forall A t x,
+Lemma fequiv_subst_non_free : forall A t x,
     x ∉ formula_fvars A ->
     <! A [x \ t] !> ≡ <! A !>.
 Proof with auto.
   intros A t x. generalize dependent A.
   pose proof (@subst_formula_ind x t  (λ A B, x ∉ formula_fvars B -> A ≡ B)). simpl in H.
   apply H; clear H; intros...
-  - rewrite subst_sf_not_free...
+  - rewrite subst_sf_non_free...
   - rewrite H... 
   - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
   - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
@@ -69,41 +69,12 @@ Proof with auto.
     apply elem_of_singleton in H2. symmetry in H2. contradiction.
 Qed.
 
-Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
-    x₁ ≠ x₂ ->
-    x₁ ∉ term_fvars t₂ →
-    x₂ ∉ term_fvars t₁ →
-    <! A[x₁ \ t₁][x₂ \ t₂] !> ≡ <! A[x₂ \ t₂][x₁ \ t₁] !>.
+Lemma subst_fvars_superset A x t : formula_fvars (A[x \ t]) ⊆ formula_fvars A ∪ term_fvars t.
 Proof with auto.
-  induction A; intros.
-  - unfold equiv. unfold fequiv. intros M σ. simpl. rewrite subst_sf_commute...
-  - do 4 rewrite simpl_subst_not. rewrite IHA...
-  - do 4 rewrite simpl_subst_and. rewrite IHA1... rewrite IHA2...
-  - do 4 rewrite simpl_subst_or. rewrite IHA1... rewrite IHA2...
-  - do 4 rewrite simpl_subst_implication. rewrite IHA1... rewrite IHA2...
-  - destruct (quant_subst_skip_cond x A x₁); destruct (quant_subst_skip_cond x A x₂).
-    + do 4 (rewrite simpl_subst_exists_skip; auto).
-    + rewrite (simpl_subst_exists_skip)... rewrite simpl_subst_exists_propagate; auto...
-      destruct (quant_subst_skip_cond (fresh_var x (quant_subst_fvars A x₂ t₂))
-                  (A [x \ fresh_var x (quant_subst_fvars A x₂ t₂)][x₂ \ t₂]) x₁).
-      * rewrite simpl_subst_exists_skip...
-      * exfalso. destruct H3.
-        -- subst x₁. admit.
-        -- apply H3.
-      intros M σ. simpl.
-
-
-      rewrite (simpl_subst_exists_skip)... destruct H3.
-      * subst.
-
-      simpl.
-      rewrite simpl_subst_exists_propagate; auto...
-      do 2 (rewrite simpl_subst_exists_propagate; auto)...
-
-      rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_skip...
-      rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_skip...
-Admitted.
-
+  destruct (decide (x ∈ formula_fvars A)).
+  - rewrite subst_free_fvars... apply union_mono_r. apply subseteq_difference_l...
+  - rewrite subst_non_free_fvars... apply union_subseteq_l.
+Qed.
 
 Lemma fequiv_exists_alpha_equiv : forall x x' A,
     x' ∉ formula_fvars A ->
@@ -134,6 +105,113 @@ Proof with auto.
   - subst. rewrite (insert_insert σ)...
   - rewrite (insert_commute σ)... rewrite (feval_delete_state_var_head x')...
 Qed.
+
+
+Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
+    x₁ ≠ x₂ ->
+    x₁ ∉ term_fvars t₂ →
+    x₂ ∉ term_fvars t₁ →
+    <! A[x₁ \ t₁][x₂ \ t₂] !> ≡ <! A[x₂ \ t₂][x₁ \ t₁] !>.
+Proof with auto.
+  induction A; intros.
+  - unfold equiv. unfold fequiv. intros M σ. simpl. rewrite subst_sf_commute...
+  - do 4 rewrite simpl_subst_not. rewrite IHA...
+  - do 4 rewrite simpl_subst_and. rewrite IHA1... rewrite IHA2...
+  - do 4 rewrite simpl_subst_or. rewrite IHA1... rewrite IHA2...
+  - do 4 rewrite simpl_subst_implication. rewrite IHA1... rewrite IHA2...
+  - destruct (quant_subst_skip_cond x A x₁); destruct (quant_subst_skip_cond x A x₂).
+    + do 4 (rewrite simpl_subst_exists_skip; auto).
+    + rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_propagate; auto...
+      destruct (quant_subst_skip_cond (fresh_var x (quant_subst_fvars A x₂ t₂))
+                  (A [x \ fresh_var x (quant_subst_fvars A x₂ t₂)][x₂ \ t₂]) x₁).
+      * rewrite simpl_subst_exists_skip...
+      * exfalso. destruct H3.
+        -- subst x₁.
+           pose proof (fresh_var_fresh x (quant_subst_fvars A x₂ t₂)).
+           apply quant_subst_fvars_inv in H3 as (?&?&?).
+           assert (x ∈ formula_fvars A).
+           { destruct (decide (x ∈ formula_fvars A))... exfalso.
+             pose proof (fresh_var_free x (quant_subst_fvars A x₂ t₂)).
+             forward H10; try contradiction. set_solver. }
+           rewrite subst_free_fvars in H7.
+           ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+              rewrite elem_of_difference in H7. rewrite not_elem_of_singleton in H7.
+              destruct H7 as [[? []]|]... simpl in H7.
+              apply elem_of_union in H7. rewrite elem_of_difference in H7.
+              rewrite not_elem_of_singleton in H7. destruct H7 as [[? []]|]...
+              rewrite elem_of_singleton in H7. exfalso. apply H6...
+           ++ rewrite subst_free_fvars... rewrite elem_of_union.
+              left. rewrite elem_of_difference. rewrite elem_of_singleton. split...
+        -- apply subst_fvars_superset in H7. apply elem_of_union in H7 as [|]; try contradiction.
+           apply subst_fvars_superset in H7. apply elem_of_union in H7 as [|]; try contradiction.
+           simpl in H7. rewrite elem_of_singleton in H7. apply H6. symmetry...
+    + admit.
+    + rewrite simpl_subst_exists_propagate... rewrite (simpl_subst_exists_propagate) with (φ:=A)...
+      rewrite simpl_subst_exists_propagate.
+      * rewrite (simpl_subst_exists_propagate).
+        -- simpl. etrans.
+           ++ symmetry. exact fequiv_exists_alpha_equiv.
+           pose proof (subst_fvars_superset )
+
+          eapply elem_of_weaken in H7.
+           2: {  }
+
+
+
+
+
+          rewrite subst_free_fvars in H7.
+           ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+              rewrite elem_of_difference in H7. rewrite not_elem_of_singleton in H7.
+              destruct H7 as [[? []]|]... simpl in H7.
+              apply elem_of_union in H7. rewrite elem_of_difference in H7.
+              rewrite not_elem_of_singleton in H7. destruct H7 as [[? []]|]...
+              rewrite elem_of_singleton in H7. exfalso. apply H6...
+           ++ rewrite subst_free_fvars... rewrite elem_of_union.
+              left. rewrite elem_of_difference. rewrite elem_of_singleton. split...
+
+              apply not_elem_of_union.
+              rewrite elem_of_difference. rewrite elem_of_singleton.
+              split...
+           ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+           rewrite subst_non_free_fvars in H7.
+           ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+              rewrite elem_of_difference in H7. rewrite not_elem_of_singleton in H7.
+              destruct H7 as [[? []]|]... simpl in H7. apply elem_of_singleton in H7...
+           ++ rewrite subst_free_fvars... apply not_elem_of_union.
+              rewrite elem_of_difference. rewrite elem_of_singleton.
+              split...
+              ** intros contra.
+              ** rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+                 rewrite elem_of_difference in H7. rewrite elem_of_singleton in H7.
+                 destruct H7 as [[? []]|]... simpl in H3. apply elem_of_singleton in H3...
+              **
+           ++ destruct (decide (x ∈ formula_fvars A)).
+              ** rewrite subst_free_fvars... apply not_elem_of_union.
+                 rewrite elem_of_difference. rewrite elem_of_singleton.
+                 split.
+                 --- intros [? ?].
+                 destruct H7 as [[? []]|]... simpl in H3. apply elem_of_singleton in H3...
+              ** rewrite subst_non_free_fvars in H7...
+           pose proof (subst_fvars (A [x \ (fresh_var x (quant_subst_fvars A x₂ t₂))]) x₂ t₂).
+           destruct H3 as [[? ?] | [? ?]].
+           ++ rewrite H8 in *. clear H8. admit.
+           ++
+        -- apply H3. rewrite subst_fvars
+      intros M σ. simpl.
+
+
+      rewrite (simpl_subst_exists_skip)... destruct H3.
+      * subst.
+
+      simpl.
+      rewrite simpl_subst_exists_propagate; auto...
+      do 2 (rewrite simpl_subst_exists_propagate; auto)...
+
+      rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_skip...
+      rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_skip...
+Admitted.
+
 
 Lemma fequiv_exists_subst_skip : ∀ y A x t,
 
