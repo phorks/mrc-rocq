@@ -12,6 +12,7 @@ Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
 
 
 Definition value := {t : Type & t}.
+Definition value_unit : value := @existT Type _ unit tt.
 
 Record variable := mkVar {
   var_name : string;
@@ -802,7 +803,7 @@ Inductive fn_eval (M : semantics) (fSym : string) (vargs : list value) : value -
 Inductive teval (M : semantics) (σ : state) : term -> value -> Prop :=
   | TEval_Const : forall v, teval M σ (TConst v) v
   | TEval_Var : forall x v, σ !! x = Some v -> teval M σ (TVar x) v
-  | Teval_App : forall f args vargs fval,
+  | TEval_App : forall f args vargs fval,
     teval_args M σ args vargs ->
     fn_eval M f vargs fval ->
     teval M σ (TApp f args) (fval)
@@ -993,6 +994,7 @@ Proof with auto.
     destruct e... destruct H0...
   - contradiction.
 Qed.
+
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
 (* TODO: remove this *)
 (* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)

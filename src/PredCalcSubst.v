@@ -1016,3 +1016,57 @@ Proof with auto.
          rewrite (delete_insert_delete (<[x₀:=v₀]> σ)).
          rewrite (delete_insert_ne (<[x₀:=v₀]> σ))...
 Qed.
+
+
+Lemma teval_args_in : forall M σ arg args vargs,
+  In arg args ->
+  teval_args M σ args vargs ->
+  exists v, teval M σ arg v.
+Proof with auto.
+  intros. induction H0.
+  - simpl in H. contradiction.
+  - simpl in H. destruct H.
+    + subst. eauto.
+    + apply IHteval_args...
+Qed.
+
+Lemma teval_subst_value : forall M σ t x t' v,
+    x ∈ term_fvars t ->
+    teval M σ (subst_term t x t') v ->
+    exists v', teval M σ t' v'.
+Proof with auto.
+  induction t.
+  - intros. simpl in H. apply elem_of_empty in H as [].
+  - intros. simpl in H. apply elem_of_singleton in H as ->. simpl in H0.
+    destruct (decide (x = x)); try contradiction. eauto.
+  - intros. simpl in H0.
+    apply elem_of_union_list in H0 as (arg_fvars&H2&H3).
+    apply elem_of_list_fmap in H2 as (arg&->&Hin). apply elem_of_list_In in Hin.
+    forward (H arg)... inversion H1; subst.
+    apply in_map with (f := (λ arg, subst_term arg x t')) in Hin.
+    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v' Hv']. eauto.
+Qed.
+
+Lemma sfeval_subst_value : ∀ M σ sf x t,
+    x ∈ simple_formula_fvars sf →
+    sfeval M σ (subst_sf sf x t) ->
+    ∃ v, teval M σ t v.
+Proof with auto.
+  intros. destruct sf.
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in H. apply elem_of_union in H. simpl in H0. inversion H0. subst.
+    destruct H.
+    + apply teval_subst_value in H3...
+    + apply teval_subst_value in H4...
+  - simpl in H.
+    apply elem_of_union_list in H as (arg_fvars&H2&H3).
+    apply elem_of_list_fmap in H2 as (arg&->&Hin). apply elem_of_list_In in Hin.
+    inversion H0; subst.
+    apply in_map with (f := (λ arg, subst_term arg x t)) in Hin.
+    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v Hv].
+    apply teval_subst_value in Hv...
+Qed.
+
+(* I don't think teval_subst_value holds in general because of LEM and the semantics
+    of NOT *)
