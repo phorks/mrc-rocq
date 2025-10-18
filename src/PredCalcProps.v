@@ -16,7 +16,7 @@ Proof with auto.
   - rewrite H. rewrite H0. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
   - intros M σ. simpl.
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <-> feval M (<[y:=v]> σ) φ).
+    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <→ feval M (<[y:=v]> σ) φ).
     { split; intros [v Hv]; exists v; apply H2; apply Hv. }
     intros v.
     specialize H with (<! φ [y \ y'] !>). forward H by auto.
@@ -29,7 +29,7 @@ Proof with auto.
       apply quant_subst_fvars_inv in H2 as (?&?&?).
       rewrite (feval_delete_state_var_head y')...
   - intros M σ. simpl.
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <-> feval M (<[y:=v]> σ) φ).
+    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <→ feval M (<[y:=v]> σ) φ).
     { split; intros Hv v; apply H2... }
     intros v.
     specialize H with (<! φ [y \ y'] !>). forward H by auto.
@@ -44,11 +44,11 @@ Proof with auto.
 Qed.
 
 Lemma fequiv_subst_non_free : forall A t x,
-    x ∉ formula_fvars A ->
+    x ∉ formula_fvars A →
     <! A [x \ t] !> ≡ <! A !>.
 Proof with auto.
   intros A t x. generalize dependent A.
-  pose proof (@subst_formula_ind x t  (λ A B, x ∉ formula_fvars B -> A ≡ B)). simpl in H.
+  pose proof (@subst_formula_ind x t  (λ A B, x ∉ formula_fvars B → A ≡ B)). simpl in H.
   apply H; clear H; intros...
   - rewrite subst_sf_non_free...
   - rewrite H... 
@@ -78,7 +78,7 @@ Proof with auto.
 Qed.
 
 Lemma fequiv_exists_alpha_equiv : forall x x' A,
-    x' ∉ formula_fvars A ->
+    x' ∉ formula_fvars A →
     <! exists x, A !> ≡ <! exists x', A[x \ x'] !>.
 Proof with auto.
   intros x x' A Hfree M σ. simpl.
@@ -93,7 +93,7 @@ Proof with auto.
 Qed.
 
 Lemma fequiv_forall_alpha_equiv : forall x x' A,
-    x' ∉ formula_fvars A ->
+    x' ∉ formula_fvars A →
     <! forall x, A !> ≡ <! forall x', A[x \ x'] !>.
 Proof with auto.
   intros x x' A Hfree M σ. simpl.
@@ -108,7 +108,7 @@ Proof with auto.
 Qed.
 
 Lemma fequiv_exists_non_free_binder x A :
-  x ∉ formula_fvars A ->
+  x ∉ formula_fvars A →
   <! exists x, A !> ≡ A.
 Proof with auto.
   intros. intros M σ. simpl. intros. split.
@@ -117,7 +117,7 @@ Proof with auto.
 Qed.
 
 Lemma fequiv_forall_non_free_binder x A :
-  x ∉ formula_fvars A ->
+  x ∉ formula_fvars A →
   <! forall x, A !> ≡ A.
 Proof with auto.
   intros. intros M σ. simpl. intros. split.
@@ -127,7 +127,7 @@ Qed.
 
 (* (* TODO: prove this and make morphisms *) *)
 Lemma subst_proper : forall A B x t,
-  A ≡ B ->
+  A ≡ B →
   A[x \ t] ≡ B[x \ t].
 Proof.
   intros. unfold equiv, fequiv in *. intros M σ. specialize H with M σ.
@@ -137,7 +137,7 @@ Proof.
 Admitted.
 
 Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
-    x₁ ≠ x₂ ->
+    x₁ ≠ x₂ →
     x₁ ∉ term_fvars t₂ →
     x₂ ∉ term_fvars t₁ →
     <! A[x₁ \ t₁][x₂ \ t₂] !> ≡ <! A[x₂ \ t₂][x₁ \ t₁] !>.
@@ -286,8 +286,8 @@ Lemma fequiv_exists_subst_skip : ∀ y A x t,
 
 
 (* Lemma subst_eq_congr : forall M σ φ x t u b, *)
-(*   feval M σ <! t = u !> -> *)
-(*   feval M σ <! φ[x\t] !> b <-> *)
+(*   feval M σ <! t = u !> → *)
+(*   feval M σ <! φ[x\t] !> b <→ *)
 (*   feval M σ <! φ[x\u] !> b. *)
 (* Proof with auto. *)
 

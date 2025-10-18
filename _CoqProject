@@ -1,5 +1,7 @@
 -Q src MRC
+src/Options.v
 src/Stdppp.v
+src/Model.v
 src/Tactics.v
 src/PredCalc.v
 src/PredCalcSubst.v

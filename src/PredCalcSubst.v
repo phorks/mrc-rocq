@@ -7,210 +7,210 @@ From stdpp Require Import gmap fin_maps.
 From MRC Require Import PredCalc.
 From MRC Require Import Tactics.
 
-Lemma higher_qrank__subst_eq : forall φ x a r',
-  quantifier_rank φ <= r' ->
-    subst_formula_aux (quantifier_rank φ) φ x a =
-    subst_formula_aux r' φ x a.
+Lemma higher_qrank__subst_eq : forall A x a r',
+  quantifier_rank A <= r' →
+    subst_formula_aux (quantifier_rank A) A x a =
+    subst_formula_aux r' A x a.
 Proof with auto.
-  induction φ using formula_rank_ind.
-  destruct φ; intros x0 a r' Hrank; subst.
+  induction A using formula_rank_ind.
+  destruct A; intros x0 a r' Hrank; subst.
   - destruct r'...
-  - simpl. destruct (quantifier_rank φ) eqn:Hrφ; destruct r' eqn:Hr';
+  - simpl. destruct (quantifier_rank A) eqn:HrA; destruct r' eqn:Hr';
       simpl in *; subst...
-    + fold_qrank_subst 0 φ x0 a. fold_qrank_subst (S n) φ x0 a.
-      f_equal. rewrite <- Hrφ. apply H with (rank φ); lia...
+    + fold_qrank_subst 0 A x0 a. fold_qrank_subst (S n) A x0 a.
+      f_equal. rewrite <- HrA. apply H with (rank A); lia...
     + lia.
-    + fold_qrank_subst (S n) φ x0 a.
-      fold_qrank_subst (S n0) φ x0 a.
-      f_equal. rewrite <- Hrφ. apply H with (rank φ); lia.
+    + fold_qrank_subst (S n) A x0 a.
+      fold_qrank_subst (S n0) A x0 a.
+      f_equal. rewrite <- HrA. apply H with (rank A); lia.
   - simpl.
     assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
+      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia; rewrite H2 in *.
-    + destruct (quantifier_rank φ2) eqn:Hrφ; destruct r' eqn:Hr';
+    + destruct (quantifier_rank A2) eqn:HrA; destruct r' eqn:Hr';
       simpl in *...
       * lia.
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
         f_equal.
-        -- assert (quantifier_rank φ1 = 0) by lia. rewrite <- H0.
-          symmetry. apply H with (rank φ1); lia.
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                        subst_formula_aux (S n) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                         subst_formula_aux (S n0) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
+        -- assert (quantifier_rank A1 = 0) by lia. rewrite <- H0.
+          symmetry. apply H with (rank A1); lia.
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                        subst_formula_aux (S n) A1 x0 a).
+            { apply H with (rank A1); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                         subst_formula_aux (S n0) A1 x0 a).
+            { apply H with (rank A1); lia. }
             rewrite <- Heq1...
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-    + destruct (quantifier_rank φ1) eqn:Hrφ; destruct r' eqn:Hr';
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+    + destruct (quantifier_rank A1) eqn:HrA; destruct r' eqn:Hr';
       simpl in *...
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
         f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- rewrite <- H2. apply H with (rank φ2); lia.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- rewrite <- H2. apply H with (rank A2); lia.
       * lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                        subst_formula_aux (S n) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                         subst_formula_aux (S n0) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
-            rewrite <- Heq1...
-  - simpl.
-    assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia; rewrite H2 in *.
-    + destruct (quantifier_rank φ2) eqn:Hrφ; destruct r' eqn:Hr';
-      simpl in *...
-      * lia.
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
-        f_equal.
-        -- assert (quantifier_rank φ1 = 0) by lia. rewrite <- H0.
-          symmetry. apply H with (rank φ1); lia.
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                        subst_formula_aux (S n) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                         subst_formula_aux (S n0) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
-            rewrite <- Heq1...
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-    + destruct (quantifier_rank φ1) eqn:Hrφ; destruct r' eqn:Hr';
-      simpl in *...
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
-        f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- rewrite <- H2. apply H with (rank φ2); lia.
-      * lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                        subst_formula_aux (S n) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                         subst_formula_aux (S n0) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                        subst_formula_aux (S n) A2 x0 a).
+            { apply H with (rank A2); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                         subst_formula_aux (S n0) A2 x0 a).
+            { apply H with (rank A2); lia. }
             rewrite <- Heq1...
   - simpl.
     assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
+      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
     destruct HMax as [[H1 H2] | [H1 H2]]; try lia; rewrite H2 in *.
-    + destruct (quantifier_rank φ2) eqn:Hrφ; destruct r' eqn:Hr';
+    + destruct (quantifier_rank A2) eqn:HrA; destruct r' eqn:Hr';
       simpl in *...
       * lia.
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
         f_equal.
-        -- assert (quantifier_rank φ1 = 0) by lia. rewrite <- H0.
-          symmetry. apply H with (rank φ1); lia.
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                        subst_formula_aux (S n) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ1) φ1 x0 a =
-                         subst_formula_aux (S n0) φ1 x0 a).
-            { apply H with (rank φ1); lia. }
+        -- assert (quantifier_rank A1 = 0) by lia. rewrite <- H0.
+          symmetry. apply H with (rank A1); lia.
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                        subst_formula_aux (S n) A1 x0 a).
+            { apply H with (rank A1); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                         subst_formula_aux (S n0) A1 x0 a).
+            { apply H with (rank A1); lia. }
             rewrite <- Heq1...
-        -- rewrite <- Hrφ. apply H with (rank φ2); lia.
-    + destruct (quantifier_rank φ1) eqn:Hrφ; destruct r' eqn:Hr';
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+    + destruct (quantifier_rank A1) eqn:HrA; destruct r' eqn:Hr';
       simpl in *...
-      * fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a.
-        fold_qrank_subst 0 φ2 x0 a. fold_qrank_subst 0 φ1 x0 a.
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
         f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- rewrite <- H2. apply H with (rank φ2); lia.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- rewrite <- H2. apply H with (rank A2); lia.
       * lia.
-      * fold_qrank_subst (S n0) φ2 x0 a.
-        fold_qrank_subst (S n0) φ1 x0 a.
-        fold_qrank_subst (S n) φ2 x0 a.
-        fold_qrank_subst (S n) φ1 x0 a. f_equal.
-        -- rewrite <- Hrφ. apply H with (rank φ1); lia.
-        -- assert (Heq1: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                        subst_formula_aux (S n) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
-           assert (Heq2: subst_formula_aux (quantifier_rank φ2) φ2 x0 a =
-                         subst_formula_aux (S n0) φ2 x0 a).
-            { apply H with (rank φ2); lia. }
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                        subst_formula_aux (S n) A2 x0 a).
+            { apply H with (rank A2); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                         subst_formula_aux (S n0) A2 x0 a).
+            { apply H with (rank A2); lia. }
+            rewrite <- Heq1...
+  - simpl.
+    assert (HMax :=
+      (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
+    destruct HMax as [[H1 H2] | [H1 H2]]; try lia; rewrite H2 in *.
+    + destruct (quantifier_rank A2) eqn:HrA; destruct r' eqn:Hr';
+      simpl in *...
+      * lia.
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
+        f_equal.
+        -- assert (quantifier_rank A1 = 0) by lia. rewrite <- H0.
+          symmetry. apply H with (rank A1); lia.
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                        subst_formula_aux (S n) A1 x0 a).
+            { apply H with (rank A1); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A1) A1 x0 a =
+                         subst_formula_aux (S n0) A1 x0 a).
+            { apply H with (rank A1); lia. }
+            rewrite <- Heq1...
+        -- rewrite <- HrA. apply H with (rank A2); lia.
+    + destruct (quantifier_rank A1) eqn:HrA; destruct r' eqn:Hr';
+      simpl in *...
+      * fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a.
+        fold_qrank_subst 0 A2 x0 a. fold_qrank_subst 0 A1 x0 a.
+        f_equal.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- rewrite <- H2. apply H with (rank A2); lia.
+      * lia.
+      * fold_qrank_subst (S n0) A2 x0 a.
+        fold_qrank_subst (S n0) A1 x0 a.
+        fold_qrank_subst (S n) A2 x0 a.
+        fold_qrank_subst (S n) A1 x0 a. f_equal.
+        -- rewrite <- HrA. apply H with (rank A1); lia.
+        -- assert (Heq1: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                        subst_formula_aux (S n) A2 x0 a).
+            { apply H with (rank A2); lia. }
+           assert (Heq2: subst_formula_aux (quantifier_rank A2) A2 x0 a =
+                         subst_formula_aux (S n0) A2 x0 a).
+            { apply H with (rank A2); lia. }
             rewrite <- Heq1...
   - destruct r'; simpl in *.
     + lia.
-    + fold_qrank_subst_fresh (S r') φ x x0 a.
-      fold_qrank_subst_fresh (S (quantifier_rank φ)) φ x x0 a.
+    + fold_qrank_subst_fresh (S r') A x x0 a.
+      fold_qrank_subst_fresh (S (quantifier_rank A)) A x x0 a.
       f_equal.
-      destruct (quant_subst_skip_cond x φ x0); try lia...
+      destruct (quant_subst_skip_cond x A x0); try lia...
       f_equal.
-      assert (subst_formula_aux (S (quantifier_rank φ)) φ x (fresh_var x (quant_subst_fvars φ x0 a))
-            = subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a))).
+      assert (subst_formula_aux (S (quantifier_rank A)) A x (fresh_var x (quant_subst_fvars A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
       {
-        symmetry. apply H with (m:=rank φ); try lia...
+        symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      assert (subst_formula_aux (S r') φ x (fresh_var x (quant_subst_fvars φ x0 a))
-            = subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a))).
+      assert (subst_formula_aux (S r') A x (fresh_var x (quant_subst_fvars A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
       {
-        symmetry. apply H with (m:=rank φ); try lia...
+        symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      remember (subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a)))
+      remember (subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a)))
         as inner.
-      assert (HsameInnerφ := subst_preserves_shape_aux φ x (fresh_var x (quant_subst_fvars φ x0 a)) (quantifier_rank φ)).
-      deduce_rank_eq HsameInnerφ.
-      replace (quantifier_rank φ) with (quantifier_rank inner).
-      apply H with (m:=rank φ); try rewrite Heqinner; lia...
+      assert (HsameInnerA := subst_preserves_shape_aux A x (fresh_var x (quant_subst_fvars A x0 a)) (quantifier_rank A)).
+      deduce_rank_eq HsameInnerA.
+      replace (quantifier_rank A) with (quantifier_rank inner).
+      apply H with (m:=rank A); try rewrite Heqinner; lia...
       rewrite Heqinner...
   - destruct r'; simpl in *.
     + lia.
-    + fold_qrank_subst_fresh (S r') φ x x0 a.
-      fold_qrank_subst_fresh (S (quantifier_rank φ)) φ x x0 a.
+    + fold_qrank_subst_fresh (S r') A x x0 a.
+      fold_qrank_subst_fresh (S (quantifier_rank A)) A x x0 a.
       f_equal.
-      destruct (quant_subst_skip_cond x φ x0); try lia...
+      destruct (quant_subst_skip_cond x A x0); try lia...
       f_equal.
-      assert (subst_formula_aux (S (quantifier_rank φ)) φ x (fresh_var x (quant_subst_fvars φ x0 a))
-            = subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a))).
+      assert (subst_formula_aux (S (quantifier_rank A)) A x (fresh_var x (quant_subst_fvars A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
       {
-        symmetry. apply H with (m:=rank φ); try lia...
+        symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      assert (subst_formula_aux (S r') φ x (fresh_var x (quant_subst_fvars φ x0 a))
-            = subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a))).
+      assert (subst_formula_aux (S r') A x (fresh_var x (quant_subst_fvars A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
       {
-        symmetry. apply H with (m:=rank φ); try lia...
+        symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      remember (subst_formula_aux (quantifier_rank φ) φ x (fresh_var x (quant_subst_fvars φ x0 a)))
+      remember (subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a)))
         as inner.
-      assert (HsameInnerφ := subst_preserves_shape_aux φ x (fresh_var x (quant_subst_fvars φ x0 a)) (quantifier_rank φ)).
-      deduce_rank_eq HsameInnerφ.
-      replace (quantifier_rank φ) with (quantifier_rank inner).
-      apply H with (m:=rank φ); try rewrite Heqinner; lia...
+      assert (HsameInnerA := subst_preserves_shape_aux A x (fresh_var x (quant_subst_fvars A x0 a)) (quantifier_rank A)).
+      deduce_rank_eq HsameInnerA.
+      replace (quantifier_rank A) with (quantifier_rank inner).
+      apply H with (m:=rank A); try rewrite Heqinner; lia...
       rewrite Heqinner...
 Qed.
 
@@ -218,174 +218,174 @@ Lemma simpl_subst_sf : forall sf x a,
   subst_formula (F_Simple sf) x a =
   F_Simple (subst_sf sf x a).
 Proof with auto.
-  intros φ x a. unfold subst_formula. simpl. reflexivity.
+  intros A x a. unfold subst_formula. simpl. reflexivity.
 Qed.
 
-Lemma simpl_subst_not : forall φ x a,
-  <! (~ φ)[x \ a] !> = <! ~ (φ[x \ a]) !>.
+Lemma simpl_subst_not : forall A x a,
+  <! (~ A)[x \ a] !> = <! ~ (A[x \ a]) !>.
 Proof with auto.
-  intros φ x a. unfold subst_formula.
-  assert (H: quantifier_rank <! ~φ !> = quantifier_rank φ).
-  { reflexivity. } rewrite H. clear H. destruct (quantifier_rank φ);
+  intros A x a. unfold subst_formula.
+  assert (H: quantifier_rank <! ~A !> = quantifier_rank A).
+  { reflexivity. } rewrite H. clear H. destruct (quantifier_rank A);
     reflexivity.
 Qed.
 
-Lemma simpl_subst_and : forall φ ψ x a,
-  <! (φ /\ ψ)[x \ a] !> = <! (φ[x \ a]) /\ (ψ[x \ a])!>.
+Lemma simpl_subst_and : forall A B x a,
+  <! (A ∧ B)[x \ a] !> = <! (A[x \ a]) ∧ (B[x \ a])!>.
 Proof with auto.
-  intros φ ψ x a. unfold subst_formula.
+  intros A B x a. unfold subst_formula.
   assert (HMax :=
-    (Nat.max_spec (quantifier_rank φ) (quantifier_rank ψ))).
+    (Nat.max_spec (quantifier_rank A) (quantifier_rank B))).
   destruct HMax as [[H1 H2] | [H1 H2]].
-  - assert (H: quantifier_rank <! φ /\ ψ !> = quantifier_rank ψ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank ψ) eqn:E;
+  - assert (H: quantifier_rank <! A ∧ B !> = quantifier_rank B).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank B) eqn:E;
        try lia...
-    simpl. fold_qrank_subst (S n) ψ x a.
-    fold_qrank_subst (S n) φ x a. f_equal.
+    simpl. fold_qrank_subst (S n) B x a.
+    fold_qrank_subst (S n) A x a. f_equal.
     symmetry. apply higher_qrank__subst_eq. lia.
-  - assert (H: quantifier_rank <! φ /\ ψ !> = quantifier_rank φ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank φ) eqn:E;
+  - assert (H: quantifier_rank <! A ∧ B !> = quantifier_rank A).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank A) eqn:E;
        try lia...
     + inversion H1. rewrite H3. simpl...
-    + simpl. fold_qrank_subst (S n) ψ x a.
-      fold_qrank_subst (S n) φ x a. f_equal.
+    + simpl. fold_qrank_subst (S n) B x a.
+      fold_qrank_subst (S n) A x a. f_equal.
       symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
-Lemma simpl_subst_or : forall φ ψ x a,
-  <! (φ \/ ψ)[x \ a] !> = <! (φ[x \ a]) \/ (ψ[x \ a])!>.
+Lemma simpl_subst_or : forall A B x a,
+  <! (A ∨ B)[x \ a] !> = <! (A[x \ a]) ∨ (B[x \ a])!>.
 Proof with auto.
-  intros φ ψ x a. unfold subst_formula.
+  intros A B x a. unfold subst_formula.
   assert (HMax :=
-    (Nat.max_spec (quantifier_rank φ) (quantifier_rank ψ))).
+    (Nat.max_spec (quantifier_rank A) (quantifier_rank B))).
   destruct HMax as [[H1 H2] | [H1 H2]].
-  - assert (H: quantifier_rank <! φ \/ ψ !> = quantifier_rank ψ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank ψ) eqn:E;
+  - assert (H: quantifier_rank <! A ∨ B !> = quantifier_rank B).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank B) eqn:E;
        try lia...
-    simpl. fold_qrank_subst (S n) ψ x a.
-    fold_qrank_subst (S n) φ x a. f_equal.
+    simpl. fold_qrank_subst (S n) B x a.
+    fold_qrank_subst (S n) A x a. f_equal.
     symmetry. apply higher_qrank__subst_eq. lia.
-  - assert (H: quantifier_rank <! φ \/ ψ !> = quantifier_rank φ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank φ) eqn:E;
+  - assert (H: quantifier_rank <! A ∨ B !> = quantifier_rank A).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank A) eqn:E;
        try lia...
     + inversion H1. rewrite H3. simpl...
-    + simpl. fold_qrank_subst (S n) ψ x a.
-      fold_qrank_subst (S n) φ x a. f_equal.
+    + simpl. fold_qrank_subst (S n) B x a.
+      fold_qrank_subst (S n) A x a. f_equal.
       symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
-Lemma simpl_subst_implication : forall φ ψ x a,
-  <! (φ => ψ)[x \ a] !> = <! (φ[x \ a]) => (ψ[x \ a])!>.
+Lemma simpl_subst_implication : forall A B x a,
+  <! (A => B)[x \ a] !> = <! (A[x \ a]) => (B[x \ a])!>.
 Proof with auto.
-  intros φ ψ x a. unfold subst_formula.
+  intros A B x a. unfold subst_formula.
   assert (HMax :=
-    (Nat.max_spec (quantifier_rank φ) (quantifier_rank ψ))).
+    (Nat.max_spec (quantifier_rank A) (quantifier_rank B))).
   destruct HMax as [[H1 H2] | [H1 H2]].
-  - assert (H: quantifier_rank <! φ => ψ !> = quantifier_rank ψ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank ψ) eqn:E;
+  - assert (H: quantifier_rank <! A => B !> = quantifier_rank B).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank B) eqn:E;
        try lia...
-    simpl. fold_qrank_subst (S n) ψ x a.
-    fold_qrank_subst (S n) φ x a. f_equal.
+    simpl. fold_qrank_subst (S n) B x a.
+    fold_qrank_subst (S n) A x a. f_equal.
     symmetry. apply higher_qrank__subst_eq. lia.
-  - assert (H: quantifier_rank <! φ => ψ !> = quantifier_rank φ).
-    { simpl. lia. } rewrite H. destruct (quantifier_rank φ) eqn:E;
+  - assert (H: quantifier_rank <! A => B !> = quantifier_rank A).
+    { simpl. lia. } rewrite H. destruct (quantifier_rank A) eqn:E;
        try lia...
     + inversion H1. rewrite H3. simpl...
-    + simpl. fold_qrank_subst (S n) ψ x a.
-      fold_qrank_subst (S n) φ x a. f_equal.
+    + simpl. fold_qrank_subst (S n) B x a.
+      fold_qrank_subst (S n) A x a. f_equal.
       symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
-Lemma simpl_subst_iff : forall φ ψ x a,
-  <! (φ <=> ψ)[x \ a] !> = <! (φ[x \ a]) <=> (ψ[x \ a])!>.
+Lemma simpl_subst_iff : forall A B x a,
+  <! (A <=> B)[x \ a] !> = <! (A[x \ a]) <=> (B[x \ a])!>.
 Proof with auto.
   intros. rewrite simpl_subst_and. do 2 rewrite simpl_subst_implication...
 Qed.
 
-Lemma simpl_subst_exists_skip : forall x y φ a,
-  y = x \/ x ∉ formula_fvars φ ->
-  <! (exists y, φ)[x\a] !> = <! exists y, φ !>.
+Lemma simpl_subst_exists_skip : forall x y A a,
+  y = x ∨ x ∉ formula_fvars A →
+  <! (exists y, A)[x\a] !> = <! exists y, A !>.
 Proof with auto.
-  intros x y φ a Heq. unfold subst_formula. simpl.
-  destruct (quant_subst_skip_cond y φ x)... destruct Heq; contradiction.
+  intros x y A a Heq. unfold subst_formula. simpl.
+  destruct (quant_subst_skip_cond y A x)... destruct Heq; contradiction.
 Qed.
 
-Lemma simpl_subst_exists_propagate : forall x y φ a,
-  y <> x ->
-  x ∈ formula_fvars φ ->
-  let y' := fresh_var y (quant_subst_fvars φ x a) in
-  <! (exists y, φ)[x\a] !> = <! (exists y', φ[y\y'][x\a]) !>.
+Lemma simpl_subst_exists_propagate : forall x y A a,
+  y <> x →
+  x ∈ formula_fvars A →
+  let y' := fresh_var y (quant_subst_fvars A x a) in
+  <! (exists y, A)[x\a] !> = <! (exists y', A[y\y'][x\a]) !>.
 Proof.
-  intros x y φ a Hneq Hfree. simpl. unfold subst_formula. simpl.
-  destruct (quant_subst_skip_cond y φ x)...
+  intros x y A a Hneq Hfree. simpl. unfold subst_formula. simpl.
+  destruct (quant_subst_skip_cond y A x)...
   1: { destruct H; contradiction. } f_equal.
-  fold_qrank_subst_fresh (S (quantifier_rank φ)) φ y x a.
+  fold_qrank_subst_fresh (S (quantifier_rank A)) A y x a.
   f_equal.
-  - assert (H:=subst_preserves_shape_aux φ y
-      (fresh_var y (quant_subst_fvars φ x a)) (quantifier_rank φ)).
+  - assert (H:=subst_preserves_shape_aux A y
+      (fresh_var y (quant_subst_fvars A x a)) (quantifier_rank A)).
     deduce_rank_eq H. lia.
   - symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
-Lemma simpl_subst_forall_skip : forall x y φ a,
-  y = x \/ x ∉ formula_fvars φ ->
-  <! (forall y, φ)[x\a] !> = <! forall y, φ !>.
+Lemma simpl_subst_forall_skip : forall x y A a,
+  y = x ∨ x ∉ formula_fvars A →
+  <! (forall y, A)[x\a] !> = <! forall y, A !>.
 Proof with auto.
-  intros x y φ a Heq. unfold subst_formula. simpl.
-  destruct (quant_subst_skip_cond y φ x)... destruct Heq; contradiction.
+  intros x y A a Heq. unfold subst_formula. simpl.
+  destruct (quant_subst_skip_cond y A x)... destruct Heq; contradiction.
 Qed.
 
-Lemma simpl_subst_forall_propagate : forall x y φ a,
-  y <> x ->
-  x ∈ formula_fvars φ ->
-  let y' := fresh_var y (quant_subst_fvars φ x a) in
-  <! (forall y, φ)[x\a] !> = <! (forall y', φ[y\y'][x\a]) !>.
+Lemma simpl_subst_forall_propagate : forall x y A a,
+  y <> x →
+  x ∈ formula_fvars A →
+  let y' := fresh_var y (quant_subst_fvars A x a) in
+  <! (forall y, A)[x\a] !> = <! (forall y', A[y\y'][x\a]) !>.
 Proof.
-  intros x y φ a Hneq Hfree. simpl. unfold subst_formula. simpl.
-  destruct (quant_subst_skip_cond y φ x)...
+  intros x y A a Hneq Hfree. simpl. unfold subst_formula. simpl.
+  destruct (quant_subst_skip_cond y A x)...
   1: { destruct H; contradiction. } f_equal.
-  fold_qrank_subst_fresh (S (quantifier_rank φ)) φ y x a.
+  fold_qrank_subst_fresh (S (quantifier_rank A)) A y x a.
   f_equal.
-  - assert (H:=subst_preserves_shape_aux φ y
-      (fresh_var y (quant_subst_fvars φ x a)) (quantifier_rank φ)).
+  - assert (H:=subst_preserves_shape_aux A y
+      (fresh_var y (quant_subst_fvars A x a)) (quantifier_rank A)).
     deduce_rank_eq H. lia.
   - symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
 Lemma subst_formula_ind {x t} : forall P,
-  (forall sf, P (F_Simple $ subst_sf sf x t) (F_Simple sf)) ->
-  (forall φ, P <! φ[x \ t] !> φ -> P <! ~ (φ[x \ t]) !> <! ~ φ !>) ->
-  (forall φ₁ φ₂, P <! φ₁[x \ t] !> φ₁ -> P <! φ₂[x \ t] !> φ₂ -> P <! φ₁[x \ t] /\ φ₂[x \ t] !> <! φ₁ /\ φ₂ !>) ->
-  (forall φ₁ φ₂, P <! φ₁[x \ t] !> φ₁ -> P <! φ₂[x \ t] !> φ₂ -> P <! φ₁[x \ t] \/ φ₂[x \ t] !> <! φ₁ \/ φ₂ !>) ->
-  (forall φ₁ φ₂, P <! φ₁[x \ t] !> φ₁ -> P <! φ₂[x \ t] !> φ₂ -> P <! φ₁[x \ t] => φ₂[x \ t] !> <! φ₁ => φ₂ !>) ->
-  (forall y φ, (forall ψ, shape_eq ψ φ = true -> P <! ψ[x \ t] !> ψ) ->
-          (y = x \/ x ∉ formula_fvars φ ->
-           P <! exists y, φ !> <! exists y, φ !>)) ->
-  (forall y φ, (forall ψ, shape_eq ψ φ = true -> P <! ψ[x \ t] !> ψ) ->
-          (y <> x -> x ∈ formula_fvars φ ->
-           let y' := fresh_var y (quant_subst_fvars φ x t) in
-           P <! exists y', φ[y \ y'][x \ t] !> <! exists y, φ !>)) ->
-  (forall y φ, (forall ψ, shape_eq ψ φ = true -> P <! ψ[x \ t] !> ψ) ->
-          (y = x \/ x ∉ formula_fvars φ ->
-           P <! forall y, φ !> <! forall y, φ !>)) ->
-  (forall y φ, (forall ψ, shape_eq ψ φ = true -> P <! ψ[x \ t] !> ψ) ->
-          (y <> x -> x ∈ formula_fvars φ ->
-           let y' := fresh_var y (quant_subst_fvars φ x t) in
-           P <! forall y', φ[y \ y'][x \ t] !> <! forall y, φ !>)) ->
-  forall φ, P <! φ[x \ t] !> φ.
+  (forall sf, P (F_Simple $ subst_sf sf x t) (F_Simple sf)) →
+  (forall A, P <! A[x \ t] !> A → P <! ~ (A[x \ t]) !> <! ~ A !>) →
+  (forall A₁ A₂, P <! A₁[x \ t] !> A₁ → P <! A₂[x \ t] !> A₂ → P <! A₁[x \ t] ∧ A₂[x \ t] !> <! A₁ ∧ A₂ !>) →
+  (forall A₁ A₂, P <! A₁[x \ t] !> A₁ → P <! A₂[x \ t] !> A₂ → P <! A₁[x \ t] ∨ A₂[x \ t] !> <! A₁ ∨ A₂ !>) →
+  (forall A₁ A₂, P <! A₁[x \ t] !> A₁ → P <! A₂[x \ t] !> A₂ → P <! A₁[x \ t] => A₂[x \ t] !> <! A₁ => A₂ !>) →
+  (forall y A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (y = x ∨ x ∉ formula_fvars A →
+           P <! exists y, A !> <! exists y, A !>)) →
+  (forall y A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (y <> x → x ∈ formula_fvars A →
+           let y' := fresh_var y (quant_subst_fvars A x t) in
+           P <! exists y', A[y \ y'][x \ t] !> <! exists y, A !>)) →
+  (forall y A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (y = x ∨ x ∉ formula_fvars A →
+           P <! forall y, A !> <! forall y, A !>)) →
+  (forall y A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (y <> x → x ∈ formula_fvars A →
+           let y' := fresh_var y (quant_subst_fvars A x t) in
+           P <! forall y', A[y \ y'][x \ t] !> <! forall y, A !>)) →
+  forall A, P <! A[x \ t] !> A.
 Proof with auto.
   simpl.
-  intros P Hsf Hnot Hand Hor Himpl Hexists1 Hexists2 Hforall1 Hforall2  φ.
-  induction φ using formula_ind.
+  intros P Hsf Hnot Hand Hor Himpl Hexists1 Hexists2 Hforall1 Hforall2  A.
+  induction A using formula_ind.
   - apply Hsf.
   - rewrite simpl_subst_not. apply Hnot...
   - rewrite simpl_subst_and. apply Hand...
   - rewrite simpl_subst_or. apply Hor...
   - rewrite simpl_subst_implication. apply Himpl...
-  - rename x0 into y. destruct (quant_subst_skip_cond y φ x).
+  - rename x0 into y. destruct (quant_subst_skip_cond y A x).
     + rewrite simpl_subst_exists_skip...
     + rewrite simpl_subst_exists_propagate; try contradiction...
-  - rename x0 into y. destruct (quant_subst_skip_cond y φ x).
+  - rename x0 into y. destruct (quant_subst_skip_cond y A x).
     + rewrite simpl_subst_forall_skip...
     + rewrite simpl_subst_forall_propagate; try contradiction...
 Qed.
@@ -418,7 +418,7 @@ Hint Rewrite subst_term_diag : core.
 Hint Rewrite subst_sf_diag : core.
 
 Lemma subst_term_non_free : forall t x t',
-    x ∉ term_fvars t ->
+    x ∉ term_fvars t →
     subst_term t x t' = t.
 Proof with auto.
   intros t x t' H. induction t using term_ind; simpl...
@@ -431,7 +431,7 @@ Proof with auto.
 Qed.
 
 Lemma subst_sf_non_free : forall sf x t,
-    x ∉ simple_formula_fvars sf ->
+    x ∉ sf_fvars sf →
     subst_sf sf x t = sf.
 Proof with auto.
   intros. destruct sf; simpl; try reflexivity.
@@ -443,7 +443,7 @@ Proof with auto.
 Qed.
 
 Lemma subst_non_free : forall A x t,
-    x ∉ formula_fvars A ->
+    x ∉ formula_fvars A →
     A[x \ t] = A.
 Proof with auto.
   intros A x t. generalize dependent A.
@@ -467,7 +467,7 @@ Proof with auto.
 Qed.
 
 Lemma fvar_subst_fvars_subseteq : forall t x t',
-  x ∈ term_fvars t ->
+  x ∈ term_fvars t →
   term_fvars t' ⊆ term_fvars (subst_term t x t').
 Proof with auto.
   intros. induction t; simpl in *.
@@ -475,7 +475,7 @@ Proof with auto.
   - apply elem_of_singleton in H. subst.  destruct (decide (x0 = x0)); try contradiction.
     reflexivity.
   - intros a H3. apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
-    apply elem_of_list_fmap in H1 as (x_arg&->&H1). apply elem_of_list_In in H1 as H1'.
+    apply elem_of_list_fmap in H1 as (x_arg&→&H1). apply elem_of_list_In in H1 as H1'.
     forward (H0 x_arg)... forward H0... forward (H0 a)...
     apply elem_of_union_list. exists (term_fvars (subst_term x_arg x t')). split...
     clear H0 H3 a. apply elem_of_list_fmap. eexists. split; [reflexivity|].
@@ -484,7 +484,7 @@ Qed.
 
 
 Lemma subst_term_free_fvars : ∀ t x t',
-    x ∈ term_fvars t ->
+    x ∈ term_fvars t →
     term_fvars (subst_term t x t') = (term_fvars t ∖ {[x]}) ∪ term_fvars t'.
 Proof with auto.
   intros. apply leibniz_equiv. induction t.
@@ -494,10 +494,10 @@ Proof with auto.
     rewrite union_empty_l_L. reflexivity.
   - simpl in *.
     apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
-    apply elem_of_list_fmap in H1 as (x_arg&->&H1). intros a. split; intros H.
+    apply elem_of_list_fmap in H1 as (x_arg&→&H1). intros a. split; intros H.
     + apply elem_of_union_list in H as (a_arg_fvars&H3&H4).
-      apply elem_of_list_fmap in H3 as (a_fvars&->&H3).
-      apply elem_of_list_fmap in H3 as (a_arg&->&H3).
+      apply elem_of_list_fmap in H3 as (a_fvars&→&H3).
+      apply elem_of_list_fmap in H3 as (a_arg&→&H3).
       destruct (decide (x ∈ term_fvars a_arg)).
       * forward (H0 a_arg) by ((apply elem_of_list_In in H3); auto)...
         forward H0... apply elem_of_union.
@@ -514,7 +514,7 @@ Proof with auto.
     + apply elem_of_union in H. destruct H.
       * apply elem_of_difference in H as [H3 H4]. apply not_elem_of_singleton in H4.
         apply elem_of_union_list in H3 as (a_arg_fvars&?&?).
-        apply elem_of_list_fmap in H as (a_arg&->&?).
+        apply elem_of_list_fmap in H as (a_arg&→&?).
         apply elem_of_union_list. apply elem_of_list_In in H as H'.
         forward (H0 a_arg) by ((apply elem_of_list_In in H1); auto).
         exists (term_fvars (subst_term a_arg x t')). rewrite elem_of_list_fmap.
@@ -532,8 +532,8 @@ Proof with auto.
 Qed.
 
 Lemma subst_sf_free_fvars : ∀ sf x t',
-    x ∈ simple_formula_fvars sf ->
-    simple_formula_fvars (subst_sf sf x t') = (simple_formula_fvars sf ∖ {[x]}) ∪ term_fvars t'.
+    x ∈ sf_fvars sf →
+    sf_fvars (subst_sf sf x t') = (sf_fvars sf ∖ {[x]}) ∪ term_fvars t'.
 Proof with auto.
   intros. destruct sf.
   - simpl in H. apply elem_of_empty in H as [].
@@ -547,10 +547,10 @@ Proof with auto.
       * rewrite subst_term_non_free... set_solver.
   - simpl in *. apply leibniz_equiv. intros a.
     apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
-    apply elem_of_list_fmap in H1 as (x_arg&->&H1). split; intros H.
+    apply elem_of_list_fmap in H1 as (x_arg&→&H1). split; intros H.
     + apply elem_of_union_list in H as (a_arg_fvars&H3&H4).
-      apply elem_of_list_fmap in H3 as (a_fvars&->&H3).
-      apply elem_of_list_fmap in H3 as (a_arg&->&H3).
+      apply elem_of_list_fmap in H3 as (a_fvars&→&H3).
+      apply elem_of_list_fmap in H3 as (a_arg&→&H3).
       destruct (decide (x ∈ term_fvars a_arg)).
       * apply elem_of_union.
         rewrite subst_term_free_fvars in H4... apply elem_of_union in H4 as [?|?]... left.
@@ -566,7 +566,7 @@ Proof with auto.
     + apply elem_of_union in H. destruct H.
       * apply elem_of_difference in H as [H3 H4]. apply not_elem_of_singleton in H4.
         apply elem_of_union_list in H3 as (a_arg_fvars&?&?).
-        apply elem_of_list_fmap in H as (a_arg&->&?).
+        apply elem_of_list_fmap in H as (a_arg&→&?).
         apply elem_of_union_list. apply elem_of_list_In in H as H'.
         exists (term_fvars (subst_term a_arg x t')). rewrite elem_of_list_fmap.
         destruct (decide (x ∈ term_fvars a_arg)).
@@ -647,10 +647,13 @@ Proof with auto.
         -- rewrite subst_non_free...
 Qed.
 
+Hint Rewrite subst_free_fvars : core.
+
+
 Lemma subst_term_commute : forall t x₁ t₁ x₂ t₂,
-    x₁ ≠ x₂ ->
-    x₁ ∉ term_fvars t₂ ->
-    x₂ ∉ term_fvars t₁ ->
+    x₁ ≠ x₂ →
+    x₁ ∉ term_fvars t₂ →
+    x₂ ∉ term_fvars t₁ →
     subst_term (subst_term t x₁ t₁) x₂ t₂ = subst_term (subst_term t x₂ t₂) x₁ t₁.
 Proof with auto.
   intros t x₁ t₁ x₂ t₂ Hneq H₁ H₂. induction t using term_ind; simpl...
@@ -665,9 +668,9 @@ Proof with auto.
 Qed.
 
 Lemma subst_sf_commute : forall sf x₁ t₁ x₂ t₂,
-    x₁ <> x₂ ->
-    x₁ ∉ term_fvars t₂ ->
-    x₂ ∉ term_fvars t₁ ->
+    x₁ <> x₂ →
+    x₁ ∉ term_fvars t₂ →
+    x₂ ∉ term_fvars t₁ →
     subst_sf (subst_sf sf x₁ t₁) x₂ t₂ =
       subst_sf (subst_sf sf x₂ t₂) x₁ t₁.
 Proof with auto.
@@ -677,22 +680,22 @@ Proof with auto.
 Qed.
 
 Lemma teval_delete_state_var : ∀ x {M σ t v},
-    x ∉ term_fvars t ->
+    x ∉ term_fvars t →
     teval M σ t v ↔ teval M (delete x σ) t v.
 Proof with auto.
   intros x₀ M σ t v Hfree. split.
   - intros H. revert Hfree. assert (H':=H). revert H H'.
     generalize dependent v. generalize dependent t.
     apply (teval_ind_mut _ _
-         (λ t v _, teval M σ t v -> x₀ ∉ term_fvars t -> teval M (delete x₀ σ) t v)
-         (λ args vargs _, forallb (λ arg, bool_decide (x₀ ∉ term_fvars arg)) args ->
-                              teval_args M σ args vargs -> teval_args M (delete x₀ σ) args vargs)).
+         (λ t v _, teval M σ t v → x₀ ∉ term_fvars t → teval M (delete x₀ σ) t v)
+         (λ args vargs _, forallb (λ arg, bool_decide (x₀ ∉ term_fvars arg)) args →
+                              teval_args M σ args vargs → teval_args M (delete x₀ σ) args vargs)).
     + intros. constructor.
     + intros x v H H' Hfree. constructor. simpl in Hfree.
       destruct (decide (x = x₀)); subst; simpl.
       * apply not_elem_of_singleton in Hfree. contradiction.
       * apply lookup_delete_Some. split...
-    + intros f args vargs v Hargs IHargs Hfn H Hfree. apply Teval_App with vargs...
+    + intros f args vargs v Hargs IHargs Hfn H Hfree. apply TEval_App with vargs...
       apply IHargs... simpl in Hfree. clear Hfn IHargs Hargs H. induction args; subst; simpl in *...
       apply not_elem_of_union in Hfree as [H1 H2].
       simpl. apply andb_prop_intro. split...
@@ -706,15 +709,15 @@ Proof with auto.
   - intros H. revert Hfree. assert (H':=H). revert H H'.
     generalize dependent v. generalize dependent t.
     apply (teval_ind_mut _ _
-         (λ t v _, teval M (delete x₀ σ) t v -> x₀ ∉ term_fvars t -> teval M σ t v)
-         (λ args vargs _, forallb (λ arg, bool_decide (x₀ ∉ term_fvars arg)) args ->
-                              teval_args M (delete x₀ σ) args vargs -> teval_args M σ args vargs)).
+         (λ t v _, teval M (delete x₀ σ) t v → x₀ ∉ term_fvars t → teval M σ t v)
+         (λ args vargs _, forallb (λ arg, bool_decide (x₀ ∉ term_fvars arg)) args →
+                              teval_args M (delete x₀ σ) args vargs → teval_args M σ args vargs)).
     + intros. constructor.
     + intros x v H H' Hfree. constructor. simpl in Hfree.
       destruct (decide (x = x₀)); subst; simpl.
       * apply not_elem_of_singleton in Hfree. contradiction.
       * apply lookup_delete_Some in H as [? ?]...
-    + intros f args vargs v Hargs IHargs Hfn H Hfree. apply Teval_App with vargs...
+    + intros f args vargs v Hargs IHargs Hfn H Hfree. apply TEval_App with vargs...
       apply IHargs... simpl in Hfree. clear Hfn IHargs Hargs H. induction args; subst; simpl in *...
       apply not_elem_of_union in Hfree as [? ?].
       simpl. apply andb_prop_intro. split...
@@ -727,8 +730,8 @@ Proof with auto.
 Qed.
 
 Lemma teval_args_delete_state_var : forall x {M σ args vargs},
-    forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args ->
-    teval_args M σ args vargs <->
+    forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
+    teval_args M σ args vargs <→
     teval_args M (delete x σ) args vargs.
 Proof with auto.
   intros x M σ args vargs Hfree. split.
@@ -747,7 +750,7 @@ Proof with auto.
 Qed.
 
 Lemma sfeval_delete_state_var : ∀ x {M σ sf},
-    x ∉ simple_formula_fvars sf -> sfeval M σ sf ↔ sfeval M (delete x σ) sf.
+    x ∉ sf_fvars sf → sfeval M σ sf ↔ sfeval M (delete x σ) sf.
 Proof with auto.
   intros x₀ M σ sf Hfree. intros. destruct sf; simpl.
   - split; constructor.
@@ -770,32 +773,40 @@ Proof with auto.
       apply andb_prop_intro. split...
 Qed.
 
-Lemma feval_delete_state_var : forall x {M σ φ},
-    x ∉ formula_fvars φ ->
-    feval M σ φ <-> feval M (delete x σ) φ.
+Lemma feval_delete_state_var : forall x {M σ A},
+    x ∉ formula_fvars A →
+    feval M σ A <→ feval M (delete x σ) A.
 Proof with auto.
-  intros x M σ φ. generalize dependent x. generalize dependent σ.
-  induction φ using formula_ind; simpl; intros σ x₀ Hfree;
+  intros x M σ A. generalize dependent x. generalize dependent σ.
+  induction A using formula_ind; simpl; intros σ x₀ Hfree;
     try (apply not_elem_of_union in Hfree as [H₁ H₂]).
   - apply sfeval_delete_state_var...
-  - split; intros H contra.
-    + apply H. apply <- IHφ; [exact contra|]...
-    + apply H. apply IHφ...
+  - split; intros [Hst H].
+    + split.
+      * set_solver.
+      * intros contra. apply H. apply <- IHA; [exact contra|]...
+    + split.
+      * set_solver.
+      * intros contra. apply H. apply IHA...
   - split; intros [? ?].
     + split.
-      * apply (IHφ1 σ x₀)...
-      * apply (IHφ2 σ x₀)...
+      * apply (IHA1 σ x₀)...
+      * apply (IHA2 σ x₀)...
     + split.
-      * apply (IHφ1 σ x₀)...
-      * apply (IHφ2 σ x₀)...
-  - split; intros [?|?].
-    + left. apply (IHφ1 σ x₀)...
-    + right. apply (IHφ2 σ x₀)...
-    + left. apply (IHφ1 σ x₀)...
-    + right. apply (IHφ2 σ x₀)...
-  - split; intros Himpl H.
-    + apply (IHφ2 σ x₀)... apply Himpl. apply (IHφ1 σ x₀)...
-    + apply (IHφ2 σ x₀)... apply Himpl. apply (IHφ1 σ x₀)...
+      * apply (IHA1 σ x₀)...
+      * apply (IHA2 σ x₀)...
+  - split; intros [[]|[]].
+    + left. split; [set_solver | apply (IHA1 σ x₀); auto].
+    + right. split; [set_solver | apply (IHA2 σ x₀); auto].
+    + left. split; [set_solver | apply (IHA1 σ x₀); auto].
+    + right. split; [set_solver | apply (IHA2 σ x₀); auto].
+  - split; intros [(?&?&?) | (?&?)].
+    + left. repeat split; [set_solver| | set_solver]. intros contra. apply H0.
+      apply (IHA1 σ x₀)...
+    + right. repeat split; [set_solver | apply IHA2; auto].
+    + left. repeat split; [set_solver| | set_solver]. intros contra. apply H0.
+      apply (IHA1 σ x₀)...
+    + right. repeat split; [set_solver | ]. apply IHA2 in H0...
   - destruct (decide (x₀ = x)); subst; simpl.
     + setoid_rewrite (insert_delete_insert σ)...
     + apply not_elem_of_difference in Hfree. rewrite elem_of_singleton in Hfree.
@@ -813,7 +824,7 @@ Proof with auto.
 Qed.
 
 Lemma teval_delete_state_var_head : ∀ x M σ t v₀ v,
-    x ∉ term_fvars t -> teval M (<[x:=v₀]> σ) t v ↔ teval M σ t v.
+    x ∉ term_fvars t → teval M (<[x:=v₀]> σ) t v ↔ teval M σ t v.
 Proof with auto.
   intros. etrans.
   - apply teval_delete_state_var. exact H.
@@ -821,8 +832,8 @@ Proof with auto.
 Qed.
 
 Lemma teval_args_delete_state_var_head : forall x M σ (v : value) args vargs,
-    forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args ->
-    teval_args M (<[x:=v]>σ) args vargs <->
+    forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
+    teval_args M (<[x:=v]>σ) args vargs <→
     teval_args M σ args vargs.
 Proof with auto.
   intros. etrans.
@@ -831,16 +842,16 @@ Proof with auto.
 Qed.
 
 Lemma sfeval_delete_state_var_head : ∀ x M σ sf v,
-    x ∉ simple_formula_fvars sf -> sfeval M (<[x:=v]> σ) sf ↔ sfeval M σ sf.
+    x ∉ sf_fvars sf → sfeval M (<[x:=v]> σ) sf ↔ sfeval M σ sf.
 Proof with auto.
   intros. etrans.
   - apply sfeval_delete_state_var. exact H.
   - rewrite (delete_insert_delete σ). rewrite <- sfeval_delete_state_var...
 Qed.
 
-Lemma feval_delete_state_var_head : forall x  M σ φ v,
-    x ∉ formula_fvars φ ->
-    feval M (<[x:=v]> σ) φ <-> feval M σ φ.
+Lemma feval_delete_state_var_head : forall x  M σ A v,
+    x ∉ formula_fvars A →
+    feval M (<[x:=v]> σ) A <→ feval M σ A.
 Proof with auto.
   intros. etrans.
   - apply feval_delete_state_var. exact H.
@@ -848,30 +859,30 @@ Proof with auto.
 Qed.
 
 Lemma teval_subst : forall {M σ t t' x} {v' v : value} (H : teval M σ t' v'),
-  teval M (<[x:=v']>σ) t v <-> teval M σ (subst_term t x t') v.
+  teval M (<[x:=v']>σ) t v <→ teval M σ (subst_term t x t') v.
 Proof with auto.
  intros M σ t t' x v' v. split.
   - intros H'. generalize dependent t'. generalize dependent v.
     assert (Hind:=teval_ind_mut M (<[x:=v']>σ)
-      (λ t v _, forall t', teval M σ t' v' -> teval M σ (subst_term t x t') v)
-      (λ args vargs _, forall t', teval M σ t' v' -> teval_args M σ (map (λ arg, subst_term arg x t') args) vargs)).
+      (λ t v _, forall t', teval M σ t' v' → teval M σ (subst_term t x t') v)
+      (λ args vargs _, forall t', teval M σ t' v' → teval_args M σ (map (λ arg, subst_term arg x t') args) vargs)).
     simpl in Hind. apply Hind; clear Hind.
     + constructor.
     + rename x into x'. intros x v H t' Heval. destruct (decide (x = x')).
-      * apply lookup_insert_Some in H. destruct H as [[<- ->] | [H₁ H₂]].
+      * apply lookup_insert_Some in H. destruct H as [[<- →] | [H₁ H₂]].
         -- assumption.
         -- exfalso. apply H₁...
-      * apply lookup_insert_Some in H. destruct H as [[<- ->] | [H₁ H₂]].
+      * apply lookup_insert_Some in H. destruct H as [[<- →] | [H₁ H₂]].
         -- contradiction.
         -- constructor...
-    + intros. apply Teval_App with vargs...
+    + intros. apply TEval_App with vargs...
     + constructor.
     + constructor; [apply H | apply H0]...
   - remember (subst_term t x t') as tpre. intros H'.
     assert (Hind:=teval_ind_mut M σ
-      (λ t v _, forall t', teval M σ t' v' -> forall tpre, t = subst_term tpre x t' -> teval M (<[x:=v']>σ) tpre v)
-      (λ args vargs _, forall t', teval M σ t' v' -> forall args',
-            args = (map (λ arg, subst_term arg x t') args') ->
+      (λ t v _, forall t', teval M σ t' v' → forall tpre, t = subst_term tpre x t' → teval M (<[x:=v']>σ) tpre v)
+      (λ args vargs _, forall t', teval M σ t' v' → forall args',
+            args = (map (λ arg, subst_term arg x t') args') →
             teval_args M (<[x:=v']>σ) args' vargs)).
     generalize dependent Heqtpre. generalize dependent t. generalize dependent H.
     generalize dependent t'. generalize dependent H'. generalize dependent v.
@@ -893,7 +904,7 @@ Proof with auto.
         pose proof (Heq := UIP_nat _ _ hlen hlen0 ). subst.
         pose proof (Heq := fdef_functional _ H3 H7). subst.
         constructor. apply lookup_insert_Some...
-      * inversion H1. subst. apply Teval_App with vargs... apply H with t'...
+      * inversion H1. subst. apply TEval_App with vargs... apply H with t'...
     + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor...
     + intros. symmetry in H2. apply map_eq_cons in H2. destruct H2 as (y&ys&H3&H4&H5).
       subst. constructor.
@@ -902,8 +913,8 @@ Proof with auto.
 Qed.
 
 Lemma teval_args_subst : forall {M σ x t} {v : value} {args vargs},
-    teval M σ t v ->
-    teval_args M (<[x:=v]>σ) args vargs <->
+    teval M σ t v →
+    teval_args M (<[x:=v]>σ) args vargs <→
     teval_args M σ (map (λ arg : term, subst_term arg x t) args) vargs.
 Proof with auto.
   intros M σ x t v args vargs Ht. split.
@@ -922,8 +933,8 @@ Proof with auto.
 Qed.
 
 Lemma sfeval_subst : forall {M σ sf x t} {v : value},
-    teval M σ t v ->
-    sfeval M (<[x:=v]>σ) sf <-> sfeval M σ (subst_sf sf x t).
+    teval M σ t v →
+    sfeval M (<[x:=v]>σ) sf <→ sfeval M σ (subst_sf sf x t).
 Proof with auto.
   intros M σ sf x t v Ht. split.
   - destruct sf; simpl; intros H...
@@ -942,32 +953,48 @@ Proof with auto.
       * assumption.
 Qed.
 
-Lemma feval_subst : forall v M σ φ x t,
-    teval M σ t v ->
-    feval M (<[x:=v]>σ) φ <-> feval M σ (φ[x \ t]).
+Theorem state_covers_subst : forall {M σ A x t v},
+    teval M σ t v →
+    state_covers (A[x \ t]) σ <→ state_covers A (<[x:=v]> σ).
 Proof with auto.
-  intros v M σ φ. generalize dependent σ. generalize dependent v.
-  induction φ using formula_ind; intros v₀ σ x₀ t Ht.
+  intros. rename H into Htv. apply teval_state_covers in Htv.
+  unfold state_covers. destruct (decide (x ∈ formula_fvars A)).
+  - rewrite subst_free_fvars... split; intros.
+    + rewrite (dom_insert_L σ).
+      apply union_subseteq in H as [H _]. apply union_mono_r with (Y:={[x]}) in H.
+      rewrite union_comm_L in H.
+      rewrite <- union_difference_singleton_L with (x:=x) in H...
+      rewrite union_comm_L in H. assumption.
+    + set_solver.
+  - rewrite subst_non_free_fvars... set_solver.
+Qed.
+
+Lemma feval_subst : forall v M σ A x t,
+    teval M σ t v →
+    feval M (<[x:=v]>σ) A <→ feval M σ (A[x \ t]).
+Proof with auto.
+  intros v M σ A. generalize dependent σ. generalize dependent v.
+  induction A using formula_ind; intros v₀ σ x₀ t Ht.
   - split; apply sfeval_subst...
-  - rewrite simpl_subst_not. simpl. split;
-      intros H contra; apply H; apply (IHφ _ _ _ _ Ht); assumption.
-  - rewrite simpl_subst_and. split; intros [? ?];
-      (split; [apply (IHφ1 _ _ _ _ Ht)|apply (IHφ2 _ _ _ _ Ht)]; assumption).
-  - rewrite simpl_subst_or. split;
-      (intros [?|?]; [left; apply (IHφ1 _ _ _ _ Ht) | right; apply (IHφ2 _ _ _ _ Ht)]; auto).
-  - rewrite simpl_subst_implication. simpl. split;
-      (intros; apply (IHφ2 _ _ _ _ Ht); apply H; apply (IHφ1 _ _ _ _ Ht); auto).
+  - rewrite simpl_subst_not. simpl. rewrite (state_covers_subst Ht).
+    rewrite (IHA _ _ _ _ Ht). done.
+  - rewrite simpl_subst_and. simpl. rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht).
+    done.
+  - rewrite simpl_subst_or. simpl. repeat rewrite (state_covers_subst Ht).
+    rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht). done.
+  - rewrite simpl_subst_implication. simpl. repeat rewrite (state_covers_subst Ht).
+    rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht). done.
   - destruct (decide (x = x₀)).
     + rewrite simpl_subst_exists_skip... subst. simpl. setoid_rewrite (insert_insert σ)...
-    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars φ)).
+    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars A)).
       2: { rewrite simpl_subst_exists_skip... apply feval_delete_state_var_head...
            simpl. apply not_elem_of_difference... }
-      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars φ x₀ t))...
+      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars A x₀ t))...
       apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3).
       rewrite simpl_subst_exists_propagate... simpl.
-      remember (fresh_var x (quant_subst_fvars φ x₀ t)) as x'.
-      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) φ
-                   <-> feval M (<[x':=v]> σ) <! φ[x \ x'][x₀ \ t] !>) as H.
+      remember (fresh_var x (quant_subst_fvars A x₀ t)) as x'.
+      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) A
+                   <→ feval M (<[x':=v]> σ) <! A[x \ x'][x₀ \ t] !>) as H.
       { split; intros [v Hv]; exists v; apply H... }
       intros v. etrans.
       { apply (feval_delete_state_var x')... }
@@ -988,15 +1015,15 @@ Proof with auto.
          rewrite (delete_insert_ne (<[x₀:=v₀]> σ))...
   - destruct (decide (x = x₀)).
     + rewrite simpl_subst_forall_skip... subst. simpl. setoid_rewrite (insert_insert σ)...
-    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars φ)).
+    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars A)).
       2: { rewrite simpl_subst_forall_skip... apply feval_delete_state_var_head...
            simpl. apply not_elem_of_difference... }
-      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars φ x₀ t))...
+      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars A x₀ t))...
       apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3).
       rewrite simpl_subst_forall_propagate... simpl.
-      remember (fresh_var x (quant_subst_fvars φ x₀ t)) as x'.
-      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) φ
-                   <-> feval M (<[x':=v]> σ) <! φ[x \ x'][x₀ \ t] !>) as H.
+      remember (fresh_var x (quant_subst_fvars A x₀ t)) as x'.
+      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) A
+                   <→ feval M (<[x':=v]> σ) <! A[x \ x'][x₀ \ t] !>) as H.
       { split; intros v Hv; apply H... }
       intros v. etrans.
       { apply (feval_delete_state_var x')... }
@@ -1019,8 +1046,8 @@ Qed.
 
 
 Lemma teval_args_in : forall M σ arg args vargs,
-  In arg args ->
-  teval_args M σ args vargs ->
+  In arg args →
+  teval_args M σ args vargs →
   exists v, teval M σ arg v.
 Proof with auto.
   intros. induction H0.
@@ -1031,25 +1058,25 @@ Proof with auto.
 Qed.
 
 Lemma teval_subst_value : forall M σ t x t' v,
-    x ∈ term_fvars t ->
-    teval M σ (subst_term t x t') v ->
+    x ∈ term_fvars t →
+    teval M σ (subst_term t x t') v →
     exists v', teval M σ t' v'.
 Proof with auto.
   induction t.
   - intros. simpl in H. apply elem_of_empty in H as [].
-  - intros. simpl in H. apply elem_of_singleton in H as ->. simpl in H0.
+  - intros. simpl in H. apply elem_of_singleton in H as →. simpl in H0.
     destruct (decide (x = x)); try contradiction. eauto.
   - intros. simpl in H0.
     apply elem_of_union_list in H0 as (arg_fvars&H2&H3).
-    apply elem_of_list_fmap in H2 as (arg&->&Hin). apply elem_of_list_In in Hin.
+    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
     forward (H arg)... inversion H1; subst.
     apply in_map with (f := (λ arg, subst_term arg x t')) in Hin.
     apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v' Hv']. eauto.
 Qed.
 
 Lemma sfeval_subst_value : ∀ M σ sf x t,
-    x ∈ simple_formula_fvars sf →
-    sfeval M σ (subst_sf sf x t) ->
+    x ∈ sf_fvars sf →
+    sfeval M σ (subst_sf sf x t) →
     ∃ v, teval M σ t v.
 Proof with auto.
   intros. destruct sf.
@@ -1061,12 +1088,51 @@ Proof with auto.
     + apply teval_subst_value in H4...
   - simpl in H.
     apply elem_of_union_list in H as (arg_fvars&H2&H3).
-    apply elem_of_list_fmap in H2 as (arg&->&Hin). apply elem_of_list_In in Hin.
+    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
     inversion H0; subst.
     apply in_map with (f := (λ arg, subst_term arg x t)) in Hin.
     apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v Hv].
     apply teval_subst_value in Hv...
 Qed.
 
+(* Lemma something : forall M σ t, *)
+(*     term_fvars t ⊆ dom σ → *)
+(*     ∃ v, teval M σ t v. *)
+(* Proof with auto. *)
+(*   induction t; simpl; intros. *)
+(*   - exists v. constructor. *)
+(*   - apply singleton_subseteq_l in H. apply elem_of_dom in H as [v Hv]. *)
+(*     exists v. constructor... *)
+(*   - unfold union_list in H0.  *)
+(*     lookup_ *)
+(*     Search (is_Some ?p → exists _, ?b). *)
+
+(*     eauto. *)
+(*   intros. *)
 (* I don't think teval_subst_value holds in general because of LEM and the semantics
     of NOT *)
+
+Lemma feval_subst_value : ∀ M σ A x t,
+    x ∈ formula_fvars A →
+    feval M σ (A[x \ t]) →
+    ∃ v, teval M σ t v.
+Proof with auto.
+  intros. induction A; simpl in *.
+  - eapply sfeval_subst_value. apply H. apply H0.
+  - clear IHA. rewrite simpl_subst_not in H0. simpl in H0.
+    unfold state_covers in H0. rewrite subst_free_fvars in H0...
+    destruct H0 as []
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in H. apply elem_of_empty in H as [].
+  - simpl in H. apply elem_of_union in H. simpl in H0. inversion H0. subst.
+    destruct H.
+    + apply teval_subst_value in H3...
+    + apply teval_subst_value in H4...
+  - simpl in H.
+    apply elem_of_union_list in H as (arg_fvars&H2&H3).
+    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
+    inversion H0; subst.
+    apply in_map with (f := (λ arg, subst_term arg x t)) in Hin.
+    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v Hv].
+    apply teval_subst_value in Hv...
+Qed.

@@ -1,307 +1,252 @@
 From Stdlib Require Import Strings.String.
-From Stdlib Require Import Numbers.DecimalString.
 From Stdlib Require Import Lia.
-From Stdlib Require Import ZArith.ZArith.
-From Stdlib Require Import Reals.Reals.
 From stdpp Require Import gmap vector.
+From MRC Require Import Options.
+From MRC Require Import Stdppp.
+From MRC Require Import Model.
 From MRC Require Import Tactics.
 Open Scope bool_scope.
 
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
+Section syntax.
+  Context {V : val}.
+  Let value := val_t V.
+  Let value_ty := val_ty V.
 
-Definition value := {t : Type & t}.
-Definition value_unit : value := @existT Type _ unit tt.
-
-Record variable := mkVar {
-  var_name : string;
-  var_sub : nat;
-  var_is_initial : bool;
-}.
-
-Global Instance variable_eq_dec : EqDecision variable. Proof. solve_decision. Defined.
-Global Instance variable_countable : Countable variable.
-Proof.
-  refine (
-    {| encode v := encode (var_name v, var_sub v, var_is_initial v);
-       decode t :=
-         match decode t with
-         | Some (n, s, i) => Some (mkVar n s i)
-         | None => None
-         end
-    |}).
-  intros [n s i]. simpl. rewrite decode_encode. reflexivity.
-Defined.
-
-Definition simple_var name := mkVar name 0 false.
-Definition var_with_sub x i :=
-  mkVar (var_name x) (i) (var_is_initial x).
-Definition var_increase_sub x i :=
-  var_with_sub x (var_sub x + i).
-
-Lemma var_with_sub_var_sub_id : forall x,
-    var_with_sub x (var_sub x) = x.
-Proof. intros. unfold var_with_sub. destruct x. reflexivity. Qed.
-Lemma var_with_sub_idemp : forall x i j,
-  var_with_sub (var_with_sub x j) i = var_with_sub x i.
-Proof. intros. unfold var_with_sub. reflexivity. Qed.
-Lemma var_sub_of_var_with_sub : forall x i,
-    var_sub (var_with_sub x i) = i.
-Proof. reflexivity. Qed.
-(* Lemma var_with_sub_var_sub_id : forall x, *)
-(*     var_with_sub x (var_sub x) = x. *)
-(* Proof. intros. unfold var_with_sub. destruct x. reflexivity. Qed. *)
-
-Hint Rewrite var_with_sub_var_sub_id : core.
-Hint Rewrite var_with_sub_idemp : core.
-(* Lemma var_with_sub_eq_increase_sub : forall x n, *)
-(*     var_sub x <= n -> *)
-(*     var_with_sub x (n) = var_increase_sub x (n - var_sub x). *)
-(* Proof. *)
-
-Coercion simple_var : string >-> variable.
-
-Unset Elimination Schemes.
-Inductive term : Type :=
+  Unset Elimination Schemes.
+  Inductive term  : Type :=
   | TConst (v : value)
   | TVar (x : variable)
   | TApp (symbol : string) (args : list term).
-Set Elimination Schemes.
+  Set Elimination Schemes.
 
-Fixpoint term_rank t :=
-  match t with
-  | TConst _ => 0
-  | TVar _ => 0
-  | TApp f args => 1 + max_list_with term_rank args
-  end.
+  Fixpoint term_rank t :=
+    match t with
+    | TConst _ => 0
+    | TVar _ => 0
+    | TApp f args => 1 + max_list_with term_rank args
+    end.
 
-Lemma term_rank_app_gt_args : forall f args arg,
-  In arg args ->
-  term_rank arg < term_rank (TApp f args).
-Proof with auto.
-  intros f args arg HIn.
-  simpl. unfold In in HIn. induction args.
-  - destruct HIn.
-  - destruct HIn as [HIn | HIn].
-    + rewrite HIn in *. simpl. lia.
-    + simpl in *. remember (max_list_with term_rank args) as rest.
-      destruct (Nat.max_spec (term_rank a) (rest)) as [[_ H] | [_ H]]; rewrite H; try lia...
-      forward IHargs... lia.
-Qed.
+  Lemma term_rank_app_gt_args : forall f args arg,
+      In arg args →
+      term_rank arg < term_rank (TApp f args).
+  Proof with auto.
+    intros f args arg HIn.
+    simpl. unfold In in HIn. induction args.
+    - destruct HIn.
+    - destruct HIn as [HIn | HIn].
+      + rewrite HIn in *. simpl. lia.
+      + simpl in *. remember (max_list_with term_rank args) as rest.
+        destruct (Nat.max_spec (term_rank a) (rest)) as [[_ H] | [_ H]]; rewrite H; try lia...
+        forward IHargs... lia.
+  Qed.
 
-Lemma term_formula_rank_ind : forall P,
-  (forall n,
-    (forall m, m < n ->
-      forall u, term_rank u = m -> P u) ->
-    (forall t, term_rank t = n -> P t)) ->
-  forall n t, term_rank t < n -> P t.
-Proof with auto.
-  intros P Hind n. induction n; intros t Hrank.
-  - lia.
-  - apply Hind with (term_rank t)...
-    intros m Hlt u Hu. apply IHn. lia.
-Qed.
+  Lemma term_formula_rank_ind : forall P,
+      (forall n,
+          (forall m, m < n →
+                forall u, term_rank u = m → P u) →
+          (forall t, term_rank t = n → P t)) →
+      forall n t, term_rank t < n → P t.
+  Proof with auto.
+    intros P Hind n. induction n; intros t Hrank.
+    - lia.
+    - apply Hind with (term_rank t)...
+      intros m Hlt u Hu. apply IHn. lia.
+  Qed.
 
-Lemma term_ind : forall P,
-  (forall v, P (TConst v)) ->
-  (forall x, P (TVar x)) ->
-  (forall f args,
-    (forall arg, In arg args -> P arg) -> P (TApp f args)) ->
-  (forall t, P t).
-Proof with auto.
-  intros P Hconst Hvar Hfunc t.
-  apply (term_formula_rank_ind P) with (term_rank t + 1); try lia...
-  clear t. intros n IH t Htr. destruct t...
-  apply Hfunc. intros arg HIn.
-  apply term_rank_app_gt_args with (f:=symbol) in HIn.
-  apply IH with (term_rank arg); lia.
-Qed.
+  Lemma term_ind : forall P,
+      (forall v, P (TConst v)) →
+      (forall x, P (TVar x)) →
+      (forall f args,
+          (forall arg, In arg args → P arg) → P (TApp f args)) →
+      (forall t, P t).
+  Proof with auto.
+    intros P Hconst Hvar Hfunc t.
+    apply (term_formula_rank_ind P) with (term_rank t + 1); try lia...
+    clear t. intros n IH t Htr. destruct t...
+    apply Hfunc. intros arg HIn.
+    apply term_rank_app_gt_args with (f:=symbol) in HIn.
+    apply IH with (term_rank arg); lia.
+  Qed.
 
-Inductive simple_formula : Type :=
+  Inductive simple_formula : Type :=
   | AT_True
   | AT_False
-  | AT_Eq (t₁ t₂ : term)
+  | AT_Eq (t1 t2 : term)
   | AT_Pred (symbol : string) (args : list term).
 
-Unset Elimination Schemes.
-Inductive formula : Type :=
+  Unset Elimination Schemes.
+  Inductive formula : Type :=
   | F_Simple (sf : simple_formula)
-  | F_Not (f : formula)
-  | F_And (f₁ f₂ : formula)
-  | F_Or (f₁ f₂ : formula)
-  | F_Implies (f₁ f₂ : formula)
-  | F_Exists (x : variable) (f : formula)
-  | F_Forall (x : variable) (f : formula).
-Set Elimination Schemes.
-Scheme formula_ind_naive := Induction for formula Sort Type.
+  | F_Not (A : formula)
+  | F_And (A B : formula)
+  | F_Or (A B : formula)
+  | F_Implies (A B : formula)
+  | F_Exists (x : variable) (τ : value_ty) (A : formula)
+  | F_Forall (x : variable) (τ : value_ty) (A : formula).
+  Set Elimination Schemes.
+  Scheme formula_ind_naive := Induction for formula Sort Type.
 
-Definition to_value {A : Type} (x : A) : value := @existT Type _ A x.
-Definition N_to_value (n : nat) : value := to_value n.
-Definition Z_to_value (z : Z) : value := to_value z.
-Definition R_to_value (r : R) : value := to_value r.
-Coercion N_to_value : nat >-> value.
-Coercion Z_to_value : Z >-> value.
-Coercion R_to_value : R >-> value.
-
-Coercion TConst : value >-> term.
-Coercion TVar : variable >-> term.
-Coercion F_Simple : simple_formula >-> formula.
+  Coercion TConst : value >-> term.
+  Coercion TVar : variable >-> term.
+  Coercion F_Simple : simple_formula >-> formula.
 
 
-Declare Custom Entry formula.
-Declare Scope formula_scope.
-Declare Custom Entry formula_aux.
-Bind Scope formula_scope with simple_formula.
-Delimit Scope formula_scope with formula.
+  Declare Custom Entry formula.
+  Declare Scope formula_scope.
+  Declare Custom Entry formula_aux.
+  Bind Scope formula_scope with simple_formula.
+  Delimit Scope formula_scope with formula.
 
 
-Notation "<! e !>" := e (e custom formula_aux) : formula_scope.
-Notation "e" := e (in custom formula_aux at level 0, e custom formula) : formula_scope.
+  Notation "<! e !>" := e (e custom formula_aux) : formula_scope.
+  Notation "e" := e (in custom formula_aux at level 0, e custom formula) : formula_scope.
 
-Notation "( x )" := x (in custom formula, x at level 99) : formula_scope.
-Notation "'`' f x .. y '`'" := (.. (f x) .. y)
-                  (in custom formula at level 0, only parsing,
-                  f constr at level 0, x constr at level 9,
-                  y constr at level 9) : formula_scope.
-Notation "x" := x (in custom formula at level 0, x constr at level 0) : formula_scope.
+  Notation "( x )" := x (in custom formula, x at level 99) : formula_scope.
+  Notation "'`' f x .. y '`'" := (.. (f x) .. y)
+                                   (in custom formula at level 0, only parsing,
+                                       f constr at level 0, x constr at level 9,
+                                       y constr at level 9) : formula_scope.
+  Notation "x" := x (in custom formula at level 0, x constr at level 0) : formula_scope.
 
-Notation "x + y" := (TApp "+" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "x - y" := (TApp "-" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "x * y" := (TApp "*" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "f '(' x ',' .. ',' y ')'" := (TApp f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
+  Notation "x + y" := (TApp "+" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
+  Notation "x - y" := (TApp "-" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
+  Notation "x * y" := (TApp "*" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
+  Notation "f '(' x ',' .. ',' y ')'" := (TApp f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
 
-Notation "'true'"  := true (at level 1).
-Notation "'true'" := (AT_True) (in custom formula at level 0).
-Notation "'false'" := false (at level 1).
-Notation "'false'" := (AT_False) (in custom formula at level 0).
-Notation "x = y" := (AT_Eq x y) (in custom formula at level 70, no associativity).
-Notation "x <> y" := (F_Not (F_Simple (AT_Eq x y))) (in custom formula at level 70, no associativity, only parsing).
-Notation "x ≠ y" := (F_Not (F_Simple (AT_Eq x y))) (in custom formula at level 70, no associativity, only printing).
-Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "'~' x" := (F_Not x) (in custom formula at level 75, only parsing).
-Notation "'¬' x" := (F_Not x) (in custom formula at level 75, only printing).
-Notation "x /\ y" := (F_And x y) (in custom formula at level 80, only parsing, left associativity).
-Notation "x ∧ y" := (F_And x y) (in custom formula at level 80, only printing, left associativity).
-Notation "x \/ y" := (F_Or x y) (in custom formula at level 80, left associativity, only parsing).
-Notation "x ∨ y" := (F_Or x y) (in custom formula at level 80, left associativity, only printing).
-Notation "x => y" := (F_Implies x y) (in custom formula at level 80, only parsing).
-Notation "x ⇒ y" := (F_Implies x y) (in custom formula at level 80, only printing).
-Notation "x <=> y" := (F_And (F_Implies x y) (F_Implies y x)) (in custom formula at level 80, only parsing).
-Notation "x ⇔ y" := (F_And (F_Implies x y) (F_Implies y x)) (in custom formula at level 80, only printing).
-Notation "'exists' x .. y ',' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only parsing).
-Notation "'∃' x .. y '●' f" := (F_Exists x .. (F_Exists y f) ..) (in custom formula at level 85, only printing).
-Notation "'forall' x .. y ',' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
-Notation "'∀' x .. y '●' f" := (F_Forall x .. (F_Forall y f) ..) (in custom formula at level 85).
+  Notation "'true'"  := true (at level 1).
+  Notation "'true'" := (AT_True) (in custom formula at level 0).
+  Notation "'false'" := false (at level 1).
+  Notation "'false'" := (AT_False) (in custom formula at level 0).
+  Notation "x = y" := (AT_Eq x y) (in custom formula at level 70, no associativity).
+  Notation "x <> y" := (F_Not (F_Simple (AT_Eq x y))) (in custom formula at level 70, no associativity, only parsing).
+  Notation "x ≠ y" := (F_Not (F_Simple (AT_Eq x y))) (in custom formula at level 70, no associativity, only printing).
+  Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
+  Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
+  Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
+  Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
+  Notation "'~' x" := (F_Not x) (in custom formula at level 75, only parsing).
+  Notation "'¬' x" := (F_Not x) (in custom formula at level 75, only printing).
+  Notation "x ∧ y" := (F_And x y) (in custom formula at level 80, only parsing, left associativity).
+  Notation "x ∧ y" := (F_And x y) (in custom formula at level 80, only printing, left associativity).
+  Notation "x ∨ y" := (F_Or x y) (in custom formula at level 80, left associativity, only parsing).
+  Notation "x ∨ y" := (F_Or x y) (in custom formula at level 80, left associativity, only printing).
+  Notation "x => y" := (F_Implies x y) (in custom formula at level 80, only parsing).
+  Notation "x ⇒ y" := (F_Implies x y) (in custom formula at level 80, only printing).
+  Notation "x <=> y" := (F_And (F_Implies x y) (F_Implies y x)) (in custom formula at level 80, only parsing).
+  Notation "x ⇔ y" := (F_And (F_Implies x y) (F_Implies y x)) (in custom formula at level 80, only printing).
+  Notation "'exists' x .. y ':' k ',' f" := (F_Exists x k .. (F_Exists y k f) ..) (in custom formula at level 85, only parsing).
+  Notation "'∃' x .. y ':' k '●' f" := (F_Exists x k .. (F_Exists y k f) ..) (in custom formula at level 85, only printing).
+  Notation "'forall' x .. y ':' k ',' f" := (F_Forall x k .. (F_Forall y k f) ..) (in custom formula at level 85).
+  Notation "'∀' x .. y ':' k '●' f" := (F_Forall x k .. (F_Forall y k f) ..) (in custom formula at level 85).
 
-Open Scope formula_scope.
+  Open Scope formula_scope.
 
-Fixpoint subst_term t x a :=
-  match t with
-  | TConst v => TConst v
-  | TVar y => if decide (y = x) then a else TVar y
-  | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
-  end.
+  Fixpoint subst_term t x a :=
+    match t with
+    | TConst v => TConst v
+    | TVar y => if decide (y = x) then a else TVar y
+    | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
+    end.
 
-Definition subst_sf sf x a :=
-  match sf with
-  | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
-  | AT_Pred sym args => AT_Pred sym (map (fun arg => subst_term arg x a) args)
-  | _ => sf
-  end.
+  Definition subst_sf sf x a :=
+    match sf with
+    | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
+    | AT_Pred sym args => AT_Pred sym (map (fun arg => subst_term arg x a) args)
+    | _ => sf
+    end.
 
-Fixpoint term_fvars t : gset variable :=
-  match t with
-  | TConst v => ∅
-  | TVar y => {[y]}
-  | TApp sym args => ⋃ (map term_fvars args)
-  end.
+  Fixpoint term_fvars t : gset variable :=
+    match t with
+    | TConst v => ∅
+    | TVar y => {[y]}
+    | TApp sym args => ⋃ (map term_fvars args)
+    end.
 
-Definition simple_formula_fvars sf : gset variable :=
-  match sf with
-  | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
-  | AT_Pred _ args => ⋃ (map term_fvars args)
-  | _ => ∅
-  end.
+  Definition sf_fvars sf : gset variable :=
+    match sf with
+    | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
+    | AT_Pred _ args => ⋃ (map term_fvars args)
+    | _ => ∅
+    end.
 
-Fixpoint formula_fvars (f : formula) : gset variable :=
-  match f with
-  | F_Simple sf => simple_formula_fvars sf
-  | F_Not f => formula_fvars f
-  | F_And f₁ f₂ => formula_fvars f₁ ∪ formula_fvars f₂
-  | F_Or f₁ f₂ => formula_fvars f₁ ∪ formula_fvars f₂
-  | F_Implies f₁ f₂ => formula_fvars f₁ ∪ formula_fvars f₂
-  | F_Exists x f => formula_fvars f ∖ {[x]}
-  | F_Forall x f => formula_fvars f ∖ {[x]}
-  end.
+  Fixpoint formula_fvars (A : formula) : gset variable :=
+    match A with
+    | F_Simple sf => sf_fvars sf
+    | F_Not A => formula_fvars A
+    | F_And A B => formula_fvars A ∪ formula_fvars B
+    | F_Or A B => formula_fvars A ∪ formula_fvars B
+    | F_Implies A B => formula_fvars A ∪ formula_fvars B
+    | F_Exists x _ A => formula_fvars A ∖ {[x]}
+    | F_Forall x _ A => formula_fvars A ∖ {[x]}
+    end.
 
-Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
-  match fuel with
-  | O => x
-  | S fuel =>
-      if decide (x ∈ fvars) then fresh_var_aux (var_increase_sub x 1) fvars fuel else x
-  end.
+  Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
+    match fuel with
+    | O => x
+    | S fuel =>
+        if decide (x ∈ fvars) then fresh_var_aux (var_increase_sub x 1) fvars fuel else x
+    end.
 
-Definition fresh_var (x : variable) (fvars : gset variable) : variable :=
-  fresh_var_aux x fvars (S (size fvars)).
+  Definition fresh_var (x : variable) (fvars : gset variable) : variable :=
+    fresh_var_aux x fvars (S (size fvars)).
 
-Fixpoint formula_rank f :=
-  match f with
-  | F_Simple sf => 1
-  | F_Not f => 1 + formula_rank f
-  | F_And f₁ f₂ => 1 + max (formula_rank f₁) (formula_rank f₂)
-  | F_Or f₁ f₂ => 1 + max (formula_rank f₁) (formula_rank f₂)
-  | F_Implies f₁ f₂ => 1 + max (formula_rank f₁) (formula_rank f₂)
-  | F_Exists y f => 1 + (formula_rank f)
-  | F_Forall y f => 1 + (formula_rank f)
-  end.
+  Fixpoint formula_rank f :=
+    match f with
+    | F_Simple sf => 1
+    | F_Not A => 1 + formula_rank A
+    | F_And A B => 1 + max (formula_rank A) (formula_rank B)
+    | F_Or A B => 1 + max (formula_rank A) (formula_rank B)
+    | F_Implies A B => 1 + max (formula_rank A) (formula_rank B)
+    | F_Exists _ _ A => 1 + (formula_rank A)
+    | F_Forall _ _ A => 1 + (formula_rank A)
+    end.
 
-Fixpoint quantifier_rank f :=
-  match f with
-  | F_Simple sf => 0
-  | F_Not f => quantifier_rank f
-  | F_And f₁ f₂ => max (quantifier_rank f₁) (quantifier_rank f₂)
-  | F_Or f₁ f₂ => max (quantifier_rank f₁) (quantifier_rank f₂)
-  | F_Implies f₁ f₂ => max (quantifier_rank f₁) (quantifier_rank f₂)
-  | F_Exists y f => 1 + (quantifier_rank f)
-  | F_Forall y f => 1 + (quantifier_rank f)
-  end.      
+  Fixpoint quantifier_rank A :=
+    match A with
+    | F_Simple sf => 0
+    | F_Not A => quantifier_rank A
+    | F_And A B => max (quantifier_rank A) (quantifier_rank B)
+    | F_Or A B => max (quantifier_rank A) (quantifier_rank B)
+    | F_Implies A B => max (quantifier_rank A) (quantifier_rank B)
+    | F_Exists _ _ A => 1 + (quantifier_rank A)
+    | F_Forall _ _ A => 1 + (quantifier_rank A)
+    end.
 
-Declare Scope formula_props.
-Open Scope formula_props.
+  Declare Scope mrc_scope.
+  Open Scope mrc_scope.
 
-Notation "'rank' A" := (formula_rank A + quantifier_rank A)
-  (at level 20) : formula_props.
+  Notation "'rank' A" := (formula_rank A + quantifier_rank A)
+                           (at level 20) : mrc_scope.
 
-Definition quant_subst_fvars φ x t := formula_fvars φ ∪ term_fvars t ∪ {[x]}.
-Lemma quant_subst_fvars_inv : forall y φ x t,
-    y ∉ quant_subst_fvars φ x t -> y ∉ formula_fvars φ /\ y ∉ term_fvars t /\ y ≠ x.
-Proof with auto.
-  intros. unfold quant_subst_fvars in H.
-  apply not_elem_of_union in H as [H H1]. apply not_elem_of_singleton in H1.
-  apply not_elem_of_union in H as [H2 H3]...
-Qed.
+  Definition quant_subst_fvars A x t := formula_fvars A ∪ term_fvars t ∪ {[x]}.
+  Lemma quant_subst_fvars_inv : forall y A x t,
+      y ∉ quant_subst_fvars A x t → y ∉ formula_fvars A ∧ y ∉ term_fvars t ∧ y ≠ x.
+  Proof with auto.
+    intros. unfold quant_subst_fvars in H.
+    apply not_elem_of_union in H as [H H1]. apply not_elem_of_singleton in H1.
+    apply not_elem_of_union in H as [H2 H3]...
+  Qed.
 
-Inductive sum_quant_subst_skip_cond y φ x :=
-  | SumQuantSubstSkipCond_False (H : y = x \/ x ∉ formula_fvars φ)
-  | SumQuantSubstSkipCond_True (H1 : y <> x) (H2: x ∈ formula_fvars φ).
+  Inductive sum_quant_subst_skip_cond y A x :=
+  | SumQuantSubstSkipCond_False (H : y = x ∨ x ∉ formula_fvars A)
+  | SumQuantSubstSkipCond_True (H1 : y <> x) (H2: x ∈ formula_fvars A).
 
-Definition quant_subst_skip_cond y φ x : sum_quant_subst_skip_cond y φ x.
-Proof with auto.
-  destruct (decide (y = x \/ x ∉ formula_fvars φ)).
-  - apply SumQuantSubstSkipCond_False...
-  - apply Decidable.not_or in n as [H1 H2]. destruct (decide (x ∈ formula_fvars φ)).
-    + apply SumQuantSubstSkipCond_True...
-    + contradiction.
-Defined.
+  Definition quant_subst_skip_cond y A x : sum_quant_subst_skip_cond y A x.
+  Proof with auto.
+    destruct (decide (y = x ∨ x ∉ formula_fvars A)).
+    - apply SumQuantSubstSkipCond_False...
+    - apply Decidable.not_or in n as [H1 H2]. destruct (decide (x ∈ formula_fvars A)).
+      + apply SumQuantSubstSkipCond_True...
+      + contradiction.
+  Defined.
 
-(*
-  For (Qy. φ)[x \ t] (where Q ∈ {∃, ∀}), when x ≠ y and y ∈ FV(t),
+  (*
+  For (Qy. A)[x \ t] (where Q ∈ {∃, ∀}), when x ≠ y and y ∈ FV(t),
   we need to pick a fresh quantifier y'. But there are two limitations:
-  1. y' ∉ FV(φ): or else we will incorrectly capture
+  1. y' ∉ FV(A): or else we will incorrectly capture
   2. y' ∉ FV(t): Let's assume (Qy. y = x)[x \ z],
     If y' = c:
       (Qy. y = x)[x \ c + y] ≡ (Qc. (c = x)[x \ c + y]) ≡ (Qc. c = c + y)
@@ -310,588 +255,853 @@ Defined.
     These two are not α-equivalent.
 
 
-  The following is not a limitation; however we envforce it to make proofs easier
+  The following is not a limitation; however we enforce it to make proofs easier
   1. y' can be x but we don't allow it:
-    (Qy. φ)[x \ t] ≡ (Qx. φ[y \ x][x \ t]) ≡ (Qx. φ[y \ x])
+    (Qy. A)[x \ t] ≡ (Qx. A[y \ x][x \ t]) ≡ (Qx. A[y \ x])
     This discards the substition; picking a universally fresh quantifier z, yields:
-    (Qz. φ)[x \ t] ≡ (Qz. φ[y \ z][x \ t])
+    (Qz. A)[x \ t] ≡ (Qz. A[y \ z][x \ t])
     It seems like these two are not α-equivalent; but:
-    Since y' = x, we must have x ∉ FV(φ) which means (Qz. φ[y \ z][x \ t]) ≡ (Qz. φ[y \ z])
- *)
-Fixpoint subst_formula_aux qrank :=
-  fix subst_aux φ x t :=
-    match φ with
-    | F_Simple sf => F_Simple (subst_sf sf x t)
-    | F_Not φ => F_Not (subst_aux φ x t)
-    | F_And φ₁ φ₂ => F_And
-      (subst_aux φ₁ x t)
-      (subst_aux φ₂ x t)
-    | F_Or φ₁ φ₂ => F_Or
-      (subst_aux φ₁ x t)
-      (subst_aux φ₂ x t)
-    | F_Implies φ₁ φ₂ => F_Implies
-      (subst_aux φ₁ x t)
-      (subst_aux φ₂ x t)
-    | F_Exists y φ =>
-        if quant_subst_skip_cond y φ x then F_Exists y φ else
-          let y' := fresh_var y (quant_subst_fvars φ x t) in
-          match qrank with
-          | 0 => F_Exists y φ
-          | S qrank => F_Exists y'
-                        (subst_formula_aux qrank (subst_aux φ y (TVar y')) x t)
-          end
-    | F_Forall y φ =>
-        if quant_subst_skip_cond y φ x then F_Forall y φ else
-          let y' := fresh_var y (quant_subst_fvars φ x t) in
-          match qrank with
-          | 0 => F_Forall y φ
-          | S qrank => F_Forall y'
-                        (subst_formula_aux qrank (subst_aux φ y (TVar y')) x t)
-          end
-end.
+    Since y' = x, we must have x ∉ FV(A) which means (Qz. A[y \ z][x \ t]) ≡ (Qz. A[y \ z])
+   *)
+  Fixpoint subst_formula_aux qrank :=
+    fix subst_aux A x t :=
+      match A with
+      | F_Simple sf => F_Simple (subst_sf sf x t)
+      | F_Not A => F_Not (subst_aux A x t)
+      | F_And A₁ A₂ => F_And
+                        (subst_aux A₁ x t)
+                        (subst_aux A₂ x t)
+      | F_Or A₁ A₂ => F_Or
+                       (subst_aux A₁ x t)
+                       (subst_aux A₂ x t)
+      | F_Implies A₁ A₂ => F_Implies
+                            (subst_aux A₁ x t)
+                            (subst_aux A₂ x t)
+      | F_Exists y k A =>
+          if quant_subst_skip_cond y A x then F_Exists y k A else
+            let y' := fresh_var y (quant_subst_fvars A x t) in
+            match qrank with
+            | 0 => F_Exists y k A
+            | S qrank => F_Exists y' k
+                          (subst_formula_aux qrank (subst_aux A y (TVar y')) x t)
+            end
+      | F_Forall y k A =>
+          if quant_subst_skip_cond y A x then F_Forall y k A else
+            let y' := fresh_var y (quant_subst_fvars A x t) in
+            match qrank with
+            | 0 => F_Forall y k A
+            | S qrank => F_Forall y' k
+                          (subst_formula_aux qrank (subst_aux A y (TVar y')) x t)
+            end
+      end.
 
-Definition subst_formula φ x t :=
-  subst_formula_aux (quantifier_rank φ) φ x t.
+  Definition subst_formula A x t :=
+    subst_formula_aux (quantifier_rank A) A x t.
 
-Notation "f [ x \ a ]" := (subst_formula f x a)
-  (at level 10, left associativity,
-   x at next level) : formula_scope.
+  Notation "f [ x \ a ]" := (subst_formula f x a)
+                              (at level 10, left associativity,
+                                x at next level) : formula_scope.
 
-Notation "f [ x \ a ]" := (subst_formula f x a)
-  (in custom formula at level 74, left associativity,
-    f custom formula,
-    x constr at level 0, a custom formula) : formula_scope.
+  Notation "f [ x \ a ]" := (subst_formula f x a)
+                              (in custom formula at level 74, left associativity,
+                                  f custom formula,
+                                  x constr at level 0, a custom formula) : formula_scope.
 
-Ltac fold_qrank_subst n φ x t :=
-  let R := fresh in
-  let H := fresh in
-  let H' := fresh in
-  remember (subst_formula_aux n φ x t) as R eqn:H;
-  assert (H' := H); simpl in H'; rewrite H in H'; rewrite <- H' in *;
-  clear H'; clear H; clear R.
+  Ltac fold_qrank_subst n A x t :=
+    let R := fresh in
+    let H := fresh in
+    let H' := fresh in
+    remember (subst_formula_aux n A x t) as R eqn:H;
+    assert (H' := H); simpl in H'; rewrite H in H'; rewrite <- H' in *;
+    clear H'; clear H; clear R.
 
-Ltac fold_qrank_subst_fresh n φ x x' t :=
-  fold_qrank_subst n φ x (fresh_var x (quant_subst_fvars φ x' t)).
+  Ltac fold_qrank_subst_fresh n A x x' t :=
+    fold_qrank_subst n A x (fresh_var x (quant_subst_fvars A x' t)).
 
-Lemma formula_rank_gt_zero : forall A, formula_rank A > 0.
-Proof.
-  intros A. destruct A; simpl; lia.
-Qed.
+  Lemma formula_rank_gt_zero : forall A, formula_rank A > 0.
+  Proof.
+    intros A. destruct A; simpl; lia.
+  Qed.
 
-Lemma formula_rank_nonzero : forall A,
-  formula_rank A <> 0.
-Proof.
-  intros A. assert (formula_rank A > 0) by apply formula_rank_gt_zero.
-  lia.
-Qed.
+  Lemma formula_rank_nonzero : forall A,
+      formula_rank A <> 0.
+  Proof.
+    intros A. assert (formula_rank A > 0) by apply formula_rank_gt_zero.
+    lia.
+  Qed.
 
-Hint Resolve formula_rank_nonzero : core.
+  Hint Resolve formula_rank_nonzero : core.
 
-Hint Extern 2 =>
-  match goal with [H : formula_rank _ = 0 |- _] =>
-    apply formula_rank_nonzero in H; destruct H end : core.
+  Hint Extern 2 =>
+         match goal with [H : formula_rank _ = 0 |- _] =>
+                           apply formula_rank_nonzero in H; destruct H end : core.
 
-Hint Extern 2 =>
-  match goal with [H : 0 = formula_rank _ |- _] =>
-    apply eq_sym in H; apply formula_rank_nonzero in H;
-    destruct H end : core.
+  Hint Extern 2 =>
+         match goal with [H : 0 = formula_rank _ |- _] =>
+                           apply eq_sym in H; apply formula_rank_nonzero in H;
+  destruct H end : core.
 
-Lemma formula_rank_one_is_simple : forall A,
-  formula_rank A = 1 -> 
-  exists sf, A = F_Simple sf.
-Proof with auto.
-  intros A Hr. destruct A;
-    try solve [inversion Hr; auto];
-    try solve [inversion Hr;
-    destruct (Nat.max_spec (formula_rank A1) (formula_rank A2)) 
-      as [[_ H] | [_ H]]; rewrite H0 in *; auto].
-  - exists sf...
-Qed.
+  Lemma formula_rank_one_is_simple : forall A,
+      formula_rank A = 1 →
+      exists sf, A = F_Simple sf.
+  Proof with auto.
+    intros A Hr. destruct A;
+      try solve [inversion Hr; auto];
+      try solve [inversion Hr;
+                 destruct (Nat.max_spec (formula_rank A1) (formula_rank A2))
+                   as [[_ H] | [_ H]]; rewrite H0 in *; auto].
+    - exists sf...
+  Qed.
 
-Lemma formula_rank_ind : forall P,
-  (forall n,
-    (forall m, m < n -> 
-      forall ψ, rank ψ = m -> P ψ) ->
-    (forall φ, rank φ = n -> P φ)) ->
-  forall φ, P φ.
-Proof with auto.
-  intros P Hind.
-  assert (H : forall n φ, rank φ < n -> P φ).
-  {
-    induction n; intros φ Hrank.
-    - lia.
-    - apply Hind with (formula_rank φ + quantifier_rank φ)...
-      intros m Hlt ψ Hψ. apply IHn. lia.
-  }
-  intros φ. apply H with (S (rank φ)). lia.
-Qed.
+  Lemma formula_rank_ind : forall P,
+      (forall n,
+          (forall m, m < n →
+                forall B, rank B = m → P B) →
+          (forall A, rank A = n → P A)) →
+      forall A, P A.
+  Proof with auto.
+    intros P Hind.
+    assert (H : forall n A, rank A < n → P A).
+    {
+      induction n; intros A Hrank.
+      - lia.
+      - apply Hind with (formula_rank A + quantifier_rank A)...
+        intros m Hlt B HB. apply IHn. lia.
+    }
+    intros A. apply H with (S (rank A)). lia.
+  Qed.
 
-Definition is_quantifier P :=
-  match P with
-  | F_Exists y f₁ => true
-  | F_Forall y f₁ => true
-  | _ => false
-  end.
+  Definition is_quantifier P :=
+    match P with
+    | F_Exists _ _ _ => true
+    | F_Forall _ _ _ => true
+    | _ => false
+    end.
 
-Definition cons_eq A B :=
-  match A, B with
-  | F_Simple _, F_Simple _ => true
-  | F_Not _, F_Not _ => true
-  | F_And _ _, F_And _ _  => true
-  | F_Or _ _, F_Or _ _ => true
-  | F_Implies _ _, F_Implies _ _ => true
-  | F_Exists _ _, F_Exists _ _ => true
-  | F_Forall _ _, F_Forall _ _ => true
-  | _, _ => false
-  end.
+  Definition ctor_eq A B :=
+    match A, B with
+    | F_Simple _, F_Simple _ => true
+    | F_Not _, F_Not _ => true
+    | F_And _ _, F_And _ _  => true
+    | F_Or _ _, F_Or _ _ => true
+    | F_Implies _ _, F_Implies _ _ => true
+    | F_Exists _ _ _, F_Exists _ _ _ => true
+    | F_Forall _ _ _, F_Forall _ _ _ => true
+    | _, _ => false
+    end.
 
-Fixpoint shape_eq A B :=
-  match A, B with
-  | F_Simple _, F_Simple _ => true
-  | F_Not A, F_Not B => shape_eq A B
-  | F_And A1 A2, F_And B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
-  | F_Or A1 A2, F_Or B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
-  | F_Implies A1 A2, F_Implies B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
-  | F_Exists _ A, F_Exists _ B => shape_eq A B
-  | F_Forall _ A, F_Forall _ B => shape_eq A B
-  | _, _ => false
-  end.
+  Fixpoint shape_eq A B :=
+    match A, B with
+    | F_Simple _, F_Simple _ => true
+    | F_Not A, F_Not B => shape_eq A B
+    | F_And A1 A2, F_And B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
+    | F_Or A1 A2, F_Or B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
+    | F_Implies A1 A2, F_Implies B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
+    | F_Exists _ _ A, F_Exists _ _ B => shape_eq A B
+    | F_Forall _ _ A, F_Forall _ _ B => shape_eq A B
+    | _, _ => false
+    end.
 
-Lemma shape_eq__cons_eq : forall A B,
-  shape_eq A B = true ->
-    cons_eq A B = true.
-Proof with auto.
-  intros. destruct A; destruct B; try discriminate...
-Qed.
+  Lemma shape_eq__ctor_eq : forall A B,
+      shape_eq A B = true →
+      ctor_eq A B = true.
+  Proof with auto.
+    intros. destruct A; destruct B; try discriminate...
+  Qed.
 
-Lemma cons_eq_simple : forall sf B,
-  cons_eq (F_Simple sf) B = true ->
-  exists sf', B = F_Simple sf'.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists sf0...
-Qed.
+  Lemma ctor_eq_simple : forall sf B,
+      ctor_eq (F_Simple sf) B = true →
+      exists sf', B = F_Simple sf'.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists sf0...
+  Qed.
 
-Lemma shape_eq_simple : forall sf B,
-  shape_eq (F_Simple sf) B = true ->
-  exists sf', B = F_Simple sf'.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists sf0...
-Qed.
+  Lemma shape_eq_simple : forall sf B,
+      shape_eq (F_Simple sf) B = true →
+      exists sf', B = F_Simple sf'.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists sf0...
+  Qed.
 
-Lemma cons_eq_not : forall A1 B,
-  cons_eq <! ~ A1 !> B = true ->
-  exists B1, B = <! ~ B1 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists B...
-Qed.
+  Lemma ctor_eq_not : forall A1 B,
+      ctor_eq <! ~ A1 !> B = true →
+      exists B1, B = <! ~ B1 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists B...
+  Qed.
 
-Lemma shape_eq_not : forall A1 B,
-  shape_eq <! ~ A1 !> B = true ->
-  exists B1, B = <! ~ B1 !> /\ shape_eq A1 B1 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists B...
-Qed.
+  Lemma shape_eq_not : forall A1 B,
+      shape_eq <! ~ A1 !> B = true →
+      exists B1, B = <! ~ B1 !> ∧ shape_eq A1 B1 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists B...
+  Qed.
 
-Lemma cons_eq_and : forall A1 A2 B,
-  cons_eq <! A1 /\ A2 !> B = true ->
-  exists B1 B2, B = <! B1 /\ B2 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists B1, B2...
-Qed.
+  Lemma ctor_eq_and : forall A1 A2 B,
+      ctor_eq <! A1 ∧ A2 !> B = true →
+      exists B1 B2, B = <! B1 ∧ B2 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists B1, B2...
+  Qed.
 
-Lemma shape_eq_and : forall A1 A2 B,
-  shape_eq <! A1 /\ A2 !> B = true ->
-  exists B1 B2, B = <! B1 /\ B2 !> /\
-    shape_eq A1 B1 = true /\
-    shape_eq A2 B2 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate.
-  apply Bool.andb_true_iff in H. exists B1, B2...
-Qed.
+  Lemma shape_eq_and : forall A1 A2 B,
+      shape_eq <! A1 ∧ A2 !> B = true →
+      exists B1 B2, B = <! B1 ∧ B2 !> ∧
+                 shape_eq A1 B1 = true ∧
+                 shape_eq A2 B2 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate.
+    apply Bool.andb_true_iff in H. exists B1, B2...
+  Qed.
 
-Lemma cons_eq_or : forall A1 A2 B,
-  cons_eq <! A1 \/ A2 !> B = true ->
-  exists B1 B2, B = <! B1 \/ B2 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists B1, B2...
-Qed.
+  Lemma ctor_eq_or : forall A1 A2 B,
+      ctor_eq <! A1 ∨ A2 !> B = true →
+      exists B1 B2, B = <! B1 ∨ B2 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists B1, B2...
+  Qed.
 
-Lemma shape_eq_or : forall A1 A2 B,
-  shape_eq <! A1 \/ A2 !> B = true ->
-  exists B1 B2, B = <! B1 \/ B2 !> /\
-    shape_eq A1 B1 = true /\
-    shape_eq A2 B2 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate.
-  apply Bool.andb_true_iff in H. exists B1, B2...
-Qed.
+  Lemma shape_eq_or : forall A1 A2 B,
+      shape_eq <! A1 ∨ A2 !> B = true →
+      exists B1 B2, B = <! B1 ∨ B2 !> ∧
+                             shape_eq A1 B1 = true ∧
+                             shape_eq A2 B2 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate.
+    apply Bool.andb_true_iff in H. exists B1, B2...
+  Qed.
 
-Lemma cons_eq_implies : forall A1 A2 B,
-  cons_eq <! A1 => A2 !> B = true ->
-  exists B1 B2, B = <! B1 => B2 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists B1, B2...
-Qed.
+  Lemma ctor_eq_implies : forall A1 A2 B,
+      ctor_eq <! A1 => A2 !> B = true →
+                      exists B1 B2, B = <! B1 => B2 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists B1, B2...
+  Qed.
 
-Lemma shape_eq_implies : forall A1 A2 B,
-  shape_eq <! A1 => A2 !> B = true ->
-  exists B1 B2, B = <! B1 => B2 !> /\
-    shape_eq A1 B1 = true /\
-    shape_eq A2 B2 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate.
-  apply Bool.andb_true_iff in H. exists B1, B2...
-Qed.
+  Lemma shape_eq_implies : forall A1 A2 B,
+      shape_eq <! A1 => A2 !> B = true →
+                       exists B1 B2, B = <! B1 => B2 !> ∧
+                                              shape_eq A1 B1 = true ∧
+                                              shape_eq A2 B2 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate.
+    apply Bool.andb_true_iff in H. exists B1, B2...
+  Qed.
 
-Lemma cons_eq_exists : forall x A1 B,
-  cons_eq <! exists x, A1 !> B = true ->
-  exists y B1, B = <! exists y, B1 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists x0, B...
-Qed.
+  Lemma ctor_eq_exists : forall x τ A1 B,
+      ctor_eq <! exists x : τ, A1 !> B = true →
+                      exists x' τ' B1, B = <! exists x' : τ', B1 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists x0, τ0, B...
+  Qed.
 
-Lemma shape_eq_exists : forall x A1 B,
-  shape_eq <! exists x, A1 !> B = true ->
-  exists y B1, B = <! exists y, B1 !> /\ shape_eq A1 B1 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists x0, B...
-Qed.
+  Lemma shape_eq_exists : forall x τ A1 B,
+      shape_eq <! exists x : τ, A1 !> B = true →
+                       exists x' τ' B1, B = <! exists x' : τ', B1 !> ∧ shape_eq A1 B1 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists x0, τ0, B...
+  Qed.
 
-Lemma cons_eq_forall : forall x A1 B,
-  cons_eq <! forall x, A1 !> B = true ->
-  exists y B1, B = <! forall y, B1 !>.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists x0, B...
-Qed.
+  Lemma ctor_eq_forall : forall x τ A1 B,
+      ctor_eq <! forall x : τ, A1 !> B = true →
+                      exists x' τ' B1, B = <! forall x' : τ', B1 !>.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists x0, τ0, B...
+  Qed.
 
-Lemma shape_eq_forall : forall x A1 B,
-  shape_eq <! forall x, A1 !> B = true ->
-  exists y B1, B = <! forall y, B1 !> /\ shape_eq A1 B1 = true.
-Proof with auto.
-  intros. simpl in H. destruct B; try discriminate. exists x0, B...
-Qed.
+  Lemma shape_eq_forall : forall x τ A1 B,
+      shape_eq <! forall x : τ, A1 !> B = true →
+                       exists x' τ' B1, B = <! forall x' : τ', B1 !> ∧ shape_eq A1 B1 = true.
+  Proof with auto.
+    intros. simpl in H. destruct B; try discriminate. exists x0, τ0, B...
+  Qed.
 
-Lemma shape_eq_refl : forall A,
-  shape_eq A A = true.
-Proof with auto.
-  intros. induction A using formula_ind_naive; simpl; auto; apply Bool.andb_true_iff...
-Qed.
+  Lemma shape_eq_refl : forall A,
+      shape_eq A A = true.
+  Proof with auto.
+    intros. induction A using formula_ind_naive; simpl; auto; apply Bool.andb_true_iff...
+  Qed.
 
-Lemma shape_eq_sym : forall A B,
-  shape_eq A B = true ->
-  shape_eq B A = true.
-Proof with auto.
-  induction A using formula_ind_naive; destruct B; try discriminate; simpl; auto;
-  try repeat rewrite Bool.andb_true_iff; intros [H1 H2]...
-Qed.
+  Lemma shape_eq_sym : forall A B,
+      shape_eq A B = true →
+      shape_eq B A = true.
+  Proof with auto.
+    induction A using formula_ind_naive; destruct B; try discriminate; simpl; auto;
+      try repeat rewrite Bool.andb_true_iff; intros [H1 H2]...
+  Qed.
 
-Lemma shape_eq_trans : forall A B C,
-  shape_eq A B = true ->
-  shape_eq B C = true ->
-  shape_eq A C = true.
-Proof with auto.
-  induction A using formula_ind_naive; intros B C HAB HBC; destruct B; try discriminate;
-    destruct C; try discriminate; simpl;
-    try solve [inversion HAB; inversion HBC;
-      apply Bool.andb_true_iff in H0 as [H2 H3];
-      apply Bool.andb_true_iff in H1 as [H0 H1];
-      rewrite IHA1 with B1 C1; auto;
-      rewrite IHA2 with B2 C2; auto];
-    try solve [apply IHA with B; auto]...
-Qed.
+  Lemma shape_eq_trans : forall A B C,
+      shape_eq A B = true →
+      shape_eq B C = true →
+      shape_eq A C = true.
+  Proof with auto.
+    induction A using formula_ind_naive; intros B C HAB HBC; destruct B; try discriminate;
+      destruct C; try discriminate; simpl;
+      try solve [inversion HAB; inversion HBC;
+                 apply Bool.andb_true_iff in H0 as [H2 H3];
+                 apply Bool.andb_true_iff in H1 as [H0 H1];
+                 rewrite IHA1 with B1 C1; auto;
+                 rewrite IHA2 with B2 C2; auto];
+      try solve [apply IHA with B; auto]...
+  Qed.
 
-Lemma ranks_equal_if_shape_eq : forall A B,
-  shape_eq A B = true ->
-    formula_rank A = formula_rank B /\
-    quantifier_rank A = quantifier_rank B.
-Proof with auto.
-  assert (Hfr: forall A B, shape_eq A B = true ->
-    formula_rank A = formula_rank B). {
-    intros A; induction A using formula_ind_naive; destruct B; try discriminate;
-    intros H; simpl; auto;
-    try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
-      auto). }
-    assert (Hqr: forall A B, shape_eq A B = true ->
-      quantifier_rank A = quantifier_rank B). {
-    intros A. induction A using formula_ind_naive; destruct B; try discriminate;
-    intros H; simpl; auto;
-    try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
-      auto).
-  }
-  auto.
-Qed.
+  Lemma ranks_equal_if_shape_eq : forall A B,
+      shape_eq A B = true →
+      formula_rank A = formula_rank B ∧
+        quantifier_rank A = quantifier_rank B.
+  Proof with auto.
+    assert (Hfr: forall A B, shape_eq A B = true →
+                        formula_rank A = formula_rank B). {
+      intros A; induction A using formula_ind_naive; destruct B; try discriminate;
+        intros H; simpl; auto;
+        try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
+             auto). }
+    assert (Hqr: forall A B, shape_eq A B = true →
+                        quantifier_rank A = quantifier_rank B). {
+      intros A. induction A using formula_ind_naive; destruct B; try discriminate;
+        intros H; simpl; auto;
+        try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
+             auto).
+    }
+    auto.
+  Qed.
 
-Lemma rank_eq_if_shape_eq : forall φ ψ,
-    shape_eq φ ψ = true ->
-    rank φ = rank ψ.
-Proof. intros. apply ranks_equal_if_shape_eq in H. lia. Qed.
+  Lemma rank_eq_if_shape_eq : forall A B,
+      shape_eq A B = true →
+      rank A = rank B.
+  Proof. intros. apply ranks_equal_if_shape_eq in H. lia. Qed.
 
-Ltac deduce_rank_eq Hsame :=
-  let Htemp := fresh in
-  let Hfr := fresh "Hfr" in
-  let Hqr := fresh "Hqr" in
-  apply ranks_equal_if_shape_eq in Hsame as Htemp;
-  destruct Htemp as [Hfr Hqr].
+  Ltac deduce_rank_eq Hsame :=
+    let Htemp := fresh in
+    let Hfr := fresh "Hfr" in
+    let Hqr := fresh "Hqr" in
+    apply ranks_equal_if_shape_eq in Hsame as Htemp;
+    destruct Htemp as [Hfr Hqr].
 
-Hint Resolve shape_eq_refl : core.
+  Hint Resolve shape_eq_refl : core.
 
-Lemma subst_preserves_shape_aux : forall A x a r,
-  shape_eq A (subst_formula_aux r A x a) = true.
-Proof with auto.
-  intros A.
-  apply (formula_rank_ind (fun P => forall x a r,
-      shape_eq P (subst_formula_aux r P x a) = true))...
-  clear A. intros n IH. destruct φ;
-    intros Hr x' a r.
-  - destruct r; simpl in *...
-  - specialize IH with (m:=rank φ) (ψ:=φ).
-    destruct r; simpl in *...
-    + fold_qrank_subst 0 φ x' a. apply IH; try lia...
-    + fold_qrank_subst (S r) φ x' a. apply IH; try lia...
-  - subst. specialize IH with (m:=rank φ1) (ψ:=φ1) as IH1.
-    specialize IH with (m:=rank φ2) (ψ:=φ2) as IH2.
-    assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
-        fold_qrank_subst (S r) φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
-        fold_qrank_subst (S r) φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-  - subst. specialize IH with (m:=rank φ1) (ψ:=φ1) as IH1.
-    specialize IH with (m:=rank φ2) (ψ:=φ2) as IH2.
-    assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
-        fold_qrank_subst (S r) φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
-        fold_qrank_subst (S r) φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-  - subst. specialize IH with (m:=rank φ1) (ψ:=φ1) as IH1.
-    specialize IH with (m:=rank φ2) (ψ:=φ2) as IH2.
-    assert (HMax :=
-      (Nat.max_spec (quantifier_rank φ1) (quantifier_rank φ2))).
-    destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ1 x' a.
-        fold_qrank_subst (S r) φ2 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-    + destruct r; simpl in *; rewrite H2 in *.
-      * fold_qrank_subst 0 φ2 x' a. fold_qrank_subst 0 φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-      * fold_qrank_subst (S r) φ2 x' a.
-        fold_qrank_subst (S r) φ1 x' a.
-        apply Bool.andb_true_iff. split;
-          [apply IH1|apply IH2]; lia...
-  - subst. destruct r; simpl in *.
-    + destruct (quant_subst_skip_cond x φ x')...
-    + fold_qrank_subst_fresh (S r) φ x x' a.
-      destruct (quant_subst_skip_cond x φ x'); try lia...
-      remember (subst_formula_aux (S r) φ x (fresh_var x (quant_subst_fvars φ x' a)))
-        as φ₁. (* the first substitution *)
-      remember (subst_formula_aux r φ₁ x' a)
-        as φ₂. (* the second substituion *)
-      specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
-      specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
-      forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_var x (quant_subst_fvars φ x' a)) (S r)). (* φ₁ *)
-      forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
-      forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
-      rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
-      apply shape_eq_trans with φ₁...
-  - subst. destruct r; simpl in *.
-    + destruct (quant_subst_skip_cond x φ x')...
-    + fold_qrank_subst_fresh (S r) φ x x' a.
-      destruct (quant_subst_skip_cond x φ x'); try lia...
-      remember (subst_formula_aux (S r) φ x (fresh_var x (quant_subst_fvars φ x' a)))
-        as φ₁. (* the first substitution *)
-      remember (subst_formula_aux r φ₁ x' a)
-        as φ₂. (* the second substituion *)
-      specialize IH with (m:=rank φ) (ψ:=φ) as IHφ.
-      specialize IH with (m:=rank φ₁) (ψ:=φ₁) as IHφ₁.
-      forward IHφ by lia. forward IHφ by auto.
-      specialize (IHφ x (fresh_var x (quant_subst_fvars φ x' a)) (S r)). (* φ₁ *)
-      forward IHφ₁. { deduce_rank_eq IHφ. rewrite Heqφ₁. lia. }
-      forward IHφ₁ by reflexivity. specialize (IHφ₁ x' a r).
-      rewrite <- Heqφ₁ in *. rewrite <- Heqφ₂ in *.
-      apply shape_eq_trans with φ₁...
-Qed.
+  Lemma subst_preserves_shape_aux : forall A x a r,
+      shape_eq A (subst_formula_aux r A x a) = true.
+  Proof with auto.
+    intros A.
+    apply (formula_rank_ind (fun P => forall x a r,
+                                 shape_eq P (subst_formula_aux r P x a) = true))...
+    clear A. intros n IH. destruct A;
+      intros Hr x' a r.
+    - destruct r; simpl in *...
+    - specialize IH with (m:=rank A) (B:=A).
+      destruct r; simpl in *...
+      + fold_qrank_subst 0 A x' a. apply IH; try lia...
+      + fold_qrank_subst (S r) A x' a. apply IH; try lia...
+    - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      specialize IH with (m:=rank A2) (B:=A2) as IH2.
+      assert (HMax :=
+                (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
+      destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A2 x' a.
+          fold_qrank_subst (S r) A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A2 x' a.
+          fold_qrank_subst (S r) A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+    - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      specialize IH with (m:=rank A2) (B:=A2) as IH2.
+      assert (HMax :=
+                (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
+      destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A2 x' a.
+          fold_qrank_subst (S r) A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A2 x' a.
+          fold_qrank_subst (S r) A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+    - subst. specialize IH with (m:=rank A1) (B:=A1) as IH1.
+      specialize IH with (m:=rank A2) (B:=A2) as IH2.
+      assert (HMax :=
+                (Nat.max_spec (quantifier_rank A1) (quantifier_rank A2))).
+      destruct HMax as [[H1 H2] | [H1 H2]]; try lia.
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A1 x' a.
+          fold_qrank_subst (S r) A2 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+      + destruct r; simpl in *; rewrite H2 in *.
+        * fold_qrank_subst 0 A2 x' a. fold_qrank_subst 0 A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+        * fold_qrank_subst (S r) A2 x' a.
+          fold_qrank_subst (S r) A1 x' a.
+          apply Bool.andb_true_iff. split;
+            [apply IH1|apply IH2]; lia...
+    - subst. destruct r; simpl in *.
+      + destruct (quant_subst_skip_cond x A x')...
+      + fold_qrank_subst_fresh (S r) A x x' a.
+        destruct (quant_subst_skip_cond x A x'); try lia...
+        remember (subst_formula_aux (S r) A x (fresh_var x (quant_subst_fvars A x' a)))
+          as A₁. (* the first substitution *)
+        remember (subst_formula_aux r A₁ x' a)
+          as A₂. (* the second substituion *)
+        specialize IH with (m:=rank A) (B:=A) as IHA.
+        specialize IH with (m:=rank A₁) (B:=A₁) as IHA₁.
+        forward IHA by lia. forward IHA by auto.
+        specialize (IHA x (fresh_var x (quant_subst_fvars A x' a)) (S r)). (* A₁ *)
+        forward IHA₁. { deduce_rank_eq IHA. rewrite HeqA₁. lia. }
+        forward IHA₁ by reflexivity. specialize (IHA₁ x' a r).
+        rewrite <- HeqA₁ in *. rewrite <- HeqA₂ in *.
+        apply shape_eq_trans with A₁...
+    - subst. destruct r; simpl in *.
+      + destruct (quant_subst_skip_cond x A x')...
+      + fold_qrank_subst_fresh (S r) A x x' a.
+        destruct (quant_subst_skip_cond x A x'); try lia...
+        remember (subst_formula_aux (S r) A x (fresh_var x (quant_subst_fvars A x' a)))
+          as A₁. (* the first substitution *)
+        remember (subst_formula_aux r A₁ x' a)
+          as A₂. (* the second substituion *)
+        specialize IH with (m:=rank A) (B:=A) as IHA.
+        specialize IH with (m:=rank A₁) (B:=A₁) as IHA₁.
+        forward IHA by lia. forward IHA by auto.
+        specialize (IHA x (fresh_var x (quant_subst_fvars A x' a)) (S r)). (* A₁ *)
+        forward IHA₁. { deduce_rank_eq IHA. rewrite HeqA₁. lia. }
+        forward IHA₁ by reflexivity. specialize (IHA₁ x' a r).
+        rewrite <- HeqA₁ in *. rewrite <- HeqA₂ in *.
+        apply shape_eq_trans with A₁...
+  Qed.
 
-Lemma subst_preserves_shape : forall φ x a,
-  shape_eq (φ[x \ a]) φ  = true.
-Proof with auto.
-  intros. unfold subst_formula. apply shape_eq_sym. apply subst_preserves_shape_aux. Qed.
+  Lemma subst_preserves_shape : forall A x a,
+      shape_eq (A[x \ a]) A  = true.
+  Proof with auto.
+    intros. unfold subst_formula. apply shape_eq_sym. apply subst_preserves_shape_aux. Qed.
 
-Hint Resolve subst_preserves_shape : core.
+  Hint Resolve subst_preserves_shape : core.
 
-Lemma formula_ind : forall P,
-  (forall sf, P (F_Simple sf)) ->
-  (forall φ, P φ -> P <! ~ φ !>) ->
-  (forall φ₁ φ₂, P φ₁ -> P φ₂ -> P <! φ₁ /\ φ₂ !>) ->
-  (forall φ₁ φ₂, P φ₁ -> P φ₂ -> P <! φ₁ \/ φ₂ !>) ->
-  (forall φ₁ φ₂, P φ₁ -> P φ₂ -> P <! φ₁ => φ₂ !>) ->
-  (forall x φ, (forall ψ, shape_eq ψ φ = true -> P ψ) -> P <! exists x, φ !>) ->
-  (forall x φ, (forall ψ, shape_eq ψ φ = true -> P ψ) -> P <! forall x, φ !>) ->
-  forall φ, P φ.
-Proof with auto.
-  intros P Hsf Hnot Hand Hor Himpl Hexists Hforall φ.
-  induction φ using formula_rank_ind. destruct φ; subst; simpl in *.
-  - apply Hsf.
-  - apply Hnot. apply X with (rank φ); lia.
-  - apply Hand. apply X with (rank φ1); lia. apply X with (rank φ2);lia.
-  - apply Hor. apply X with (rank φ1); lia. apply X with (rank φ2);lia.
-  - apply Himpl. apply X with (rank φ1); lia. apply X with (rank φ2);lia.
-  - apply Hexists. intros. apply X with (rank ψ); auto.
-    apply rank_eq_if_shape_eq in H. lia.
-  - apply Hforall. intros. apply X with (rank ψ); auto.
-    apply rank_eq_if_shape_eq in H. lia.
-Qed.
+  Lemma formula_ind : forall P,
+      (forall sf, P (F_Simple sf)) →
+      (forall A, P A → P <! ~ A !>) →
+      (forall A₁ A₂, P A₁ → P A₂ → P <! A₁ ∧ A₂ !>) →
+      (forall A₁ A₂, P A₁ → P A₂ → P <! A₁ ∨ A₂ !>) →
+      (forall A₁ A₂, P A₁ → P A₂ → P <! A₁ => A₂ !>) →
+      (forall x τ A, (forall B, shape_eq B A = true → P B) → P <! exists x : τ, A !>) →
+      (forall x τ A, (forall B, shape_eq B A = true → P B) → P <! forall x : τ, A !>) →
+      forall A, P A.
+  Proof with auto.
+    intros P Hsf Hnot Hand Hor Himpl Hexists Hforall A.
+    induction A using formula_rank_ind. destruct A; subst; simpl in *.
+    - apply Hsf.
+    - apply Hnot. apply X with (rank A); lia.
+    - apply Hand; [apply X with (rank A1) | apply X with (rank A2)]; lia.
+    - apply Hor; [apply X with (rank A1) | apply X with (rank A2)]; lia.
+    - apply Himpl; [apply X with (rank A1) | apply X with (rank A2)]; lia.
+    - apply Hexists. intros. apply X with (rank B); auto.
+      apply rank_eq_if_shape_eq in H. lia.
+    - apply Hforall. intros. apply X with (rank B); auto.
+      apply rank_eq_if_shape_eq in H. lia.
+  Qed.
 
-Definition state := gmap variable value.
+  Definition state := gmap variable (value).
+  Definition state_covers_term (σ : state) (t : term) := term_fvars t ⊆ dom σ.
+  Definition state_covers_sf (σ : state) (sf : simple_formula) := sf_fvars sf ⊆ dom σ.
+  Definition state_covers (σ : state) (A : formula) := formula_fvars A ⊆ dom σ.
 
-Record fdef := mkFdef {
-    fdef_arity : nat;
-    fdef_rel : vec value fdef_arity -> value -> Prop;
-    fdef_functional : forall {args v₁ v₂}, fdef_rel args v₁ -> fdef_rel args v₂ -> v₁ = v₂
-}.
+End syntax.
 
-Record pdef := mkPdef {
-  pdef_arity : nat;
-  pdef_rel : vec value pdef_arity -> Prop;
-}.
+Section semantics.
+  Context {M : model}.
+  Let V := model_val M.
+  Let value := val_t V.
+  Let value_ty := val_ty V.
+  Let fdefs := model_fdefs M.
 
-Record semantics := mkSemantics {
-  fdefs : gmap string fdef;
-  pdefs : gmap string pdef;
-}.
+  Definition state_typing := gmap variable value_ty.
+  Definition state_types (σ : state) := val_typeof V <$> σ.
 
-Inductive fn_eval (M : semantics) (fSym : string) (vargs : list value) : value -> Prop :=
-  | FnEval : forall value fdef,
-    fdefs M !! fSym = Some fdef ->
-    forall hlen : length vargs = fdef_arity fdef,
-      fdef_rel fdef (list_to_vec_n vargs hlen) value ->
-      fn_eval M fSym vargs value.
+  Fixpoint args_wf_aux (arg_kinds : list (option value_ty)) (sig : list value_ty) : bool :=
+    match arg_kinds, sig with
+    | [], [] => true
+    | (Some arg) :: args, param :: params =>
+        if arg =? param
+        then args_wf_aux args params
+        else false
+    | _, _ => false
+    end.
 
-Inductive teval (M : semantics) (σ : state) : term -> value -> Prop :=
-  | TEval_Const : forall v, teval M σ (TConst v) v
-  | TEval_Var : forall x v, σ !! x = Some v -> teval M σ (TVar x) v
+  Fixpoint term_ty (Γ : state_typing) (t : term) : option value_ty :=
+    match t with
+    | TConst v => Some (val_typeof V v)
+    | TVar x => Γ !! x
+    | TApp symbol args =>
+        match (model_fdefs M !! symbol) with
+        | Some fdef =>
+            let sig := fdef_sig V fdef in
+            if args_wf_aux (term_ty Γ <$> args) (sig.1) then Some (sig.2) else None
+        | None => None
+        end
+    end.
+
+  Definition term_wf_aux (Γ : state_typing) (t : term) : bool :=
+    match term_ty Γ t with | Some _ => true | None => false end.
+
+  Definition term_args_match_sig (Γ : state_typing) (args : list term) (sig : list value_ty) :=
+    args_wf_aux (term_ty Γ <$> args) sig.
+
+  Definition sf_wf_aux (Γ : state_typing) (sf : simple_formula) : bool :=
+    match sf with
+    | AT_True => true
+    | AT_False => true
+    | AT_Eq t₁ t₂ => term_wf_aux Γ t₁ && term_wf_aux Γ t₂
+    | AT_Pred symbol args =>
+        match (model_pdefs M !! symbol) with
+        | Some pdef => term_args_match_sig Γ args (pdef_sig V pdef)
+        | None => false
+        end
+    end.
+
+  Fixpoint formula_wf_aux (Γ : state_typing) (A : formula) : bool :=
+    match A with
+    | F_Simple sf => sf_wf_aux Γ sf
+    | F_Not A => formula_wf_aux Γ A
+    | F_And A B => formula_wf_aux Γ A && formula_wf_aux Γ B
+    | F_Or A B => formula_wf_aux Γ A && formula_wf_aux Γ B
+    | F_Implies A B => formula_wf_aux Γ A && formula_wf_aux Γ B
+    | F_Exists x τ A => formula_wf_aux (<[x:=τ]> Γ) A
+    | F_Forall x τ A => formula_wf_aux (<[x:=τ]> Γ) A
+    end.
+
+  (*
+      wf implies that:
+      1. All functions and predicates are invoked with the correct number and
+          types of arguments.
+      2. Every free variable has a value in the state
+   *)
+  Notation term_wf σ := (term_wf_aux (state_types σ)).
+  Notation term_args_wf σ := (forallb (term_wf σ)).
+  Notation sf_wf σ := (sf_wf_aux (state_types σ)).
+  Notation formula_wf σ := (formula_wf_aux (state_types σ)).
+
+  Inductive fn_eval (fSym : string) (vargs : list value) : value → Prop :=
+  | FnEval : ∀ v fdef,
+      fdefs !! fSym = Some fdef →
+      ∀ Hsig : args_match_sig vargs (fdef_sig V fdef).1,
+      ∀ Hret : v ∈ (fdef_sig V fdef).2,
+        fdef_rel V fdef vargs Hsig v Hret →
+        fn_eval fSym vargs v.
+
+  Inductive teval (σ : state) : term → value → Prop :=
+  | TEval_Const : forall v, teval σ (TConst v) v
+  | TEval_Var : forall x v, σ !! x = Some v → teval σ (TVar x) v
   | TEval_App : forall f args vargs fval,
-    teval_args M σ args vargs ->
-    fn_eval M f vargs fval ->
-    teval M σ (TApp f args) (fval)
-with teval_args (M : semantics) (σ : state) : list term -> list value -> Prop :=
-  | TEvalArgs_Nil : teval_args M σ [] []
+      teval_args σ args vargs →
+      fn_eval f vargs fval →
+      teval σ (TApp f args) (fval)
+  with teval_args (σ : state) : list term → list value → Prop :=
+  | TEvalArgs_Nil : teval_args σ [] []
   | TEvalArgs_Cons : forall t ts v vs,
-    teval M σ t v ->
-    teval_args M σ ts vs ->
-    teval_args M σ (t::ts) (v::vs).
+      teval σ t v →
+      teval_args σ ts vs →
+      teval_args σ (t::ts) (v::vs).
 
-Scheme teval_ind_mut := Induction for teval Sort Prop
-with teval_args_ind_mut := Induction for teval_args Sort Prop.
+  Scheme teval_ind_mut := Induction for teval Sort Prop
+      with teval_args_ind_mut := Induction for teval_args Sort Prop.
 
-Lemma teval_det : forall {M σ t v₁ v₂},
-    teval M σ t v₁ -> teval M σ t v₂ -> v₁ = v₂.
-Proof with auto.
-  intros M σ t v₁ v₂ H1 H2. generalize dependent v₂.
-  generalize dependent v₁. generalize dependent t.
-  apply (teval_ind_mut M σ (λ t v₁ _, forall v₂, teval M σ t v₂ -> v₁ = v₂)
-           (λ args vargs₁ _, forall vargs₂, teval_args M σ args vargs₂ -> vargs₁ = vargs₂)).
-  - intros. inversion H...
-  - intros. inversion H; subst. rewrite e in H1. inversion H1...
-  - intros. inversion H0; subst. inversion H5; subst. inversion f0; subst.
-    apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
-    assert (Hlen : hlen = hlen0). { apply UIP_nat. } subst.
-    apply (fdef_functional _ H2) in H6...
-  - inversion 1...
-  - intros. destruct vargs₂.
-    + inversion H1.
-    + inversion H1; subst. f_equal.
-      * apply H...
-      * apply H0...
-Qed.
+  Lemma teval_det : forall {σ t v₁ v₂},
+      teval σ t v₁ → teval σ t v₂ → v₁ = v₂.
+  Proof with auto.
+    intros σ t v₁ v₂ H1 H2. generalize dependent v₂.
+    generalize dependent v₁. generalize dependent t.
+    apply (teval_ind_mut σ (λ t v₁ _, forall v₂, teval σ t v₂ → v₁ = v₂)
+             (λ args vargs₁ _, forall vargs₂, teval_args σ args vargs₂ → vargs₁ = vargs₂)).
+    - intros. inversion H...
+    - intros. inversion H; subst. rewrite e in H1. inversion H1...
+    - intros. inversion H0; subst. inversion H5; subst. inversion f0; subst.
+      apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
+      eapply fdef_dec.
+      + exact H6.
+      + exact H2.
+    - inversion 1...
+    - intros. destruct vargs₂.
+      + inversion H1.
+      + inversion H1; subst. f_equal.
+        * apply H...
+        * apply H0...
+  Qed.
 
-Lemma teval_args_det : forall {M σ args vargs₁ vargs₂},
-    teval_args M σ args vargs₁ -> teval_args M σ args vargs₂ ->
-    vargs₁ = vargs₂.
-Proof with auto.
-  intros M σ. induction args; intros vargs₁ vargs₂ H1 H2.
-  - inversion H1. inversion H2...
-  - inversion H1; subst. inversion H2; subst. f_equal.
-    + eapply teval_det. apply H3. apply H4.
-    + apply IHargs...
-Qed.
 
-Inductive pred_eval (M : semantics) (pSym : string) (vargs : list value) : Prop :=
+  Lemma teval_args_det : forall {σ args vargs₁ vargs₂},
+      teval_args σ args vargs₁ → teval_args σ args vargs₂ →
+      vargs₁ = vargs₂.
+  Proof with auto.
+    intros σ. induction args; intros vargs₁ vargs₂ H1 H2.
+    - inversion H1. inversion H2...
+    - inversion H1; subst. inversion H2; subst. f_equal.
+      + eapply teval_det; [apply H3 | apply H4].
+      + apply IHargs...
+  Qed.
+
+  Inductive pred_eval (pSym : string) (vargs : list value) : Prop :=
   | PredEval : forall pdef,
-    pdefs M !! pSym = Some pdef ->
-    forall hlen : length vargs = pdef_arity pdef,
-    pdef_rel pdef (list_to_vec_n vargs hlen) ->
-    pred_eval M pSym vargs.
+      model_pdefs M !! pSym = Some pdef →
+      forall Hsig : args_match_sig vargs (pdef_sig V pdef),
+        pdef_rel V pdef vargs Hsig →
+        pred_eval pSym vargs.
 
-Inductive sfeval (M : semantics) (σ : state) : simple_formula -> Prop :=
-  | SFEval_True : sfeval M σ AT_True
-  | SFEval_Eq : forall t₁ t₂ v, teval M σ t₁ v -> teval M σ t₂ v -> sfeval M σ (AT_Eq t₁ t₂)
+  Inductive sfeval (σ : state) : simple_formula → Prop :=
+  | SFEval_True : sfeval σ AT_True
+  | SFEval_Eq : forall t1 t2 v, teval σ t1 v → teval σ t2 v → sfeval σ (AT_Eq t1 t2)
   | SFEval_Pred : forall pSym args vargs,
-    teval_args M σ args vargs ->
-    pred_eval M pSym vargs ->
-    sfeval M σ (AT_Pred pSym args).
+      teval_args σ args vargs →
+      pred_eval pSym vargs →
+      sfeval σ (AT_Pred pSym args).
 
-Fixpoint feval (M : semantics) (σ : state) (φ : formula) : Prop :=
-  match φ with
-  | F_Simple sf => sfeval M σ sf
-  | F_Not φ => ¬ feval M σ φ
-  | F_And φ ψ => feval M σ φ /\ feval M σ ψ
-  | F_Or φ ψ => feval M σ φ \/ feval M σ ψ
-  | F_Implies φ ψ => feval M σ φ -> feval M σ ψ
-  | F_Exists x φ => exists v, feval M (<[x:=v]>σ) φ
-  | F_Forall x φ => forall v, feval M (<[x:=v]>σ) φ
-  end.
+  Fixpoint feval (σ : state) (A : formula) : Prop :=
+    match A with
+    | F_Simple sf => sfeval σ sf
+    | F_Not A => formula_wf σ A ∧ ¬ feval σ A
+    | F_And A B => feval σ A ∧ feval σ B
+    | F_Or A B => (formula_wf σ B ∧ feval σ A) ∨ (formula_wf σ A ∧ feval σ B)
+    | F_Implies A B => (formula_wf σ A ∧ formula_wf σ B ∧ ¬ feval σ A) ∨
+                        (formula_wf σ A ∧ feval σ B)
+    | F_Exists x τ A => exists v, v ∈ τ ∧ feval (<[x:=v]>σ) A
+    | F_Forall x τ A => (val_ty_is_empty V τ → formula_wf_aux (<[x:=τ]> (state_types σ)) A)
+                        ∧ forall v, v ∈ τ → feval (<[x:=v]>σ) A
+    end.
 
-Axiom feval_lem : forall M σ φ, feval M σ φ \/ ~ feval M σ φ.
+(* ******************************************************************* *)
+(* wf facts                                                            *)
+(* ******************************************************************* *)
+  Lemma term_wf_insert_state : ∀ x v τ σ t,
+      v ∈ τ ->
+      term_wf (<[x:=v]> σ) t <-> term_wf_aux (<[x:=τ]> (state_types σ)) t.
+  Proof.
+    intros. unfold state_types. unfold value. unfold state.
+    rewrite fmap_insert. rewrite val_elem_of_iff_typeof_eq in H.
+    apply eq_dec_eq in H. rewrite H. reflexivity.
+  Qed.
 
-Lemma feval_dec : forall M σ φ, Decidable.decidable (feval M σ φ).
-Proof. exact feval_lem. Qed.
+  Lemma sf_wf_insert_state : ∀ x v τ σ sf,
+      v ∈ τ ->
+      sf_wf (<[x:=v]> σ) sf <-> sf_wf_aux (<[x:=τ]> (state_types σ)) sf.
+  Proof.
+    intros. unfold state_types. unfold value. unfold state.
+    rewrite fmap_insert. rewrite val_elem_of_iff_typeof_eq in H.
+    apply eq_dec_eq in H. rewrite H. reflexivity.
+  Qed.
 
-Lemma feval_dne : forall M σ φ,
-  ~ ~ feval M σ φ <-> feval M σ φ.
-Proof with auto.
-  intros.
-  apply (Decidable.not_not_iff _ (feval_dec M σ φ)).
-Qed.
+  Lemma formula_wf_insert_state : ∀ x v τ σ A,
+      v ∈ τ ->
+      formula_wf (<[x:=v]> σ) A <-> formula_wf_aux (<[x:=τ]> (state_types σ)) A.
+  Proof.
+    intros. unfold state_types. unfold value. unfold state.
+    rewrite fmap_insert. rewrite val_elem_of_iff_typeof_eq in H.
+    apply eq_dec_eq in H. rewrite H. reflexivity.
+  Qed.
+
+  Lemma teval_ty σ t v τ :
+    teval σ t v →
+    v ∈ τ ↔ term_ty (state_types σ) t = Some τ.
+  Proof with auto.
+    intros H. generalize dependent v. generalize dependent τ. induction t; intros v0; intros.
+    - simpl in *. setoid_rewrite val_elem_of_iff_typeof_eq.
+      inversion H; subst. rewrite eq_dec_eq. split; intros.
+      + f_equal...
+      + inversion H0...
+    - simpl in *. inversion H; subst.
+      setoid_rewrite val_elem_of_iff_typeof_eq. unfold state_types. unfold state_typing.
+      rewrite lookup_fmap. setoid_rewrite H1. simpl. rewrite eq_dec_eq. split; intros.
+      + f_equal...
+      + inversion H0...
+    - inversion H0; subst. inversion H5; subst. unfold fdefs in *. unfold term_ty.
+      rewrite H1. fold term_ty.
+      enough (args_wf_aux (term_ty (state_types σ) <$> args) (fdef_sig V fdef).1).
+      { apply Is_true_eq_true in H4. rewrite H4. split; intros.
+        - f_equal. apply val_elem_of_det with v...
+        - inversion H6... }
+      unfold args_match_sig in Hsig. unfold args_wf_aux. clear H0. clear H5 H2.
+      fold args_wf_aux. fold (@args_match_sig V) in *.
+      remember ((fdef_sig V fdef).1) as sig. clear Heqsig.
+      generalize dependent sig.
+      generalize dependent vargs. induction args; intros.
+      + inversion H3; subst. simpl in *. assumption.
+      + inversion H3; subst. simpl in *. pose proof (IH:=H). forward (H a) by (left; auto).
+        destruct sig; try contradiction.
+        apply (H v2) in H4.
+        forward IHargs. { intros. apply IH; [right|]... }
+        forward (IHargs vs) by auto.
+        destruct (v1 ∈? v2) eqn:E; unfold value in E; rewrite E in *; [|contradiction].
+        apply IHargs in Hsig. apply bool_decide_eq_true in E. apply H4 in E. rewrite E.
+        rewrite eq_dec_refl. assumption.
+    Qed.
+
+  Lemma args_match_sig_args_wf σ args vargs sig :
+    teval_args σ args vargs ->
+    args_match_sig vargs sig <-> args_wf_aux (term_ty (state_types σ) <$> args) sig.
+  Proof with auto.
+    intros H. generalize dependent vargs. generalize dependent sig.
+    induction args; intros.
+    - inversion H; subst. simpl. reflexivity.
+    - inversion H; subst. clear H. simpl in *. split; intros.
+      + destruct sig; try contradiction. apply teval_ty with (τ:=v0) in H2.
+        destruct (v ∈? v0) eqn:E; unfold value in E; rewrite E in *; [|contradiction].
+        rewrite bool_decide_eq_true in E. apply H2 in E. rewrite E. rewrite eq_dec_refl.
+        apply (IHargs sig) in H4. rewrite <- H4...
+      + destruct sig.
+        1:{ destruct (term_ty (state_types σ) a); try contradiction. }
+        apply teval_ty with (τ:=v0) in H2.
+        destruct (term_ty (state_types σ) a); [|contradiction].
+        destruct (v1 =? v0) eqn:Heq; [|contradiction].
+        rewrite bool_decide_eq_true in Heq. subst.
+        destruct (v ∈? v0) eqn:E; unfold value in E; rewrite E in *.
+        2:{ rewrite bool_decide_eq_false in E. apply E. apply H2. reflexivity. }
+        apply IHargs...
+    Qed.
+
+  Lemma teval_wf : forall {σ t v},
+      teval σ t v → term_wf σ t.
+  Proof with auto.
+    intros σ t v. induction t; intros; simpl...
+    - inversion H; subst. unfold term_wf_aux, term_ty, state_types, state_typing.
+      rewrite lookup_fmap. setoid_rewrite H1. simpl...
+    - inversion H0; subst. unfold term_wf_aux. simpl. inversion H5; subst.
+      unfold fdefs in H1. rewrite H1. clear H2. rewrite args_match_sig_args_wf in Hsig.
+      2: { exact H3. } apply Is_true_true in Hsig. rewrite Hsig...
+  Qed.
+
+  Lemma sfeval_wf : ∀ {σ sf},
+      sfeval σ sf → sf_wf σ sf.
+  Proof with auto.
+    intros. destruct sf; simpl...
+    - unfold sf_wf_aux. inversion H; subst. apply Is_true_true. apply andb_true_iff. split.
+      + apply Is_true_true. eapply teval_wf. apply H2.
+      + apply Is_true_true. eapply teval_wf. apply H3.
+    - unfold sf_wf_aux. inversion H; subst. inversion H3; subst. rewrite H0.
+      unfold term_args_match_sig. clear H1. rewrite args_match_sig_args_wf in Hsig.
+      2: { apply H2. } assumption.
+  Qed.
+
+  Lemma feval_wf : ∀ {σ A},
+      feval σ A -> formula_wf σ A.
+  Proof with auto.
+    intros. generalize dependent σ. induction A; simpl; intros.
+    - unfold formula_wf_aux. apply sfeval_wf...
+    - exact (proj1 H).
+    - apply Is_true_andb. split.
+      + apply IHA1. exact (proj1 H).
+      + apply IHA2. exact (proj2 H).
+    - destruct H as [|]; destruct H; apply Is_true_andb; split...
+    - destruct H as [|].
+      + destruct H as (?&?&?). apply Is_true_andb; split...
+      + destruct H. apply Is_true_andb; split...
+    - destruct H0 as [v []]. apply H in H1; [| apply shape_eq_refl].
+      rewrite formula_wf_insert_state with (τ:=τ) in H1...
+    - destruct H0 as []. destr_val_ty_is_empty V τ.
+      + apply H1 in Hv0 as H2. apply H in H2; [| apply shape_eq_refl].
+        rewrite formula_wf_insert_state with (τ:=τ) in H2...
+      + apply H0 in Hempty as H2. assumption.
+  Qed.
+
+  Lemma term_wf_aux_state_covers : ∀ {Γ t},
+      term_wf_aux Γ t → term_fvars t ⊆ dom Γ.
+  Proof with auto.
+    unfold state_covers_term. induction t; simpl; intros.
+    - apply empty_subseteq.
+    - unfold term_wf_aux in H. destruct (term_ty Γ x) eqn:E; [|contradiction].
+      simpl in E. apply singleton_subseteq_l. apply elem_of_dom. unfold is_Some. exists v...
+    - unfold term_wf_aux in H0. simpl in H0. destruct (model_fdefs M !! f); [|contradiction].
+      destruct (args_wf_aux (term_ty Γ <$> args) (fdef_sig V f0).1) eqn:E;
+        [|contradiction]. remember ((fdef_sig V f0).1) as sig. clear Heqsig.
+      generalize dependent sig. induction args; [set_solver|]. intros. simpl.
+      pose proof (IH:=H). forward (H a) by (left; auto). simpl in E.
+      destruct (term_ty Γ a) eqn:E1; [|discriminate].
+      destruct sig eqn:E2; [discriminate|]. destruct (v =? v0) eqn:E3; [|discriminate].
+      rewrite <- Is_true_true in E3. apply eq_dec_eq in E3. subst.
+      forward IHargs. { intros. apply IH... right... } clear IH. forward (IHargs l) by apply E.
+      forward H. { unfold term_wf. rewrite E1... } set_solver.
+  Qed.
+
+  Lemma term_wf_state_covers : ∀ {σ t},
+      term_wf σ t → state_covers_term σ t.
+  Proof. intros. apply term_wf_aux_state_covers in H. set_solver. Qed.
+
+  Lemma teval_state_covers {σ t v} : teval σ t v → state_covers_term σ t.
+  Proof. intros. apply term_wf_state_covers. apply teval_wf in H. assumption. Qed.
+
+
+  Lemma sf_wf_aux_state_covers : ∀ {Γ sf},
+      sf_wf_aux Γ sf → sf_fvars sf ⊆ dom Γ.
+  Proof with auto.
+    unfold state_covers_sf. destruct sf; simpl; try set_solver; intros.
+    - apply Is_true_andb in H as []. apply term_wf_aux_state_covers in H, H0.
+      unfold state_covers_term in H, H0. set_solver.
+    - destruct (model_pdefs M !! symbol); [|contradiction].
+      remember (pdef_sig V p) as sig. clear Heqsig. generalize dependent sig.
+      induction args; [set_solver|]. intros. unfold term_args_match_sig in H.
+      simpl in H. destruct (term_ty Γ a) eqn:E1; [|contradiction].
+      destruct sig eqn:E2; [contradiction|]. destruct (v =? v0) eqn:E3; [|contradiction].
+      rewrite <- Is_true_true in E3. apply eq_dec_eq in E3. subst.
+      forward (IHargs l) by apply H. simpl.
+      enough (term_fvars a ⊆ dom Γ) by set_solver. apply term_wf_aux_state_covers.
+      unfold term_wf. rewrite E1...
+  Qed.
+
+  Lemma sf_wf_state_covers : ∀ {σ sf},
+      sf_wf σ sf → state_covers_sf σ sf.
+  Proof. intros. apply sf_wf_aux_state_covers in H. set_solver. Qed.
+
+  Lemma sfeval_state_covers {σ sf} : sfeval σ sf → state_covers_sf σ sf.
+  Proof. intros. apply sf_wf_state_covers. apply sfeval_wf in H. assumption. Qed.
+
+
+  Lemma formula_wf_aux_state_covers : ∀ {Γ A},
+      formula_wf_aux Γ A -> formula_fvars A ⊆ dom Γ.
+  Proof with auto.
+    intros. generalize dependent Γ. induction A; simpl; intros.
+    - apply sf_wf_aux_state_covers...
+    - unfold state_covers. apply IHA...
+    - unfold state_covers. simpl. apply Is_true_andb in H as [].
+      apply IHA1 in H. apply IHA2 in H0. set_solver.
+    - unfold state_covers. simpl. apply Is_true_andb in H as [].
+      apply IHA1 in H. apply IHA2 in H0. set_solver.
+    - unfold state_covers. simpl. apply Is_true_andb in H as [].
+      apply IHA1 in H. apply IHA2 in H0. set_solver.
+    - apply H in H0; [|apply shape_eq_refl]. set_solver.
+    - apply H in H0; [|apply shape_eq_refl]. set_solver.
+  Qed.
+
+  Lemma formula_wf_state_covers : ∀ {σ A},
+      formula_wf σ A -> state_covers σ A.
+  Proof. intros. apply formula_wf_aux_state_covers in H. set_solver. Qed.
+
+  Lemma feval_state_covers {σ A} : feval σ A → state_covers σ A.
+  Proof. intros. apply formula_wf_state_covers. apply feval_wf in H. assumption. Qed.
+
+End semantics.
 
 (* ******************************************************************* *)
 (* fresh_var specification                                             *)
 (* ******************************************************************* *)
 
-Notation var_seq x i n := (map (var_with_sub x) (seq i n)).
+Notation var_seq x i n := var_with_sub <$> seq i n.
 
 Lemma var_seq_cons : forall x i n,
     var_with_sub x i :: var_seq x (S i) n = var_seq x i (S n).
@@ -905,8 +1115,8 @@ Proof with auto.
 Qed.
 
 Lemma var_seq_eq : forall x₁ x₂ i n,
-    var_name x₁ = var_name x₂ ->
-    var_is_initial x₁ = var_is_initial x₂ ->
+    var_name x₁ = var_name x₂ →
+    var_is_initial x₁ = var_is_initial x₂ →
     var_seq x₁ i n = var_seq x₂ i n.
 Proof with auto.
   intros. apply list_fmap_ext. intros j k H1. unfold var_with_sub. f_equal...
@@ -917,7 +1127,7 @@ Lemma length_var_seq : forall x i n,
 Proof. intros. rewrite length_map. rewrite length_seq. reflexivity. Qed.
 
 Lemma not_elem_of_var_seq : forall x i n,
-    i > var_sub x ->
+    i > var_sub x →
     x ∉ var_seq x i n.
 Proof with auto.
   induction n.
@@ -936,8 +1146,8 @@ Proof with auto.
 Qed.
 
 Lemma fresh_var_fresh_aux : forall x fvars fuel,
-    fuel > 0 ->
-      var_seq x (var_sub x) fuel ⊆+ elements fvars \/
+    fuel > 0 →
+      var_seq x (var_sub x) fuel ⊆+ elements fvars ∨
       fresh_var_aux x fvars fuel ∉ fvars.
 Proof with auto.
   intros x fvars fuel. generalize dependent x. induction fuel; try lia.
@@ -974,7 +1184,7 @@ Proof with auto.
 Qed.
 
 Lemma fresh_var_free : forall x fvars,
-    x ∉ fvars ->
+    x ∉ fvars →
     fresh_var x fvars = x.
 Proof with auto.
   intros. unfold fresh_var. unfold fresh_var_aux.
@@ -982,8 +1192,8 @@ Proof with auto.
 Qed.
 
 Theorem fresh_var_ne_inv x A x' t :
-  fresh_var x (quant_subst_fvars A x' t) ≠ x ->
-  x ∈ formula_fvars A \/ x = x' \/ x ∈ term_fvars t.
+  fresh_var x (quant_subst_fvars A x' t) ≠ x →
+  x ∈ formula_fvars A ∨ x = x' ∨ x ∈ term_fvars t.
 Proof with auto.
   intros. unfold fresh_var, fresh_var_aux in H.
   destruct (size (quant_subst_fvars A x' t)); destruct (decide (x ∈ quant_subst_fvars A x' t)).
@@ -995,11 +1205,60 @@ Proof with auto.
   - contradiction.
 Qed.
 
-(* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
+(* ******************************************************************* *)
+(* state_covers lemmas                                                 *)
+(* ******************************************************************* *)
+Lemma teval_state_covers {M σ t v} : teval M σ t v → state_covers_term t σ.
+Proof.
+  apply (teval_ind_mut M σ) with (P:=λ t v _, state_covers_term t σ)
+    (P0:=λ args vargs _, ⋃ map term_fvars args ⊆ dom σ);
+    intros; unfold state_covers_term; try set_solver; simpl.
+  apply singleton_subseteq_l. apply elem_of_dom. set_solver.
+Qed.
+
+Lemma sfeval_state_covers {M σ sf} : sfeval M σ sf → state_covers_sf sf σ.
+Proof.
+  unfold state_covers_sf. intros. destruct sf; simpl in *; try set_solver.
+  - inversion H; subst. apply teval_state_covers in H2, H3. set_solver.
+  - inversion H; subst. clear H H3. induction H2; try set_solver.
+    simpl. apply teval_state_covers in H. set_solver.
+Qed.
+
+Lemma feval_state_covers {M σ A} : feval M σ A → state_covers A σ.
+Proof with auto.
+  intros. generalize dependent σ. induction A; simpl in *; intros.
+  - apply sfeval_state_covers in H. apply H.
+  - clear IHA. unfold state_covers in *. simpl. destruct H. assumption.
+  - unfold state_covers. simpl. set_solver.
+  - unfold state_covers. simpl. destruct H as [[]|[]].
+    + forward (IHA1 σ)... set_solver.
+    + forward (IHA2 σ)... set_solver.
+  - unfold state_covers. set_solver.
+  - destruct H0 as [v Hv]. apply H in Hv... unfold state_covers in *. simpl in *.
+    set_solver.
+  - specialize H0 with value_unit. apply H in H0... unfold state_covers in *. simpl in *.
+    set_solver.
+Qed.
+
+(* (* if x ∈ FV(A) and y is a variable, then FV(A[x \ y]) = FV(A) ∪ {[y]} \ {[x]}  *) *)
 (* TODO: remove this *)
-(* (* if x ∈ FV(φ) and y is a variable, then FV(φ[x \ y]) = FV(φ) ∪ {[y]} \ {[x]}  *) *)
-(* (* if (Qy. φ)[x \ t] = (Qx. φ[x \ t]), then x ∉ FV(φ) hence ≡ (Qx. φ) *) *)
-(* Lemma temp : forall (x y : variable) φ, *)
-(*     x ∈ formula_fvars φ -> *)
-(*     formula_fvars (<! φ[x \ y] !>) = formula_fvars φ ∪ {[y]} ∖ {[x]}. *)
+(* (* if x ∈ FV(A) and y is a variable, then FV(A[x \ y]) = FV(A) ∪ {[y]} \ {[x]}  *) *)
+(* (* if (Qy. A)[x \ t] = (Qx. A[x \ t]), then x ∉ FV(A) hence ≡ (Qx. A) *) *)
+(* Lemma temp : forall (x y : variable) A, *)
+(*     x ∈ formula_fvars A → *)
+(*     formula_fvars (<! A[x \ y] !>) = formula_fvars A ∪ {[y]} ∖ {[x]}. *)
 (* Proof. *)
+
+(* ******************************************************************* *)
+(* LEM and decidability of feval                                       *)
+(* ******************************************************************* *)
+Axiom feval_lem : forall M σ A, state_covers A σ →  feval M σ A ∨ ¬ feval M σ A.
+
+Lemma feval_dec : forall M σ A, state_covers A σ → Decidable.decidable (feval M σ A).
+Proof. intros. eapply feval_lem in H. apply H. Qed.
+
+Lemma feval_dne : forall M σ A,
+    state_covers A σ →
+    ¬ ¬ feval M σ A <→ feval M σ A.
+Proof with auto. intros. apply Decidable.not_not_iff. apply feval_dec... Qed.
+End pred_calc.
