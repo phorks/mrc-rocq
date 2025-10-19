@@ -816,9 +816,9 @@ Section semantics.
         feval σ (FExists x τ A) false.
 
 
-(* ******************************************************************* *)
-(* wf facts                                                            *)
-(* ******************************************************************* *)
+  (* ******************************************************************* *)
+  (* wf and state_covers facts                                           *)
+  (* ******************************************************************* *)
   Lemma term_wf_insert_state : ∀ x v τ σ t,
       v ∈ τ →
       term_wf (<[x:=v]> σ) t ↔ term_wf_aux (<[x:=τ]> (state_types σ)) t.
@@ -1013,42 +1013,11 @@ Section semantics.
   Lemma feval_state_covers {σ A b} : feval σ A b → state_covers σ A.
   Proof. intros. apply formula_wf_state_covers. apply feval_wf in H. assumption. Qed.
 
+  (* ******************************************************************* *)
+  (* LEM                                                                 *)
+  (* ******************************************************************* *)
+  Axiom feval_lem : forall σ A, formula_wf σ A → feval σ A true ∨ feval σ A false.
 End semantics.
-
-(* ******************************************************************* *)
-(* state_covers lemmas                                                 *)
-(* ******************************************************************* *)
-Lemma teval_state_covers {M σ t v} : teval M σ t v → state_covers_term t σ.
-Proof.
-  apply (teval_ind_mut M σ) with (P:=λ t v _, state_covers_term t σ)
-    (P0:=λ args vargs _, ⋃ map term_fvars args ⊆ dom σ);
-    intros; unfold state_covers_term; try set_solver; simpl.
-  apply singleton_subseteq_l. apply elem_of_dom. set_solver.
-Qed.
-
-Lemma sfeval_state_covers {M σ sf} : sfeval M σ sf → state_covers_sf sf σ.
-Proof.
-  unfold state_covers_sf. intros. destruct sf; simpl in *; try set_solver.
-  - inversion H; subst. apply teval_state_covers in H2, H3. set_solver.
-  - inversion H; subst. clear H H3. induction H2; try set_solver.
-    simpl. apply teval_state_covers in H. set_solver.
-Qed.
-
-Lemma feval_state_covers {M σ A} : feval M σ A → state_covers A σ.
-Proof with auto.
-  intros. generalize dependent σ. induction A; simpl in *; intros.
-  - apply sfeval_state_covers in H. apply H.
-  - clear IHA. unfold state_covers in *. simpl. destruct H. assumption.
-  - unfold state_covers. simpl. set_solver.
-  - unfold state_covers. simpl. destruct H as [[]|[]].
-    + forward (IHA1 σ)... set_solver.
-    + forward (IHA2 σ)... set_solver.
-  - unfold state_covers. set_solver.
-  - destruct H0 as [v Hv]. apply H in Hv... unfold state_covers in *. simpl in *.
-    set_solver.
-  - specialize H0 with value_unit. apply H in H0... unfold state_covers in *. simpl in *.
-    set_solver.
-Qed.
 
 (* (* if x ∈ FV(A) and y is a variable, then FV(A[x \ y]) = FV(A) ∪ {[y]} \ {[x]}  *) *)
 (* TODO: remove this *)
@@ -1059,16 +1028,3 @@ Qed.
 (*     formula_fvars (<! A[x \ y] !>) = formula_fvars A ∪ {[y]} ∖ {[x]}. *)
 (* Proof. *)
 
-(* ******************************************************************* *)
-(* LEM and decidability of feval                                       *)
-(* ******************************************************************* *)
-Axiom feval_lem : forall M σ A, state_covers A σ →  feval M σ A ∨ ¬ feval M σ A.
-
-Lemma feval_dec : forall M σ A, state_covers A σ → Decidable.decidable (feval M σ A).
-Proof. intros. eapply feval_lem in H. apply H. Qed.
-
-Lemma feval_dne : forall M σ A,
-    state_covers A σ →
-    ¬ ¬ feval M σ A <→ feval M σ A.
-Proof with auto. intros. apply Decidable.not_not_iff. apply feval_dec... Qed.
-End pred_calc.
