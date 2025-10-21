@@ -787,35 +787,113 @@ Proof with auto.
     + apply (teval_args_subst Ht) in H2. eauto.
 Qed.
 
-(* Theorem formula_wf_subst {M σ A x t v} : *)
-(*   teval M σ t v → *)
-(*   formula_wf M σ (A[x \ t]) ↔ formula_wf M (<[x:=v]> σ) A. *)
+Lemma teval_term_has_type {M σ t v} :
+  teval M σ t v →
+  term_has_type M (state_types σ) t (value_typeof v).
+Proof with auto.
+  intros. apply teval_ty with (τ:=value_typeof v) in H. apply H.
+  apply value_elem_of_iff_typeof_eq...
+Qed.
 
-(* Theorem formula_wf_subst {M σ A x t v} : *)
-(*   teval M σ t v → *)
-(*   formula_wf M σ (A[x \ t]) ↔ formula_wf M (<[x:=v]> σ) A. *)
-(* Proof with auto. *)
-(*   intros Htv. apply teval_wf in Htv. destruct (decide (x ∈ formula_fvars A)). *)
-(*   - generalize dependent σ. induction A; intros. *)
-(*     + simpl. *)
+Lemma term_ty_subst {M Γ t x t' τ'} :
+  term_has_type M Γ t' τ' →
+  term_ty M Γ (subst_term t x t') = term_ty M (<[x:=τ']> Γ) t.
+Proof with auto.
+  intros. induction t; simpl...
+  - destruct (decide (x0 = x)).
+    + subst. rewrite (lookup_insert Γ)...
+    + rewrite (lookup_insert_ne Γ)...
+  - destruct (model_fdefs M !! f)... remember ((fdef_sig f0).1) as sig; clear Heqsig.
+    enough (
+      args_wf_aux (term_ty M Γ <$> map (λ arg : term, subst_term arg x t') args) sig
+      = args_wf_aux (term_ty M (<[x:=τ']> Γ) <$> args) sig).
+    { rewrite H1... }
+    generalize dependent sig.
+    induction args... forward IHargs. { intros. apply H0. right... }
+    simpl. destruct sig... { destruct (term_ty M Γ (subst_term a x t'));
+        destruct (term_ty M (<[x:=τ']> Γ) a)... }
+    rewrite H0. 2:{ left... }
+    destruct (term_ty M (<[x:=τ']> Γ) a)...
+    destruct (v0 =? v)...
+Qed.
 
+Lemma term_wf_subst {M Γ t x t' τ'} :
+  term_has_type M Γ t' τ' →
+  term_wf_aux M Γ (subst_term t x t') = term_wf_aux M (<[x:=τ']> Γ) t.
+Proof with auto.
+  intros. unfold term_wf_aux. rewrite (term_ty_subst H)...
+Qed.
 
-(*   apply teval_state_covers in Htv. *)
-(*   unfold state_covers. destruct (decide (x ∈ formula_fvars A)). *)
-(*   - rewrite subst_free_fvars... split; intros. *)
-(*     + rewrite (dom_insert_L σ). *)
-(*       apply union_subseteq in H as [H _]. apply union_mono_r with (Y:={[x]}) in H. *)
-(*       rewrite union_comm_L in H. *)
-(*       rewrite <- union_difference_singleton_L with (x:=x) in H... *)
-(*       rewrite union_comm_L in H. assumption. *)
-(*     + set_solver. *)
-(*   - rewrite subst_non_free_fvars... set_solver. *)
-(* Qed. *)
-    eauto.
+Lemma sf_wf_subst {M Γ sf x t τ} :
+  term_has_type M Γ t τ →
+  sf_wf_aux M Γ (subst_sf sf x t) = sf_wf_aux M (<[x:=τ]> Γ) sf.
+Proof with auto.
+  intros. destruct sf...
+  - simpl. do 2 rewrite (term_wf_subst H)...
+  - simpl. destruct (model_pdefs M !! symbol)... remember (pdef_sig p) as sig; clear Heqsig.
+    generalize dependent sig. induction args... intros. simpl. destruct sig...
+    + intros. unfold term_args_match_sig. rewrite fmap_cons. simpl.
+      destruct (term_ty M Γ (subst_term a x t));
+       destruct (term_ty M (<[x:=τ]> Γ))...
+    + unfold term_args_match_sig. simpl. rewrite (term_ty_subst H).
+      destruct (term_ty M (<[x:=τ]> Γ))...
+      destruct (v0 =? v)... apply IHargs.
+Qed.
+
+Tactic Notation "generalize_fresh_var" ident(y) ident(A) ident(x) ident(t) "as" ident(y') :=
+  let Hfres := fresh in
+  let Heq := fresh in
+  let H1 := fresh in let H2 := fresh in let H3 := fresh in
+  pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars A x t));
+  apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
+  remember (fresh_var y (quant_subst_fvars A x t)) as y' eqn:Heq;
+  clear Heq.
+
+Lemma formula_wf_subst {M Γ} A x t τ :
+  term_has_type M Γ t τ →
+  formula_wf_aux M Γ (A[x \ t]) = formula_wf_aux M (<[x:=τ]> Γ) A.
+Proof with auto.
+  intros.
+  generalize dependent τ. generalize dependent t. generalize dependent x.
+  generalize dependent Γ. induction A; intros.
+  - simpl. rewrite (sf_wf_subst H)...
+  - rewrite simpl_subst_not. simpl...
+  - rewrite simpl_subst_and. simpl. rewrite (IHA1 _ _ _ _ H). rewrite (IHA2 _ _ _ _ H)...
+  - rewrite simpl_subst_or. simpl. rewrite (IHA1 _ _ _ _ H). rewrite (IHA2 _ _ _ _ H)...
+  - destruct (decide (x = x0)); [| destruct (decide (x0 ∈ formula_fvars A))].
+    + subst. rewrite simpl_subst_exists_skip... simpl.
+      rewrite (insert_insert Γ)...
+    + rewrite simpl_subst_exists_propagate... generalize_fresh_var x A x0 t as x'.
+      simpl. assert (IH:=H). forward (H (A [x \ x']))...
+      assert (term_has_type M (<[x':=τ]> Γ) t τ0).
+      { unfold term_has_type. rewrite (term_ty_delete_state_var _ x')...
+        rewrite (delete_insert_delete Γ). rewrite <- (term_ty_delete_state_var)... }
+      apply (H _ x0) in H1. rewrite H1. clear H1 H. forward (IH A)...
+      assert (term_has_type M (<[x0:=τ0]> (<[x':=τ]> Γ)) x' τ).
+      { unfold term_has_type. simpl. rewrite (lookup_insert_ne (<[x':=τ]> Γ))...
+        apply lookup_insert_Some... }
+      apply (IH _ x) in H. rewrite H. clear IH H. rewrite (insert_commute Γ)...
+      destruct ((decide (x = x'))).
+      * subst. rewrite (insert_insert (<[x0:=τ0]> Γ))...
+      * rewrite (formula_wf_delete_state_var _ x')...
+        rewrite (formula_wf_delete_state_var _ x' (<[x:=τ]> (<[x0:=τ0]> Γ)))...
+        f_equal. rewrite (insert_commute (<[x0:=τ0]> Γ))...
+        rewrite (delete_insert_delete (<[x:=τ]> (<[x0:=τ0]> Γ)))...
+    + rewrite simpl_subst_exists_skip... rewrite (formula_wf_delete_state_var _ x0).
+      2:{ simpl. set_solver. }
+      symmetry. etrans.
+      * rewrite (formula_wf_delete_state_var _ x0). 2: { simpl. set_solver. }
+        rewrite (delete_insert_delete Γ). reflexivity.
+      * reflexivity.
+Qed.
+
+Lemma state_types_insert {x v σ} :
+  state_types (<[x:=v]> σ) = <[x:=value_typeof v]> (state_types σ).
+Proof. unfold state_types. rewrite (fmap_insert _ σ). reflexivity. Qed.
 
 Lemma feval_subst {v M σ A x t b} :
   teval M σ t v →
-  feval M (<[x:=v]>σ) A b ↔ feval M σ (A[x \ t]) b.
+  feval M (<[x:=v]> σ) A b ↔ feval M σ (A[x \ t]) b.
 Proof with auto.
   generalize dependent b. generalize dependent t. generalize dependent x.
   generalize dependent σ. generalize dependent v.
@@ -845,103 +923,58 @@ Proof with auto.
       * apply H0...
       * apply Ht...
   - destruct (decide (x = x0)).
-    + subst. rewrite simpl_subst_exists_skip... split; inversion 1; subst.
-      * destruct H5 as [v []]. apply FEval_Exists_True. exists v. split...
-        rewrite (insert_insert σ) in H2...
-      * apply FEval_Exists_False... setoid_rewrite (insert_insert σ) in H6.
-        apply H6.
-      * admit.
-      * admit.
-      * admit.
-      * admit.
-      * destruct H5 as [v []]. apply FEval_Exists_True. exists v. split...
-        rewrite (insert_insert σ) in H2...
-      * apply FEval_Exists_False... setoid_rewrite (insert_insert σ) in H6.
-        apply H6.
-      * admit.
-      * admit.
-      * admit.
-      * admit.
-    +
-
-
-      rewrite feval_delete_state_var_head...
-
-
-    destruct (quant_subst_skip_cond x A x0).
-    +
-    +
-    +
-
-    split; apply sfeval_subst...
-  - rewrite simpl_subst_not. simpl. rewrite (state_covers_subst Ht).
-    rewrite (IHA _ _ _ _ Ht). done.
-  - rewrite simpl_subst_and. simpl. rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht).
-    done.
-  - rewrite simpl_subst_or. simpl. repeat rewrite (state_covers_subst Ht).
-    rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht). done.
-  - rewrite simpl_subst_implication. simpl. repeat rewrite (state_covers_subst Ht).
-    rewrite (IHA1 _ _ _ _ Ht). rewrite (IHA2 _ _ _ _ Ht). done.
-  - destruct (decide (x = x₀)).
-    + rewrite simpl_subst_exists_skip... subst. simpl. setoid_rewrite (insert_insert σ)...
-    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars A)).
-      2: { rewrite simpl_subst_exists_skip... apply feval_delete_state_var_head...
-           simpl. apply not_elem_of_difference... }
-      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars A x₀ t))...
-      apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3).
-      rewrite simpl_subst_exists_propagate... simpl.
-      remember (fresh_var x (quant_subst_fvars A x₀ t)) as x'.
-      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) A
-                   <→ feval M (<[x':=v]> σ) <! A[x \ x'][x₀ \ t] !>) as H.
-      { split; intros [v Hv]; exists v; apply H... }
-      intros v. etrans.
-      { apply (feval_delete_state_var x')... }
-      symmetry. etrans.
-      {
-        rewrite <- IH; [|auto|].
+    + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv.
+      * intros. rewrite (insert_insert σ)...
+      * intros. unfold state_types. setoid_rewrite fmap_insert.
+        setoid_rewrite (insert_insert (value_typeof <$> σ))...
+    + destruct (decide (x0 ∈ formula_fvars A)).
+      2: { rewrite simpl_subst_exists_skip... rewrite feval_delete_state_var_head... simpl.
+      apply not_elem_of_difference... }
+      rewrite simpl_subst_exists_propagate... generalize_fresh_var x A x0 t as x'.
+      apply feval_exists_equiv.
+      * intros. rewrite (feval_delete_state_var x')... rewrite <- H...
         2: { apply teval_delete_state_var_head... apply Ht. }
-        rewrite (insert_commute σ); [|auto].
-        rewrite <- IH; [|auto|].
-        2: { apply TEval_Var. apply lookup_insert. }
-        rewrite feval_delete_state_var...
-        exact H1.
-      }
-      destruct (decide (x = x')).
-      * rewrite <- e0 in *. rewrite (delete_insert_delete (<[x:=v]> (<[x₀:=v₀]> σ)))...
-      * rewrite (delete_insert_ne (<[x':=v]> (<[x₀:=v₀]> σ)))...
-         rewrite (delete_insert_delete (<[x₀:=v₀]> σ)).
-         rewrite (delete_insert_ne (<[x₀:=v₀]> σ))...
-  - destruct (decide (x = x₀)).
-    + rewrite simpl_subst_forall_skip... subst. simpl. setoid_rewrite (insert_insert σ)...
-    + rename H into IH. destruct (decide (x₀ ∈ formula_fvars A)).
-      2: { rewrite simpl_subst_forall_skip... apply feval_delete_state_var_head...
-           simpl. apply not_elem_of_difference... }
-      pose proof (Hfresh := fresh_var_fresh x (quant_subst_fvars A x₀ t))...
-      apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3).
-      rewrite simpl_subst_forall_propagate... simpl.
-      remember (fresh_var x (quant_subst_fvars A x₀ t)) as x'.
-      enough (forall v, feval M (<[x:=v]> (<[x₀:=v₀]> σ)) A
-                   <→ feval M (<[x':=v]> σ) <! A[x \ x'][x₀ \ t] !>) as H.
-      { split; intros v Hv; apply H... }
-      intros v. etrans.
-      { apply (feval_delete_state_var x')... }
-      symmetry. etrans.
-      {
-        rewrite <- IH; [|auto|].
-        2: { apply teval_delete_state_var_head... apply Ht. }
-        rewrite (insert_commute σ); [|auto].
-        rewrite <- IH; [|auto|].
-        2: { apply TEval_Var. apply lookup_insert. }
-        rewrite feval_delete_state_var...
-        exact H1.
-      }
-      destruct (decide (x = x')).
-      * rewrite <- e0 in *. rewrite (delete_insert_delete (<[x:=v]> (<[x₀:=v₀]> σ)))...
-      * rewrite (delete_insert_ne (<[x':=v]> (<[x₀:=v₀]> σ)))...
-         rewrite (delete_insert_delete (<[x₀:=v₀]> σ)).
-         rewrite (delete_insert_ne (<[x₀:=v₀]> σ))...
+        rewrite (insert_commute σ x0 x')... rewrite <- H...
+        2:{ apply TEval_Var. apply lookup_insert. }
+        rewrite (@feval_delete_state_var x' _ (<[x:=v]> (<[x':=v]> (<[x0:=v0]> σ))))...
+        apply eq_iff. clear H Ht. f_equal.
+        destruct (decide (x = x')).
+        -- subst. rewrite (insert_insert (<[x0:=v0]> σ))...
+        -- rewrite (insert_commute (<[x0:=v0]> σ))...
+           rewrite (delete_insert_delete (<[x:=v]> (<[x0:=v0]> σ)))...
+      * intros.
+        apply teval_term_has_type in Ht.
+        assert (term_has_type M (<[x':=τ]> (state_types σ)) t (value_typeof v0)).
+        {
+          unfold term_has_type. rewrite (term_ty_delete_state_var M x')...
+          rewrite (delete_insert_delete (state_types σ)).
+          rewrite <- (term_ty_delete_state_var)...
+        }
+        apply formula_wf_subst with (A:=A[x \ x']) (x:=x0) in H1.
+        rewrite H1. clear H1 Ht.
+        assert (term_has_type M (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ))) x' τ).
+        {
+          unfold term_has_type. simpl. rewrite (lookup_insert_ne (<[x':=τ]> (state_types σ)))...
+          apply lookup_insert_Some...
+        }
+        apply formula_wf_subst with (A:=A) (x:=x) in H1.
+        setoid_rewrite H1. clear H1. rewrite state_types_insert.
+        rewrite (formula_wf_delete_state_var _ x')...
+        symmetry. etrans. { rewrite (formula_wf_delete_state_var _ x')... }
+        f_equal.
+        destruct (decide (x = x')).
+        -- subst.
+           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ)))).
+           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ))).
+           rewrite (insert_commute (state_types σ))...
+           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
+        --
+           rewrite (delete_insert_ne (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ))))...
+           rewrite (delete_insert_ne (<[x0:=value_typeof v0]> (state_types σ)))...
+           f_equal.
+           rewrite (insert_commute (state_types σ))...
+           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
 Qed.
-
 
 Lemma teval_args_in : ∀ M σ arg args vargs,
   In arg args →

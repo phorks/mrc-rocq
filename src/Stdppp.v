@@ -45,6 +45,8 @@ Arguments InhabitedSigDecision (A P)%_type.
 Notation "{ x ? P }" := (InhabitedSigDecision (fun x => P)) (x binder, at level 0) : type_scope.
 Notation "{ x : A ? P }" := (InhabitedSigDecision (A:=A) (fun x => P)) (x binder, at level 0) : type_scope.
 
+Lemma eq_iff : forall (P Q : Prop), P = Q -> (P <-> Q).
+Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 (* HACK: These are not currently used. I will keep them as reference.
    I should delete them at some point. *)
 (* Section sets. *)

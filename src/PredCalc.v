@@ -224,7 +224,7 @@ Qed.
 
 Inductive sum_quant_subst_skip_cond y A x :=
 | SumQuantSubstSkipCond_False (H : y = x ∨ x ∉ formula_fvars A)
-| SumQuantSubstSkipCond_True (H1 : y <> x) (H2: x ∈ formula_fvars A).
+| SumQuantSubstSkipCond_True (H1 : y ≠ x) (H2: x ∈ formula_fvars A).
 
 Definition quant_subst_skip_cond y A x : sum_quant_subst_skip_cond y A x.
 Proof with auto.
@@ -658,6 +658,9 @@ Section semantics.
         end
     end.
 
+  Definition term_has_type Γ t τ :=
+    term_ty Γ t = Some τ.
+
   Definition term_wf_aux (Γ : state_typing) (t : term) : bool :=
     match term_ty Γ t with | Some _ => true | None => false end.
 
@@ -1064,17 +1067,17 @@ Section semantics.
      ∀ v b', v ∈ τ →
           feval (<[x1:=v]> σ1) A1 b' ↔ feval (<[x2:=v]> σ2) A2 b') →
     (value_ty_is_empty τ →
-     formula_wf_aux (<[x1:=τ]> (state_types σ1)) A1 ↔
+     formula_wf_aux (<[x1:=τ]> (state_types σ1)) A1 =
        formula_wf_aux (<[x2:=τ]> (state_types σ2)) A2) →
     feval σ1 <! exists x1 : τ, A1 !> b ↔ feval σ2 <! exists x2 : τ, A2 !> b.
   Proof with eauto.
     intros. split; inversion 1; subst.
     - apply FEval_Exists_True. destruct H6 as [v []]. forward H... apply (H v true) in H3...
     - apply FEval_Exists_False... intros. apply H...
-    - apply FEval_Exists_False_Empty... apply H0...
+    - apply FEval_Exists_False_Empty... rewrite <- H0...
     - apply FEval_Exists_True. destruct H6 as [v []]. forward H... apply (H v true) in H3...
     - apply FEval_Exists_False... intros. apply H...
-    - apply FEval_Exists_False_Empty... apply H0...
+    - apply FEval_Exists_False_Empty... rewrite H0...
   Qed.
 End semantics.
 
@@ -1094,5 +1097,3 @@ Notation formula_wf M σ := (formula_wf_aux M (state_types σ)).
 Hint Constructors teval : core.
 Hint Constructors sfeval : core.
 Hint Constructors feval : core.
-
-
