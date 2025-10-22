@@ -2,9 +2,15 @@ From Stdlib Require Import Strings.String.
 From Stdlib Require Import Arith.PeanoNat. Import Nat.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Lists.List. Import ListNotations.
-From MRC Require Import Tactics PredCalc PredCalcSubst PredCalcEquiv.
+From MRC Require Import Options.
+From MRC Require Import Tactics.
+From MRC Require Import Model.
+From MRC Require Import PredCalc PredCalcSubst PredCalcEquiv.
 From stdpp Require Import gmap fin_maps.
 
+Instance formula_wf_proper {M Γ} : Proper ((≡@{formula}) ==> (=)) (formula_wf_aux M Γ).
+Proof.
+  intros A B H. Admitted.
 Lemma fequiv_subst_diag : forall A x,
     <! A[x \ x] !> ≡ A.
 Proof with auto.
@@ -14,8 +20,20 @@ Proof with auto.
   - rewrite H. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
-  - rewrite H. rewrite H0. reflexivity.
-  - intros M σ. simpl.
+  - intros M σ b. unfold y' in *. clear y'. generalize_fresh_var y A x x as y'.
+    apply feval_exists_equiv.
+    + intros. specialize H with (<! A [y \ y'] !>). forward H by auto.
+      pose proof (H M (<[y':=v]> σ) b') as H. rewrite H. rewrite <- feval_subst with (v:=v).
+      2: { apply TEval_Var. apply lookup_insert. }
+      destruct (decide (y = y')).
+      * rewrite <- e. rewrite (insert_insert σ)...
+      * rewrite (insert_commute σ)... rewrite (feval_delete_state_var_head y')...
+    + intros.
+      specialize H with (<! A [y \ y'] !>). forward H by auto.
+      rewrite H.
+      pose proof (H M (<[y':=v]> σ) b') as H. rewrite H. rewrite <- feval_subst with (v:=v).
+      2: { apply TEval_Var. apply lookup_insert. }
+
     enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <→ feval M (<[y:=v]> σ) φ).
     { split; intros [v Hv]; exists v; apply H2; apply Hv. }
     intros v.
@@ -41,6 +59,27 @@ Proof with auto.
       pose proof (fresh_var_fresh y (quant_subst_fvars φ x x)).
       apply quant_subst_fvars_inv in H2 as (?&?&?).
       rewrite (feval_delete_state_var_head y')...
+Qed.
+
+Lemma subst_proper : forall A B x t,
+  A ≡ B →
+  A[x \ t] ≡ B[x \ t].
+Proof with auto.
+  intros. unfold equiv, fequiv in *. intros. split; intros.
+  - apply feval_wf in H0 as ?.
+    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
+    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+      rewrite <- feval_subst' with (v:=v)... apply H. rewrite feval_subst' with (t:=t)...
+    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+      rewrite <- feval_subst' with (v:=v)... apply H. rewrite feval_subst' with (t:=t)...
+    + apply
+
+
+      rewrite formula_wf_delete_state_var with (x:=x) in H1.
+      2: { rewrite subst_non_free_fvars... }
+  - apply feval_wf in H0 as ?. apply formula_wf_subst_term_wf in H1.
+    2:{ admit. } apply term_wf_teval in H1 as [v Hv]. rewrite <- feval_subst' with (v:=v)...
+    apply H. rewrite feval_subst' with (t:=t)...
 Qed.
 
 Lemma fequiv_subst_non_free : forall A t x,
@@ -124,17 +163,6 @@ Proof with auto.
   - intros Hv. specialize Hv with value_unit. rewrite feval_delete_state_var_head in Hv...
   - intros H' v. rewrite feval_delete_state_var_head...
 Qed.
-
-(* (* TODO: prove this and make morphisms *) *)
-Lemma subst_proper : forall A B x t,
-  A ≡ B →
-  A[x \ t] ≡ B[x \ t].
-Proof.
-  intros. unfold equiv, fequiv in *. intros M σ. specialize H with M σ.
-  induction A.
-  - admit.
-  - simpl in H.
-Admitted.
 
 Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
     x₁ ≠ x₂ →

@@ -491,9 +491,7 @@ Proof with auto.
     + destruct H2 as [|]; subst; contradiction.
     + rewrite simpl_subst_exists_propagate... simpl.
       rewrite H...
-      * pose proof (fresh_var_fresh x (quant_subst_fvars A x0 t)) as Hfresh.
-        apply quant_subst_fvars_inv in Hfresh as (Hfresh1&Hfresh2&Hfresh3).
-        destruct (decide (x ∈ formula_fvars A)).
+      * generalize_fresh_var x A x0 t as x'. destruct (decide (x ∈ formula_fvars A)).
         -- rewrite H... set_solver.
         -- rewrite subst_non_free... set_solver.
       * destruct (decide (x ∈ formula_fvars A)).
@@ -501,11 +499,6 @@ Proof with auto.
            apply not_elem_of_singleton...
         -- rewrite subst_non_free...
 Qed.
-
-(* Lemma term_wf_subst_free : *)
-(*   x ∈ term_fvars t → *)
-(*   term_wf  *)
-
 
 Hint Rewrite subst_free_fvars : core.
 
@@ -787,14 +780,6 @@ Proof with auto.
     + apply (teval_args_subst Ht) in H2. eauto.
 Qed.
 
-Lemma teval_term_has_type {M σ t v} :
-  teval M σ t v →
-  term_has_type M (state_types σ) t (value_typeof v).
-Proof with auto.
-  intros. apply teval_ty with (τ:=value_typeof v) in H. apply H.
-  apply value_elem_of_iff_typeof_eq...
-Qed.
-
 Lemma term_ty_subst {M Γ t x t' τ'} :
   term_has_type M Γ t' τ' →
   term_ty M Γ (subst_term t x t') = term_ty M (<[x:=τ']> Γ) t.
@@ -840,15 +825,6 @@ Proof with auto.
       destruct (v0 =? v)... apply IHargs.
 Qed.
 
-Tactic Notation "generalize_fresh_var" ident(y) ident(A) ident(x) ident(t) "as" ident(y') :=
-  let Hfres := fresh in
-  let Heq := fresh in
-  let H1 := fresh in let H2 := fresh in let H3 := fresh in
-  pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars A x t));
-  apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
-  remember (fresh_var y (quant_subst_fvars A x t)) as y' eqn:Heq;
-  clear Heq.
-
 Lemma formula_wf_subst {M Γ} A x t τ :
   term_has_type M Γ t τ →
   formula_wf_aux M Γ (A[x \ t]) = formula_wf_aux M (<[x:=τ]> Γ) A.
@@ -887,11 +863,92 @@ Proof with auto.
       * reflexivity.
 Qed.
 
-Lemma state_types_insert {x v σ} :
-  state_types (<[x:=v]> σ) = <[x:=value_typeof v]> (state_types σ).
-Proof. unfold state_types. rewrite (fmap_insert _ σ). reflexivity. Qed.
+Lemma term_wf_subst_term_wf M Γ t0 x t :
+  x ∈ term_fvars t0 →
+  term_wf_aux M Γ (subst_term t0 x t) → term_wf_aux M Γ t.
+Proof with auto.
+  generalize dependent t. generalize dependent x. induction t0; intros; simpl in *.
+  - apply elem_of_empty in H as [].
+  - apply elem_of_singleton in H. subst. destruct (decide (x = x)); [| contradiction]...
+  - apply elem_of_union_list in H0 as (arg_fvars&H2&H3).
+    apply elem_of_list_fmap in H2 as (arg&Heq&Hin). subst. apply elem_of_list_In in Hin.
+    apply H with (t:=t) in H3... clear H H3. unfold term_wf_aux in H1.
+    destruct (term_ty M Γ (TApp f (map (λ arg : term, subst_term arg x t) args))) eqn:E;
+      [| contradiction].
+    simpl in E. destruct (model_fdefs M !! f); [| discriminate].
+    remember ((fdef_sig f0).1) as sig. clear Heqsig.
+    destruct (args_wf_aux (term_ty M Γ <$> map (λ arg : term, subst_term arg x t) args) sig) eqn:E';
+      [| discriminate].
+    clear H1 E f0 v. rename E' into H. generalize dependent sig. generalize dependent arg.
+    induction args; simpl; intros; [contradiction|].
+    destruct (term_ty M Γ (subst_term a x t)) eqn:E; [| discriminate].
+    destruct sig eqn:E1; [discriminate|]. rename v0 into τ. subst. rename l into sig.
+    destruct (v =? τ) eqn:E1; [| discriminate]. apply Is_true_true in E1. apply eq_dec_eq in E1.
+    subst v. destruct Hin.
+    + subst. unfold term_wf_aux. rewrite E...
+    + apply (IHargs arg) in H...
+Qed.
 
-Lemma feval_subst {v M σ A x t b} :
+Lemma sf_wf_subst_term_wf M Γ sf x t :
+  x ∈ sf_fvars sf →
+  sf_wf_aux M Γ (subst_sf sf x t) → term_wf_aux M Γ t.
+Proof with auto.
+  intros. destruct sf; simpl in *; try (apply elem_of_empty in H as []).
+  - apply elem_of_union in H. apply Is_true_andb in H0 as []. destruct H.
+    + apply term_wf_subst_term_wf in H0...
+    + apply term_wf_subst_term_wf in H1...
+  - apply elem_of_union_list in H as (arg_fvars&H2&H3).
+    apply elem_of_list_fmap in H2 as (arg&Heq&Hin). subst. apply elem_of_list_In in Hin.
+    apply term_wf_subst_term_wf with (t:=t) (M:=M) (Γ:=Γ) in H3...
+    clear H3. destruct (model_pdefs M !! symbol); [| contradiction].
+    remember (pdef_sig p) as sig. clear Heqsig.
+    unfold term_args_match_sig in H0. clear p symbol. rename H0 into H.
+    generalize dependent sig. generalize dependent arg.
+    induction args; simpl; intros; [contradiction|].
+    destruct (term_ty M Γ (subst_term a x t)) eqn:E; [| contradiction].
+    destruct sig eqn:E1; [contradiction|]. rename v0 into τ. subst. rename l into sig.
+    destruct (v =? τ) eqn:E1; [| contradiction]. apply Is_true_true in E1. apply eq_dec_eq in E1.
+    subst v. destruct Hin.
+    + subst. unfold term_wf_aux. rewrite E...
+    + apply (IHargs arg) in H...
+Qed.
+
+
+Lemma formula_wf_subst_term_wf M Γ A x t :
+  x ∈ formula_fvars A →
+  formula_wf_aux M Γ (A[x \ t]) → term_wf_aux M Γ t.
+Proof with auto.
+  generalize dependent t. generalize dependent x. generalize dependent Γ.
+  induction A; intros; simpl in *.
+  - apply sf_wf_subst_term_wf in H0...
+  - rewrite simpl_subst_not in H0. simpl in H0. apply IHA in H0...
+  - rewrite simpl_subst_and in H0. simpl in H0.
+    apply Is_true_andb in H0 as []. apply elem_of_union in H as [].
+    + apply IHA1 in H0...
+    + apply IHA2 in H1...
+  - rewrite simpl_subst_or in H0. simpl in H0.
+    apply Is_true_andb in H0 as []. apply elem_of_union in H as [].
+    + apply IHA1 in H0...
+    + apply IHA2 in H1...
+  - destruct (decide (x0 = x)).
+    + subst. set_solver.
+    + destruct (decide (x0 ∈ formula_fvars A)).
+      * rewrite simpl_subst_exists_propagate in H1...
+        generalize_fresh_var x A x0 t as x'. simpl in *.
+        destruct (decide (x ∈ formula_fvars A)).
+        -- apply H in H1...
+           2: { rewrite subst_free_fvars... set_solver. }
+           rewrite (term_wf_delete_state_var M x') in H1...
+           rewrite (delete_insert_delete Γ) in H1.
+           rewrite (term_wf_delete_state_var M x')...
+        -- rewrite (subst_non_free _ x) in H1... apply H in H1...
+           rewrite (term_wf_delete_state_var M x') in H1...
+           rewrite (delete_insert_delete Γ) in H1.
+           rewrite (term_wf_delete_state_var M x')...
+      * apply elem_of_difference in H0 as [? _]. contradiction.
+Qed.
+
+Lemma feval_subst {M} σ A x t b v :
   teval M σ t v →
   feval M (<[x:=v]> σ) A b ↔ feval M σ (A[x \ t]) b.
 Proof with auto.
@@ -974,96 +1031,4 @@ Proof with auto.
            f_equal.
            rewrite (insert_commute (state_types σ))...
            rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
-Qed.
-
-Lemma teval_args_in : ∀ M σ arg args vargs,
-  In arg args →
-  teval_args M σ args vargs →
-  exists v, teval M σ arg v.
-Proof with auto.
-  intros. induction H0.
-  - simpl in H. contradiction.
-  - simpl in H. destruct H.
-    + subst. eauto.
-    + apply IHteval_args...
-Qed.
-
-Lemma teval_subst_value : ∀ M σ t x t' v,
-    x ∈ term_fvars t →
-    teval M σ (subst_term t x t') v →
-    exists v', teval M σ t' v'.
-Proof with auto.
-  induction t.
-  - intros. simpl in H. apply elem_of_empty in H as [].
-  - intros. simpl in H. apply elem_of_singleton in H as →. simpl in H0.
-    destruct (decide (x = x)); try contradiction. eauto.
-  - intros. simpl in H0.
-    apply elem_of_union_list in H0 as (arg_fvars&H2&H3).
-    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
-    forward (H arg)... inversion H1; subst.
-    apply in_map with (f := (λ arg, subst_term arg x t')) in Hin.
-    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v' Hv']. eauto.
-Qed.
-
-Lemma sfeval_subst_value : ∀ M σ sf x t,
-    x ∈ sf_fvars sf →
-    sfeval M σ (subst_sf sf x t) →
-    ∃ v, teval M σ t v.
-Proof with auto.
-  intros. destruct sf.
-  - simpl in H. apply elem_of_empty in H as [].
-  - simpl in H. apply elem_of_empty in H as [].
-  - simpl in H. apply elem_of_union in H. simpl in H0. inversion H0. subst.
-    destruct H.
-    + apply teval_subst_value in H3...
-    + apply teval_subst_value in H4...
-  - simpl in H.
-    apply elem_of_union_list in H as (arg_fvars&H2&H3).
-    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
-    inversion H0; subst.
-    apply in_map with (f := (λ arg, subst_term arg x t)) in Hin.
-    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v Hv].
-    apply teval_subst_value in Hv...
-Qed.
-
-(* Lemma something : forall M σ t, *)
-(*     term_fvars t ⊆ dom σ → *)
-(*     ∃ v, teval M σ t v. *)
-(* Proof with auto. *)
-(*   induction t; simpl; intros. *)
-(*   - exists v. constructor. *)
-(*   - apply singleton_subseteq_l in H. apply elem_of_dom in H as [v Hv]. *)
-(*     exists v. constructor... *)
-(*   - unfold union_list in H0.  *)
-(*     lookup_ *)
-(*     Search (is_Some ?p → exists _, ?b). *)
-
-(*     eauto. *)
-(*   intros. *)
-(* I don't think teval_subst_value holds in general because of LEM and the semantics
-    of NOT *)
-
-Lemma feval_subst_value : ∀ M σ A x t,
-    x ∈ formula_fvars A →
-    feval M σ (A[x \ t]) →
-    ∃ v, teval M σ t v.
-Proof with auto.
-  intros. induction A; simpl in *.
-  - eapply sfeval_subst_value. apply H. apply H0.
-  - clear IHA. rewrite simpl_subst_not in H0. simpl in H0.
-    unfold state_covers in H0. rewrite subst_free_fvars in H0...
-    destruct H0 as []
-  - simpl in H. apply elem_of_empty in H as [].
-  - simpl in H. apply elem_of_empty in H as [].
-  - simpl in H. apply elem_of_union in H. simpl in H0. inversion H0. subst.
-    destruct H.
-    + apply teval_subst_value in H3...
-    + apply teval_subst_value in H4...
-  - simpl in H.
-    apply elem_of_union_list in H as (arg_fvars&H2&H3).
-    apply elem_of_list_fmap in H2 as (arg&→&Hin). apply elem_of_list_In in Hin.
-    inversion H0; subst.
-    apply in_map with (f := (λ arg, subst_term arg x t)) in Hin.
-    apply (teval_args_in M σ _ _ vargs) in Hin... destruct Hin as [v Hv].
-    apply teval_subst_value in Hv...
 Qed.

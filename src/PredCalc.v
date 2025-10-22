@@ -635,6 +635,11 @@ Section semantics.
   Definition state_typing := gmap variable value_ty.
   Definition state_types (σ : state) := value_typeof <$> σ.
 
+  Lemma state_types_insert {σ x v} :
+    state_types (<[x:=v]> σ) = <[x:=value_typeof v]> (state_types σ).
+  Proof. unfold state_types. rewrite (fmap_insert _ σ). reflexivity. Qed.
+
+
   Fixpoint args_wf_aux (arg_kinds : list (option value_ty)) (sig : list value_ty) : bool :=
     match arg_kinds, sig with
     | [], [] => true
@@ -886,7 +891,7 @@ Section semantics.
       + rewrite elem_of_singleton in H0. subst. rewrite (insert_delete_insert Γ)...
   Qed.
 
-  Lemma teval_ty σ t v τ :
+  Lemma teval_term_ty σ t v τ :
     teval σ t v →
     v ∈ τ ↔ term_ty (state_types σ) t = Some τ.
   Proof with auto.
@@ -922,6 +927,16 @@ Section semantics.
         rewrite eq_dec_refl. assumption.
     Qed.
 
+  Lemma teval_term_has_type {σ t v} :
+    teval σ t v →
+    term_has_type (state_types σ) t (value_typeof v).
+  Proof with auto.
+    intros. apply teval_term_ty with (τ:=value_typeof v) in H. apply H.
+    apply value_elem_of_iff_typeof_eq...
+  Qed.
+
+
+
   Lemma args_match_sig_args_wf σ args vargs sig :
     teval_args σ args vargs →
     args_match_sig vargs sig ↔ args_wf_aux (term_ty (state_types σ) <$> args) sig.
@@ -930,13 +945,13 @@ Section semantics.
     induction args; intros.
     - inversion H; subst. simpl. reflexivity.
     - inversion H; subst. clear H. simpl in *. split; intros.
-      + destruct sig; try contradiction. apply teval_ty with (τ:=v0) in H2.
+      + destruct sig; try contradiction. apply teval_term_ty with (τ:=v0) in H2.
         destruct (v ∈? v0) eqn:E; [|contradiction].
         rewrite bool_decide_eq_true in E. apply H2 in E. rewrite E. rewrite eq_dec_refl.
         apply (IHargs sig) in H4. rewrite <- H4...
       + destruct sig.
         1:{ destruct (term_ty (state_types σ) a); try contradiction. }
-        apply teval_ty with (τ:=v0) in H2.
+        apply teval_term_ty with (τ:=v0) in H2.
         destruct (term_ty (state_types σ) a); [|contradiction].
         destruct (v1 =? v0) eqn:Heq; [|contradiction].
         rewrite bool_decide_eq_true in Heq. subst.
@@ -945,15 +960,52 @@ Section semantics.
         apply IHargs...
     Qed.
 
-  Lemma teval_wf : forall {σ t v},
+  Lemma teval_wf {σ} t v :
       teval σ t v → term_wf σ t.
   Proof with auto.
-    intros σ t v. induction t; intros; simpl...
+    induction t; intros; simpl...
     - inversion H; subst. unfold term_wf_aux, term_ty, state_types, state_typing.
       rewrite lookup_fmap. setoid_rewrite H1. simpl...
     - inversion H0; subst. unfold term_wf_aux. simpl. inversion H5; subst.
       rewrite H1. clear H2. rewrite args_match_sig_args_wf in Hsig.
       2: { exact H3. } apply Is_true_true in Hsig. rewrite Hsig...
+  Qed.
+
+  Lemma term_wf_teval {σ} t :
+    term_wf σ t → ∃ v, teval σ t v.
+  Proof with auto.
+    intros. unfold term_wf in H. destruct (term_ty (state_types σ) t) eqn:E; [| contradiction].
+    rename v into τ. generalize dependent τ.
+    induction t; intros; simpl...
+    - exists v. constructor.
+    - unfold term_ty, state_types in E. apply lookup_fmap_Some in E.
+      destruct E as [v [_ Hv]]. exists v. constructor...
+    - simpl in E. destruct (model_fdefs M !! f) eqn:E1; [| discriminate].
+      rename f0 into fdef.
+      destruct (args_wf_aux (term_ty (state_types σ) <$> args) (fdef_sig fdef).1) eqn:E2;
+        [| discriminate].
+      assert (∃ vargs, teval_args σ args vargs ∧ args_match_sig vargs ((fdef_sig fdef).1)).
+      + clear E. remember ((fdef_sig fdef).1) as sig; clear Heqsig. generalize dependent sig.
+        induction args; intros.
+        * exists []. split... apply TEvalArgs_Nil.
+        * unfold args_wf_aux in E2. destruct sig.
+          { simpl in E2. destruct (term_ty (state_types σ) a); discriminate. }
+          rewrite fmap_cons in E2. destruct (term_ty (state_types σ) a) eqn:E3; [| discriminate].
+          destruct (v0 =? v) eqn:E4; [| discriminate]. fold args_wf_aux in E2.
+          apply Is_true_true in E4. apply eq_dec_eq in E4. subst. forward IHargs.
+          { intros. eapply H0; [right | apply E]... }
+          rename v into τ1.
+          apply IHargs in E2. destruct E2 as [vargs []].
+          apply (H0 a) in E3 as ?; [| left]... destruct H3 as [v Hv].
+          exists (v :: vargs). split.
+          -- apply TEvalArgs_Cons...
+          -- simpl. destruct (v ∈? τ1) eqn:E... apply teval_term_ty with (τ:=τ1) in Hv.
+             apply Hv in E3. apply Is_true_false in E. set_solver.
+      + destruct H1 as [vargs []]. pose proof (fdef_total fdef vargs H2).
+        destruct H3 as (v&Hret&?). exists v. apply TEval_App with vargs...
+        eapply FnEval.
+        * apply E1.
+        * apply H3.
   Qed.
 
   Lemma sfeval_wf : ∀ {σ sf b},
@@ -1056,11 +1108,14 @@ Section semantics.
   (* ******************************************************************* *)
   (* LEM                                                                 *)
   (* ******************************************************************* *)
-  Axiom feval_lem : forall σ A, formula_wf σ A → feval σ A true ∨ feval σ A false.
+  Axiom feval_lem : ∀ σ A, formula_wf σ A → ∃ b, feval σ A b.
+
+  Lemma feval_lem' : forall σ A, formula_wf σ A → feval σ A true ∨ feval σ A false.
+  Proof. intros. apply feval_lem in H as [[] H]; auto. Qed.
 
 
   (* ******************************************************************* *)
-  (* LEM                                                                 *)
+  (* some equiv lemmas                                                   *)
   (* ******************************************************************* *)
   Lemma feval_exists_equiv {σ1 σ2 x1 x2 τ A1 A2} b:
     ((∃ v, v ∈ τ) →
@@ -1097,3 +1152,12 @@ Notation formula_wf M σ := (formula_wf_aux M (state_types σ)).
 Hint Constructors teval : core.
 Hint Constructors sfeval : core.
 Hint Constructors feval : core.
+
+Tactic Notation "generalize_fresh_var" ident(y) ident(A) ident(x) ident(t) "as" ident(y') :=
+  let Hfres := fresh in
+  let Heq := fresh in
+  let H1 := fresh in let H2 := fresh in let H3 := fresh in
+  pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars A x t));
+  apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
+  remember (fresh_var y (quant_subst_fvars A x t)) as y' eqn:Heq;
+  clear Heq.
