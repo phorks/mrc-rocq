@@ -11,10 +11,17 @@ Instance fequiv : Equiv formula := λ A B, forall M σ b, feval M σ A b ↔ fev
 
 Declare Scope mrc_scope.
 Infix "⇛" := fimplies (at level 70, no associativity) : mrc_scope.
+Notation "(⇛)" := fimplies (only parsing).
 
 Open Scope stdpp_scope.
 
 Implicit Types A B C : formula.
+
+Instance fimplies_refl : Reflexive (⇛).
+Proof with auto. intros ? ? ? ?... Qed.
+
+Instance fimplies_trans : Transitive (⇛).
+Proof with auto. intros A B C H H' M σ b H1. auto. Qed.
 
 Instance fequiv_refl : Reflexive (≡@{formula}).
 Proof with auto. intros ? ? ?. reflexivity. Qed.
@@ -39,6 +46,9 @@ Proof.
   - exact fequiv_sym.
   - exact fequiv_trans.
 Qed.
+
+Instance fimplies_antisym : Antisymmetric formula (≡@{formula}) (⇛).
+Proof. intros A B H1 H2 M σ b. specialize (H1 M σ b). specialize (H2 M σ b). naive_solver. Qed.
 
 Instance feval_proper : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (=) ==> iff) feval.
 Proof with auto.
