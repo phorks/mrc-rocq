@@ -199,36 +199,37 @@ Fixpoint quantifier_rank A :=
 
 Notation rank A := (formula_rank A + quantifier_rank A).
 
-Definition quant_subst_fvars A x t := formula_fvars A ∪ term_fvars t ∪ {[x]}.
-Lemma quant_subst_fvars_inv : forall y A x t,
-    y ∉ quant_subst_fvars A x t → y ∉ formula_fvars A ∧ y ∉ term_fvars t ∧ y ≠ x.
+Definition quant_subst_fvars y A x t := (formula_fvars A ∖ {[y]}) ∪ term_fvars t ∪ {[x]}.
+Lemma quant_subst_fvars_inv : forall y' y A x t,
+    y' ∉ quant_subst_fvars y A x t → (y = y' ∨ y' ∉ formula_fvars A) ∧ y' ∉ term_fvars t ∧ y' ≠ x.
 Proof with auto.
-  intros. unfold quant_subst_fvars in H.
-  apply not_elem_of_union in H as [H H1]. apply not_elem_of_singleton in H1.
-  apply not_elem_of_union in H as [H2 H3]...
+  intros. unfold quant_subst_fvars in H. apply not_elem_of_union in H as [H H1].
+  apply not_elem_of_union in H as [H H2]. apply not_elem_of_difference in H.
+  apply not_elem_of_singleton in H1. rewrite elem_of_singleton in H...
+  split... destruct H...
 Qed.
 
-Lemma fresh_var_ne_inv x A x' t :
-  fresh_var x (quant_subst_fvars A x' t) ≠ x →
-  x ∈ formula_fvars A ∨ x = x' ∨ x ∈ term_fvars t.
+Lemma fresh_var_ne_inv y A x t :
+  fresh_var y (quant_subst_fvars y A x t) ≠ y →
+  y ∈ term_fvars t ∨ y = x.
 Proof with auto.
   intros. unfold fresh_var, fresh_var_aux in H.
-  destruct (size (quant_subst_fvars A x' t)); destruct (decide (x ∈ quant_subst_fvars A x' t)).
+  destruct (size (quant_subst_fvars y A x t)); destruct (decide (y ∈ quant_subst_fvars y A x t)).
   - unfold quant_subst_fvars in e. do 2 rewrite elem_of_union in e. rewrite elem_of_singleton in e.
-    destruct e... destruct H0...
+    destruct e... destruct H0... set_solver.
   - contradiction.
   - unfold quant_subst_fvars in e. do 2 rewrite elem_of_union in e. rewrite elem_of_singleton in e.
-    destruct e... destruct H0...
+    destruct e... destruct H0... set_solver.
   - contradiction.
 Qed.
 
 Inductive sum_quant_subst_skip_cond y A x :=
-| SumQuantSubstSkipCond_False (H : y = x ∨ x ∉ formula_fvars A)
-| SumQuantSubstSkipCond_True (H1 : y ≠ x) (H2: x ∈ formula_fvars A).
+| SumQuantSubstSkipCond_False (H : x = y ∨ x ∉ formula_fvars A)
+| SumQuantSubstSkipCond_True (H1 : x ≠ y) (H2: x ∈ formula_fvars A).
 
 Definition quant_subst_skip_cond y A x : sum_quant_subst_skip_cond y A x.
 Proof with auto.
-  destruct (decide (y = x ∨ x ∉ formula_fvars A)).
+  destruct (decide (x = y ∨ x ∉ formula_fvars A)).
   - apply SumQuantSubstSkipCond_False...
   - apply Decidable.not_or in n as [H1 H2]. destruct (decide (x ∈ formula_fvars A)).
     + apply SumQuantSubstSkipCond_True...
@@ -268,7 +269,7 @@ Fixpoint subst_formula_aux qrank :=
                       (subst_aux A₂ x t)
     | FExists y k A =>
         if quant_subst_skip_cond y A x then FExists y k A else
-          let y' := fresh_var y (quant_subst_fvars A x t) in
+          let y' := fresh_var y (quant_subst_fvars y A x t) in
           match qrank with
           | 0 => FExists y k A
           | S qrank => FExists y' k
@@ -297,7 +298,7 @@ Ltac fold_qrank_subst n A x t :=
   clear H'; clear H; clear R.
 
 Ltac fold_qrank_subst_fresh n A x x' t :=
-  fold_qrank_subst n A x (fresh_var x (quant_subst_fvars A x' t)).
+  fold_qrank_subst n A x (fresh_var x (quant_subst_fvars x A x' t)).
 
 Lemma formula_rank_gt_zero : forall A, formula_rank A > 0.
 Proof.
@@ -584,14 +585,14 @@ Proof with auto.
     + destruct (quant_subst_skip_cond x A x')...
     + fold_qrank_subst_fresh (S r) A x x' a.
       destruct (quant_subst_skip_cond x A x'); try lia...
-      remember (subst_formula_aux (S r) A x (fresh_var x (quant_subst_fvars A x' a)))
+      remember (subst_formula_aux (S r) A x (fresh_var x (quant_subst_fvars x A x' a)))
         as A₁. (* the first substitution *)
       remember (subst_formula_aux r A₁ x' a)
         as A₂. (* the second substituion *)
       specialize IH with (m:=rank A) (B:=A) as IHA.
       specialize IH with (m:=rank A₁) (B:=A₁) as IHA₁.
       forward IHA by lia. forward IHA by auto.
-      specialize (IHA x (fresh_var x (quant_subst_fvars A x' a)) (S r)). (* A₁ *)
+      specialize (IHA x (fresh_var x (quant_subst_fvars x A x' a)) (S r)). (* A₁ *)
       forward IHA₁. { deduce_rank_eq IHA. rewrite HeqA₁. lia. }
       forward IHA₁ by reflexivity. specialize (IHA₁ x' a r).
       rewrite <- HeqA₁ in *. rewrite <- HeqA₂ in *.
@@ -891,6 +892,24 @@ Section semantics.
       + rewrite elem_of_singleton in H0. subst. rewrite (insert_delete_insert Γ)...
   Qed.
 
+  Lemma term_ty_delete_state_var_head x τ Γ t :
+    x ∉ term_fvars t →
+    term_ty (<[x:=τ]> Γ) t = term_ty Γ t.
+  Proof with auto.
+    intros. etrans.
+    - apply term_ty_delete_state_var. exact H.
+    - rewrite (delete_insert_delete Γ). rewrite <- term_ty_delete_state_var...
+  Qed.
+
+  Lemma term_wf_delete_state_var_head x τ Γ t :
+    x ∉ term_fvars t →
+    term_wf_aux (<[x:=τ]> Γ) t = term_wf_aux Γ t.
+  Proof with auto.
+    intros. etrans.
+    - apply term_wf_delete_state_var. exact H.
+    - rewrite (delete_insert_delete Γ). rewrite <- term_wf_delete_state_var...
+  Qed.
+
   Lemma formula_wf_delete_state_var_head x τ Γ A :
     x ∉ formula_fvars A →
     formula_wf_aux (<[x:=τ]> Γ) A = formula_wf_aux Γ A.
@@ -900,7 +919,7 @@ Section semantics.
     - rewrite (delete_insert_delete Γ). rewrite <- formula_wf_delete_state_var...
   Qed.
 
-  Lemma teval_term_ty σ t v τ :
+  Lemma teval_term_ty' σ t v τ :
     teval σ t v →
     v ∈ τ ↔ term_ty (state_types σ) t = Some τ.
   Proof with auto.
@@ -936,15 +955,18 @@ Section semantics.
         rewrite eq_dec_refl. assumption.
     Qed.
 
-  Lemma teval_term_has_type {σ t v} :
+  Lemma teval_term_ty {σ t v} :
     teval σ t v →
-    term_has_type (state_types σ) t (value_typeof v).
+    term_ty (state_types σ) t = Some (value_typeof v).
   Proof with auto.
-    intros. apply teval_term_ty with (τ:=value_typeof v) in H. apply H.
+    intros. apply teval_term_ty' with (τ:=value_typeof v) in H. apply H.
     apply value_elem_of_iff_typeof_eq...
   Qed.
 
-
+  Lemma teval_term_has_type {σ t v} :
+    teval σ t v →
+    term_has_type (state_types σ) t (value_typeof v).
+  Proof with auto. intros. apply teval_term_ty in H... Qed.
 
   Lemma args_match_sig_args_wf σ args vargs sig :
     teval_args σ args vargs →
@@ -954,13 +976,13 @@ Section semantics.
     induction args; intros.
     - inversion H; subst. simpl. reflexivity.
     - inversion H; subst. clear H. simpl in *. split; intros.
-      + destruct sig; try contradiction. apply teval_term_ty with (τ:=v0) in H2.
+      + destruct sig; try contradiction. apply teval_term_ty' with (τ:=v0) in H2.
         destruct (v ∈? v0) eqn:E; [|contradiction].
         rewrite bool_decide_eq_true in E. apply H2 in E. rewrite E. rewrite eq_dec_refl.
         apply (IHargs sig) in H4. rewrite <- H4...
       + destruct sig.
         1:{ destruct (term_ty (state_types σ) a); try contradiction. }
-        apply teval_term_ty with (τ:=v0) in H2.
+        apply teval_term_ty' with (τ:=v0) in H2.
         destruct (term_ty (state_types σ) a); [|contradiction].
         destruct (v1 =? v0) eqn:Heq; [|contradiction].
         rewrite bool_decide_eq_true in Heq. subst.
@@ -1008,7 +1030,7 @@ Section semantics.
           apply (H0 a) in E3 as ?; [| left]... destruct H3 as [v Hv].
           exists (v :: vargs). split.
           -- apply TEvalArgs_Cons...
-          -- simpl. destruct (v ∈? τ1) eqn:E... apply teval_term_ty with (τ:=τ1) in Hv.
+          -- simpl. destruct (v ∈? τ1) eqn:E... apply teval_term_ty' with (τ:=τ1) in Hv.
              apply Hv in E3. apply Is_true_false in E. set_solver.
       + destruct H1 as [vargs []]. pose proof (fdef_total fdef vargs H2).
         destruct H3 as (v&Hret&?). exists v. apply TEval_App with vargs...
@@ -1166,7 +1188,7 @@ Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) ident(t) "as"
   let Hfres := fresh in
   let Heq := fresh in
   let H1 := fresh in let H2 := fresh in let H3 := fresh in
-  pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars A x t));
+  pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars y A x t));
   apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
-  remember (fresh_var y (quant_subst_fvars A x t)) as y' eqn:Heq;
+  remember (fresh_var y (quant_subst_fvars y A x t)) as y' eqn:Heq;
   clear Heq.

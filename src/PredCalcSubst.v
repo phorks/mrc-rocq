@@ -127,19 +127,19 @@ Proof with auto.
       f_equal.
       destruct (quant_subst_skip_cond x A x0); try lia...
       f_equal.
-      assert (subst_formula_aux (S (quantifier_rank A)) A x (fresh_var x (quant_subst_fvars A x0 a))
-            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
+      assert (subst_formula_aux (S (quantifier_rank A)) A x (fresh_var x (quant_subst_fvars x A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars x A x0 a))).
       {
         symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      assert (subst_formula_aux (S r') A x (fresh_var x (quant_subst_fvars A x0 a))
-            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a))).
+      assert (subst_formula_aux (S r') A x (fresh_var x (quant_subst_fvars x A x0 a))
+            = subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars x A x0 a))).
       {
         symmetry. apply H with (m:=rank A); try lia...
       } rewrite H0. clear H0.
-      remember (subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars A x0 a)))
+      remember (subst_formula_aux (quantifier_rank A) A x (fresh_var x (quant_subst_fvars x A x0 a)))
         as inner.
-      pose proof (HsameInnerA := subst_preserves_shape_aux A x (fresh_var x (quant_subst_fvars A x0 a)) (quantifier_rank A)).
+      pose proof (HsameInnerA := subst_preserves_shape_aux A x (fresh_var x (quant_subst_fvars x A x0 a)) (quantifier_rank A)).
       deduce_rank_eq HsameInnerA.
       replace (quantifier_rank A) with (quantifier_rank inner).
       * apply H with (m:=rank A); try rewrite Heqinner; lia...
@@ -203,7 +203,7 @@ Proof with auto.
 Qed.
 
 Lemma simpl_subst_exists_skip x y τ A a :
-  y = x ∨ x ∉ formula_fvars A →
+  x = y ∨ x ∉ formula_fvars A →
   <! (exists y : τ, A)[x\a] !> = <! exists y : τ, A !>.
 Proof with auto.
   intros Heq. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y A x)...
@@ -211,9 +211,9 @@ Proof with auto.
 Qed.
 
 Lemma simpl_subst_exists_propagate x y τ A a :
-  y ≠ x →
+  x ≠ y →
   x ∈ formula_fvars A →
-  let y' := fresh_var y (quant_subst_fvars A x a) in
+  let y' := fresh_var y (quant_subst_fvars y A x a) in
   <! (exists y : τ, A)[x\a] !> = <! (exists y' : τ, A[y\y'][x\a]) !>.
 Proof.
   intros Hneq Hfree. simpl. unfold subst_formula. simpl.
@@ -222,22 +222,22 @@ Proof.
   fold_qrank_subst_fresh (S (quantifier_rank A)) A y x a.
   f_equal.
   - assert (H:=subst_preserves_shape_aux A y
-      (fresh_var y (quant_subst_fvars A x a)) (quantifier_rank A)).
+      (fresh_var y (quant_subst_fvars y A x a)) (quantifier_rank A)).
     deduce_rank_eq H. lia.
   - symmetry. apply higher_qrank__subst_eq. lia.
 Qed.
 
 Lemma simpl_subst_forall_skip x y τ A a :
-  y = x ∨ x ∉ formula_fvars A →
+  x = y ∨ x ∉ formula_fvars A →
   <! (forall y : τ, A)[x\a] !> = <! forall y : τ, A !>.
 Proof with auto.
   intros Heq. unfold FForall. rewrite simpl_subst_not. rewrite simpl_subst_exists_skip...
 Qed.
 
 Lemma simpl_subst_forall_propagate x y τ A a :
-  y ≠ x →
+  x ≠ y →
   x ∈ formula_fvars A →
-  let y' := fresh_var y (quant_subst_fvars A x a) in
+  let y' := fresh_var y (quant_subst_fvars y A x a) in
   <! (forall y : τ, A)[x\a] !> = <! (forall y' : τ, A[y\y'][x\a]) !>.
 Proof with auto.
   intros Hneq Hfree. unfold FForall. rewrite simpl_subst_not.
@@ -245,18 +245,18 @@ Proof with auto.
 Qed.
 
 Lemma subst_formula_ind {x t} : ∀ P,
-  (forall sf, P (FSimple $ subst_sf sf x t) (FSimple sf)) →
-  (forall A, P <! A[x \ t] !> A → P <! ~ (A[x \ t]) !> <! ~ A !>) →
-  (forall A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∧ A2[x \ t] !> <! A1 ∧ A2 !>) →
-  (forall A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∨ A2[x \ t] !> <! A1 ∨ A2 !>) →
-  (forall y τ A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
-          (y = x ∨ x ∉ formula_fvars A →
+  (∀ sf, P (FSimple $ subst_sf sf x t) (FSimple sf)) →
+  (∀ A, P <! A[x \ t] !> A → P <! ~ (A[x \ t]) !> <! ~ A !>) →
+  (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∧ A2[x \ t] !> <! A1 ∧ A2 !>) →
+  (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∨ A2[x \ t] !> <! A1 ∨ A2 !>) →
+  (∀ y τ A, (∀ B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (x = y ∨ x ∉ formula_fvars A →
            P <! exists y : τ, A !> <! exists y : τ, A !>)) →
-  (forall y τ A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
-          (y ≠ x → x ∈ formula_fvars A →
-           let y' := fresh_var y (quant_subst_fvars A x t) in
+  (∀ y τ A, (∀ B, shape_eq B A = true → P <! B[x \ t] !> B) →
+          (x ≠ y → x ∈ formula_fvars A →
+           let y' := fresh_var y (quant_subst_fvars y A x t) in
            P <! exists y' : τ, A[y \ y'][x \ t] !> <! exists y : τ, A !>)) →
-  forall A, P <! A[x \ t] !> A.
+  ∀ A, P <! A[x \ t] !> A.
 Proof with auto.
   simpl.
   intros P Hsf Hnot Hand Hor Hexists1 Hexists2 A.
@@ -458,12 +458,12 @@ Proof with auto.
         -- apply free_var_subst_fvars_subseteq...
 Qed.
 
-Lemma subst_non_free_fvars A x t :
+Lemma fvars_subst_non_free A x t :
   x ∉ formula_fvars A →
   formula_fvars (A[x \ t]) = formula_fvars A.
 Proof with auto. intros. rewrite subst_non_free... Qed.
 
-Lemma subst_free_fvars : ∀ A x t,
+Lemma fvars_subst_free : ∀ A x t,
     x ∈ formula_fvars A →
     formula_fvars (A[x \ t]) = (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
 Proof with auto.
@@ -500,7 +500,21 @@ Proof with auto.
         -- rewrite subst_non_free...
 Qed.
 
-Hint Rewrite subst_free_fvars : core.
+Lemma fvars_subst_diag A x :
+  formula_fvars (A[x \ x]) = formula_fvars A.
+Proof with auto.
+  destruct (decide (x ∈ formula_fvars A)) eqn:H.
+  - rewrite fvars_subst_free... rewrite union_comm_L. simpl.
+    rewrite <- union_difference_singleton_L...
+  - apply fvars_subst_non_free...
+Qed.
+
+Lemma fvars_subst_superset A x t : formula_fvars (A[x \ t]) ⊆ formula_fvars A ∪ term_fvars t.
+Proof with auto.
+  destruct (decide (x ∈ formula_fvars A)).
+  - rewrite fvars_subst_free... apply union_mono_r. apply subseteq_difference_l...
+  - rewrite fvars_subst_non_free... apply union_subseteq_l.
+Qed.
 
 Lemma subst_term_commute t x1 t1 x2 t2 :
     x1 ≠ x2 →
@@ -557,7 +571,6 @@ Proof with auto.
       constructor.
       * apply IH...
       * apply IHargs...
-
   - intros H. revert Hfree. assert (H':=H). revert H H'.
     generalize dependent v. generalize dependent t.
     apply (teval_ind_mut _ _
@@ -851,7 +864,8 @@ Proof with auto.
       apply (IH _ x) in H. rewrite H. clear IH H. rewrite (insert_commute Γ)...
       destruct ((decide (x = x'))).
       * subst. rewrite (insert_insert (<[x0:=τ0]> Γ))...
-      * rewrite (formula_wf_delete_state_var _ x')...
+      * destruct H3 as [H3 | H3]; [contradiction |].
+        rewrite (formula_wf_delete_state_var _ x')...
         rewrite (formula_wf_delete_state_var _ x' (<[x:=τ]> (<[x0:=τ0]> Γ)))...
         f_equal. rewrite (insert_commute (<[x0:=τ0]> Γ))...
         rewrite (delete_insert_delete (<[x:=τ]> (<[x0:=τ0]> Γ)))...
@@ -937,7 +951,7 @@ Proof with auto.
         generalize_fresh_var x A x0 t as x'. simpl in *.
         destruct (decide (x ∈ formula_fvars A)).
         -- apply H in H1...
-           2: { rewrite subst_free_fvars... set_solver. }
+           2: { rewrite fvars_subst_free... set_solver. }
            rewrite (term_wf_delete_state_var M x') in H1...
            rewrite (delete_insert_delete Γ) in H1.
            rewrite (term_wf_delete_state_var M x')...
@@ -946,91 +960,6 @@ Proof with auto.
            rewrite (delete_insert_delete Γ) in H1.
            rewrite (term_wf_delete_state_var M x')...
       * apply elem_of_difference in H0 as [? _]. contradiction.
-Qed.
-
-Lemma feval_subst {M} σ A x t b v :
-  teval M σ t v →
-  feval M (<[x:=v]> σ) A b ↔ feval M σ (A[x \ t]) b.
-Proof with auto.
-  generalize dependent b. generalize dependent t. generalize dependent x.
-  generalize dependent σ. generalize dependent v.
-  induction A using formula_ind; intros v0 σ x0 t b Ht.
-  - split; inversion 1; subst.
-    + constructor. apply (sfeval_subst Ht)...
-    + constructor. apply (sfeval_subst Ht)...
-  - rewrite simpl_subst_not. split; inversion 1; subst.
-    + constructor. apply IHA with (x:=x0) (b:=b0) in Ht. apply Ht...
-    + constructor. apply IHA with (x:=x0) (b:=b0) in Ht. apply Ht...
-  - rewrite simpl_subst_and. split; inversion 1; subst.
-    + apply IHA1 with (x:=x0) (b:=b1) in Ht as ?.
-      apply IHA2 with (x:=x0) (b:=b2) in Ht. constructor.
-      * apply H0...
-      * apply Ht...
-    + apply IHA1 with (x:=x0) (b:=b1) in Ht as ?.
-      apply IHA2 with (x:=x0) (b:=b2) in Ht. constructor.
-      * apply H0...
-      * apply Ht...
-  - rewrite simpl_subst_or. split; inversion 1; subst.
-    + apply IHA1 with (x:=x0) (b:=b1) in Ht as ?.
-      apply IHA2 with (x:=x0) (b:=b2) in Ht. constructor.
-      * apply H0...
-      * apply Ht...
-    + apply IHA1 with (x:=x0) (b:=b1) in Ht as ?.
-      apply IHA2 with (x:=x0) (b:=b2) in Ht. constructor.
-      * apply H0...
-      * apply Ht...
-  - destruct (decide (x = x0)).
-    + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv.
-      * intros. rewrite (insert_insert σ)...
-      * intros. unfold state_types. setoid_rewrite fmap_insert.
-        setoid_rewrite (insert_insert (value_typeof <$> σ))...
-    + destruct (decide (x0 ∈ formula_fvars A)).
-      2: { rewrite simpl_subst_exists_skip... rewrite feval_delete_state_var_head... simpl.
-      apply not_elem_of_difference... }
-      rewrite simpl_subst_exists_propagate... generalize_fresh_var x A x0 t as x'.
-      apply feval_exists_equiv.
-      * intros. rewrite (feval_delete_state_var x')... rewrite <- H...
-        2: { apply teval_delete_state_var_head... apply Ht. }
-        rewrite (insert_commute σ x0 x')... rewrite <- H...
-        2:{ apply TEval_Var. apply lookup_insert. }
-        rewrite (@feval_delete_state_var x' _ (<[x:=v]> (<[x':=v]> (<[x0:=v0]> σ))))...
-        apply eq_iff. clear H Ht. f_equal.
-        destruct (decide (x = x')).
-        -- subst. rewrite (insert_insert (<[x0:=v0]> σ))...
-        -- rewrite (insert_commute (<[x0:=v0]> σ))...
-           rewrite (delete_insert_delete (<[x:=v]> (<[x0:=v0]> σ)))...
-      * intros.
-        apply teval_term_has_type in Ht.
-        assert (term_has_type M (<[x':=τ]> (state_types σ)) t (value_typeof v0)).
-        {
-          unfold term_has_type. rewrite (term_ty_delete_state_var M x')...
-          rewrite (delete_insert_delete (state_types σ)).
-          rewrite <- (term_ty_delete_state_var)...
-        }
-        apply formula_wf_subst with (A:=A[x \ x']) (x:=x0) in H1.
-        rewrite H1. clear H1 Ht.
-        assert (term_has_type M (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ))) x' τ).
-        {
-          unfold term_has_type. simpl. rewrite (lookup_insert_ne (<[x':=τ]> (state_types σ)))...
-          apply lookup_insert_Some...
-        }
-        apply formula_wf_subst with (A:=A) (x:=x) in H1.
-        setoid_rewrite H1. clear H1. rewrite state_types_insert.
-        rewrite (formula_wf_delete_state_var _ x')...
-        symmetry. etrans. { rewrite (formula_wf_delete_state_var _ x')... }
-        f_equal.
-        destruct (decide (x = x')).
-        -- subst.
-           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ)))).
-           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ))).
-           rewrite (insert_commute (state_types σ))...
-           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
-        --
-           rewrite (delete_insert_ne (<[x0:=value_typeof v0]> (<[x':=τ]> (state_types σ))))...
-           rewrite (delete_insert_ne (<[x0:=value_typeof v0]> (state_types σ)))...
-           f_equal.
-           rewrite (insert_commute (state_types σ))...
-           rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
 Qed.
 
 Lemma term_ty_subst_diag M Γ t x :
@@ -1087,6 +1016,7 @@ Proof with auto.
         2:{ unfold term_has_type. simpl. apply lookup_insert_Some. left... }
         destruct (decide (x = x')).
         -- subst. rewrite (insert_insert Γ)...
-        -- rewrite (insert_commute Γ)... rewrite formula_wf_delete_state_var_head...
+        -- destruct H2; [contradiction|]. rewrite (insert_commute Γ)...
+           rewrite formula_wf_delete_state_var_head...
       * rewrite simpl_subst_exists_skip...
 Qed.

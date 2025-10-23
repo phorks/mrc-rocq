@@ -32,62 +32,45 @@ Proof with auto.
   - apply H2. apply H4...
 Qed.
 
-Add Relation (formula) (fequiv)
-  reflexivity proved by (fequiv_refl)
-  symmetry proved by (fequiv_sym)
-  transitivity proved by (fequiv_trans)
-  as fequiv_rel.
+Instance fequiv_equiv : Equivalence (≡@{formula}).
+Proof.
+  split.
+  - exact fequiv_refl.
+  - exact fequiv_sym.
+  - exact fequiv_trans.
+Qed.
 
-Add Morphism FNot
-  with signature (≡@{formula}) ==> (≡@{formula}) as fnot_mor.
+Instance feval_proper : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (=) ==> iff) feval.
+Proof with auto.
+  intros M ? <- σ ? <- A B H b ? <-. split; intros; apply H...
+Qed.
+
+Instance fnot_proper : Proper ((≡@{formula}) ==> (≡@{formula})) FNot.
 Proof with auto.
   intros A B Hequiv M σ b. simpl. split; inversion 1; subst; constructor; apply Hequiv...
 Qed.
 
-Add Morphism FAnd
-  with signature (≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula}) as fand_mor.
+Instance fand_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FAnd.
 Proof with auto.
   intros A1 A2 Heq1 B1 B2 Heq2 M σ b. simpl.
   split; (inversion 1; subst; constructor; [apply Heq1 | apply Heq2])...
 Qed.
 
-Add Morphism FOr
-  with signature (≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula}) as for_mor.
+Instance for_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FOr.
 Proof with auto.
   intros A1 A2 Heq1 B1 B2 Heq2 M σ b. simpl.
   split; (inversion 1; subst; constructor; [apply Heq1 | apply Heq2])...
 Qed.
 
-Add Morphism FImpl
-  with signature (≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula}) as fimplication_mor.
+Instance fimpl_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FImpl.
 Proof with auto.
   intros A1 A2 Heq1 B1 B2 Heq2 M σ b. unfold FImpl.
-  assert (FNot A1 ≡ FNot A2) by (apply fnot_mor; assumption). apply (for_mor _ _ H _ _ Heq2).
+  assert (FNot A1 ≡ FNot A2) by (apply fnot_proper; assumption).
+  apply (for_proper _ _ H _ _ Heq2).
 Qed.
 
-Instance subst_proper {x t} : Proper ((≡@{formula}) ==> (≡@{formula})) (λ A, subst_formula A x t).
-Proof with auto.
-  intros A B H. unfold equiv, fequiv in *. intros. split; intros.
-  - apply feval_wf in H0 as ?.
-    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + exfalso. rewrite subst_non_free in H0...
-      rewrite feval_delete_state_var with (x:=x) in H0...
-      apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
-      set_solver.
-    + rewrite subst_non_free in H0... rewrite subst_non_free... apply H...
-  - apply feval_wf in H0 as ?.
-    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + exfalso. rewrite subst_non_free in H0...
-      rewrite feval_delete_state_var with (x:=x) in H0...
-      apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
-      set_solver.
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + rewrite subst_non_free in H0... rewrite subst_non_free... apply H...
-Qed.
+(* Instance fexists_proper : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (≡@{formula})) FExists. *)
+(* Proof with auto. *)
+(*   intros x ? <- τ ? <- A B H M σ b. apply feval_exists_equiv. *)
+(*   - intros. rewrite H... *)
+(*   - intros. *)
