@@ -891,6 +891,15 @@ Section semantics.
       + rewrite elem_of_singleton in H0. subst. rewrite (insert_delete_insert Γ)...
   Qed.
 
+  Lemma formula_wf_delete_state_var_head x τ Γ A :
+    x ∉ formula_fvars A →
+    formula_wf_aux (<[x:=τ]> Γ) A = formula_wf_aux Γ A.
+  Proof with auto.
+    intros. etrans.
+    - apply formula_wf_delete_state_var. exact H.
+    - rewrite (delete_insert_delete Γ). rewrite <- formula_wf_delete_state_var...
+  Qed.
+
   Lemma teval_term_ty σ t v τ :
     teval σ t v →
     v ∈ τ ↔ term_ty (state_types σ) t = Some τ.
@@ -1153,7 +1162,7 @@ Hint Constructors teval : core.
 Hint Constructors sfeval : core.
 Hint Constructors feval : core.
 
-Tactic Notation "generalize_fresh_var" ident(y) ident(A) ident(x) ident(t) "as" ident(y') :=
+Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) ident(t) "as" ident(y') :=
   let Hfres := fresh in
   let Heq := fresh in
   let H1 := fresh in let H2 := fresh in let H3 := fresh in

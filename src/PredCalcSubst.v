@@ -253,7 +253,7 @@ Lemma subst_formula_ind {x t} : ∀ P,
           (y = x ∨ x ∉ formula_fvars A →
            P <! exists y : τ, A !> <! exists y : τ, A !>)) →
   (forall y τ A, (forall B, shape_eq B A = true → P <! B[x \ t] !> B) →
-          (y <> x → x ∈ formula_fvars A →
+          (y ≠ x → x ∈ formula_fvars A →
            let y' := fresh_var y (quant_subst_fvars A x t) in
            P <! exists y' : τ, A[y \ y'][x \ t] !> <! exists y : τ, A !>)) →
   forall A, P <! A[x \ t] !> A.
@@ -1031,4 +1031,62 @@ Proof with auto.
            f_equal.
            rewrite (insert_commute (state_types σ))...
            rewrite (delete_insert_delete (<[x0:=value_typeof v0]> (state_types σ)))...
+Qed.
+
+Lemma term_ty_subst_diag M Γ t x :
+  term_ty M Γ (subst_term t x x) = term_ty M Γ t.
+Proof with auto.
+  induction t...
+  - simpl. destruct (decide (x0 = x)); subst...
+  - simpl in *. unfold term_wf_aux. simpl. destruct (model_fdefs M !! f) eqn:E...
+    remember ((fdef_sig f0).1) as sig; clear Heqsig.
+    enough (args_wf_aux (term_ty M Γ <$> map (λ arg : term, subst_term arg x x) args) sig =
+              args_wf_aux (term_ty M Γ <$> args) sig).
+    { rewrite H0... }
+    generalize dependent sig. clear E. induction args... simpl. pose proof (IH:=H).
+    forward (H a) by left... rewrite H. destruct (term_ty M Γ a) eqn:E...
+    destruct sig eqn:E1... destruct (bool_decide (v = v0)) eqn:E2...
+    apply bool_decide_eq_true in E2. subst. rename v0 into τ. rename l into sig.
+    apply IHargs. intros. apply IH. right...
+Qed.
+
+Lemma term_wf_subst_diag M Γ t x :
+  term_wf_aux M Γ (subst_term t x x) = term_wf_aux M Γ t.
+Proof with auto.
+  destruct t...
+  - simpl. destruct (decide (x0 = x)); subst...
+  - unfold term_wf_aux. rewrite term_ty_subst_diag...
+Qed.
+
+Lemma sf_wf_subst_diag M Γ sf x :
+  sf_wf_aux M Γ (subst_sf sf x x) = sf_wf_aux M Γ sf.
+Proof with auto.
+  destruct sf; simpl...
+  - f_equal; apply term_wf_subst_diag.
+  - simpl in *. unfold term_wf_aux. simpl. destruct (model_pdefs M !! symbol) eqn:E...
+    remember (pdef_sig p) as sig; clear Heqsig.
+    unfold term_args_match_sig.
+    generalize dependent sig. clear E. induction args... simpl. intros sig.
+    rewrite term_ty_subst_diag. destruct (term_ty M Γ a) eqn:E...
+    destruct sig eqn:E1... destruct (bool_decide (v = v0)) eqn:E2...
+Qed.
+
+Lemma formula_wf_subst_diag M Γ A x :
+  formula_wf_aux M Γ (A[x \ x]) = formula_wf_aux M Γ A.
+Proof with auto.
+  generalize dependent x. generalize dependent Γ. induction A; intros.
+  - simpl. apply sf_wf_subst_diag.
+  - rewrite simpl_subst_not. apply IHA.
+  - rewrite simpl_subst_and. simpl. f_equal; [apply IHA1 | apply IHA2].
+  - rewrite simpl_subst_or. simpl. f_equal; [apply IHA1 | apply IHA2].
+  - destruct (decide (x = x0)).
+    + rewrite simpl_subst_exists_skip...
+    + destruct (decide (x0 ∈ formula_fvars A)).
+      * rewrite simpl_subst_exists_propagate... generalize_fresh_var x A x0 x0 as x'.
+        simpl. rewrite H... rewrite formula_wf_subst with (τ:=τ).
+        2:{ unfold term_has_type. simpl. apply lookup_insert_Some. left... }
+        destruct (decide (x = x')).
+        -- subst. rewrite (insert_insert Γ)...
+        -- rewrite (insert_commute Γ)... rewrite formula_wf_delete_state_var_head...
+      * rewrite simpl_subst_exists_skip...
 Qed.

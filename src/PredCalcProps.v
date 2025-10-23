@@ -5,110 +5,60 @@ From Stdlib Require Import Lists.List. Import ListNotations.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
+From MRC Require Import Stdppp.
 From MRC Require Import PredCalc PredCalcSubst PredCalcEquiv.
 From stdpp Require Import gmap fin_maps.
 
-Instance formula_wf_proper {M Γ} : Proper ((≡@{formula}) ==> (=)) (formula_wf_aux M Γ).
-Proof.
-  intros A B H. Admitted.
-Lemma fequiv_subst_diag : forall A x,
-    <! A[x \ x] !> ≡ A.
+Lemma fequiv_exists_alpha_equiv x x' τ A :
+  x' ∉ formula_fvars A →
+  <! exists x : τ, A !> ≡ <! exists x' : τ, A[x \ x'] !>.
 Proof with auto.
-  intros A x. generalize dependent A.
+  intros Hfree M σ b.
+  apply feval_exists_equiv.
+  - intros. rewrite <- feval_subst with (v:=v).
+    2: { constructor. apply lookup_insert_Some. left... }
+    destruct (decide (x = x')).
+    + subst. rewrite (insert_insert σ)...
+    + rewrite (insert_commute σ)...
+      rewrite (feval_delete_state_var_head x')...
+  - intros. rewrite formula_wf_subst with (τ:=τ).
+    2:{ unfold term_has_type. unfold term_ty. apply lookup_insert_Some. left... }
+    destruct (decide (x = x')).
+    + subst. rewrite (insert_insert (state_types σ))...
+    + rewrite (insert_commute (state_types σ))...
+      rewrite (formula_wf_delete_state_var_head _ x')...
+Qed.
+
+Lemma fequiv_forall_alpha_equiv x x' τ A :
+    x' ∉ formula_fvars A →
+    <! forall x : τ, A !> ≡ <! forall x' : τ, A[x \ x'] !>.
+Proof with auto.
+  intros. unfold FForall. rewrite fequiv_exists_alpha_equiv with (x':=x')...
+  rewrite simpl_subst_not...
+Qed.
+
+Lemma fequiv_subst_diag A x :
+  <! A[x \ x] !> ≡ A.
+Proof with auto.
+  generalize dependent A.
   apply subst_formula_ind with (P:=λ A B, A ≡ B); intros...
   - rewrite subst_sf_diag...
   - rewrite H. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
   - rewrite H. rewrite H0. reflexivity.
-  - intros M σ b. unfold y' in *. clear y'. generalize_fresh_var y A x x as y'.
-    apply feval_exists_equiv.
-    + intros. specialize H with (<! A [y \ y'] !>). forward H by auto.
-      pose proof (H M (<[y':=v]> σ) b') as H. rewrite H. rewrite <- feval_subst with (v:=v).
-      2: { apply TEval_Var. apply lookup_insert. }
-      destruct (decide (y = y')).
-      * rewrite <- e. rewrite (insert_insert σ)...
-      * rewrite (insert_commute σ)... rewrite (feval_delete_state_var_head y')...
-    + intros.
-      specialize H with (<! A [y \ y'] !>). forward H by auto.
-      rewrite H.
-      pose proof (H M (<[y':=v]> σ) b') as H. rewrite H. rewrite <- feval_subst with (v:=v).
-      2: { apply TEval_Var. apply lookup_insert. }
-
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <→ feval M (<[y:=v]> σ) φ).
-    { split; intros [v Hv]; exists v; apply H2; apply Hv. }
-    intros v.
-    specialize H with (<! φ [y \ y'] !>). forward H by auto.
-    pose proof (H M (<[y':=v]> σ)) as H. rewrite H. rewrite <- (feval_subst v).
-    2: { apply TEval_Var. apply lookup_insert. }
-    destruct (decide (y = y')).
-    + unfold y' in *. rewrite <- e. rewrite (insert_insert σ)...
-    + rewrite (insert_commute σ)...
-      pose proof (fresh_var_fresh y (quant_subst_fvars φ x x)).
-      apply quant_subst_fvars_inv in H2 as (?&?&?).
-      rewrite (feval_delete_state_var_head y')...
-  - intros M σ. simpl.
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ x] !> <→ feval M (<[y:=v]> σ) φ).
-    { split; intros Hv v; apply H2... }
-    intros v.
-    specialize H with (<! φ [y \ y'] !>). forward H by auto.
-    pose proof (H M (<[y':=v]> σ)) as H. rewrite H. rewrite <- (feval_subst v).
-    2: { apply TEval_Var. apply lookup_insert. }
-    destruct (decide (y = y')).
-    + unfold y' in *. rewrite <- e. rewrite (insert_insert σ)...
-    + rewrite (insert_commute σ)...
-      pose proof (fresh_var_fresh y (quant_subst_fvars φ x x)).
-      apply quant_subst_fvars_inv in H2 as (?&?&?).
-      rewrite (feval_delete_state_var_head y')...
+  - unfold y' in *. clear y'. generalize_fresh_var y A x x as y'.
+    symmetry. rewrite fequiv_exists_alpha_equiv with (x':=y')...
+    remember (A[y \ y']) as B. intros M σ b. apply feval_exists_equiv.
+    + intros. symmetry. apply H... subst...
+    + intros. symmetry. apply formula_wf_subst_diag...
 Qed.
 
-Lemma subst_proper : forall A B x t,
-  A ≡ B →
-  A[x \ t] ≡ B[x \ t].
-Proof with auto.
-  intros. unfold equiv, fequiv in *. intros. split; intros.
-  - apply feval_wf in H0 as ?.
-    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst' with (v:=v)... apply H. rewrite feval_subst' with (t:=t)...
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst' with (v:=v)... apply H. rewrite feval_subst' with (t:=t)...
-    + apply
+Lemma fequiv_subst_non_free A t x :
+  x ∉ formula_fvars A →
+  <! A [x \ t] !> ≡ <! A !>.
+Proof with auto. intros H M σ b. rewrite subst_non_free... Qed.
 
-
-      rewrite formula_wf_delete_state_var with (x:=x) in H1.
-      2: { rewrite subst_non_free_fvars... }
-  - apply feval_wf in H0 as ?. apply formula_wf_subst_term_wf in H1.
-    2:{ admit. } apply term_wf_teval in H1 as [v Hv]. rewrite <- feval_subst' with (v:=v)...
-    apply H. rewrite feval_subst' with (t:=t)...
-Qed.
-
-Lemma fequiv_subst_non_free : forall A t x,
-    x ∉ formula_fvars A →
-    <! A [x \ t] !> ≡ <! A !>.
-Proof with auto.
-  intros A t x. generalize dependent A.
-  pose proof (@subst_formula_ind x t  (λ A B, x ∉ formula_fvars B → A ≡ B)). simpl in H.
-  apply H; clear H; intros...
-  - rewrite subst_sf_non_free...
-  - rewrite H... 
-  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
-  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
-  - apply not_elem_of_union in H1 as [? ?]. rewrite H... rewrite H0...
-  - intros M σ. simpl.
-    remember (fresh_var y (quant_subst_fvars φ x t)) as y'.
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ t] !> ↔ feval M (<[y:=v]> σ) φ).
-    { split; intros [v Hv]; exists v; apply H3... }
-    intros v. apply not_elem_of_difference in H2 as [|]; [contradiction|].
-    apply elem_of_singleton in H2. symmetry in H2. contradiction.
-  - intros M σ. simpl.
-    remember (fresh_var y (quant_subst_fvars φ x t)) as y'.
-    enough (forall v, feval M (<[y':=v]> σ) <! φ [y \ y'] [x \ t] !> ↔ feval M (<[y:=v]> σ) φ).
-    { split; intros v Hv; apply H3... }
-    intros v. apply not_elem_of_difference in H2 as [|]; [contradiction|].
-    apply elem_of_singleton in H2. symmetry in H2. contradiction.
-Qed.
-
-(* TODO: move it  *)
+(* (* TODO: move it  *) *)
 Lemma subst_fvars_superset A x t : formula_fvars (A[x \ t]) ⊆ formula_fvars A ∪ term_fvars t.
 Proof with auto.
   destruct (decide (x ∈ formula_fvars A)).
@@ -116,79 +66,101 @@ Proof with auto.
   - rewrite subst_non_free_fvars... apply union_subseteq_l.
 Qed.
 
-Lemma fequiv_exists_alpha_equiv : forall x x' A,
-    x' ∉ formula_fvars A →
-    <! exists x, A !> ≡ <! exists x', A[x \ x'] !>.
-Proof with auto.
-  intros x x' A Hfree M σ. simpl.
-  enough (forall v, (feval M (<[x:=v]> σ) A
-                  ↔ feval M (<[x':=v]> σ) <! A [x \ x'] !>)).
-  { split; intros [v Hv]; exists v; apply H; apply Hv. }
-  intros v. rewrite <- (feval_subst v).
-  2: { apply TEval_Var. apply lookup_insert. }
-  destruct (decide (x = x')).
-  - subst. rewrite (insert_insert σ)...
-  - rewrite (insert_commute σ)... rewrite (feval_delete_state_var_head x')...
-Qed.
+Definition bool_to_term (b : bool) :=
+ match b with
+ | true => <! true !>
+ | false => <! false !>
+ end.
 
-Lemma fequiv_forall_alpha_equiv : forall x x' A,
-    x' ∉ formula_fvars A →
-    <! forall x, A !> ≡ <! forall x', A[x \ x'] !>.
-Proof with auto.
-  intros x x' A Hfree M σ. simpl.
-  enough (forall v, (feval M (<[x:=v]> σ) A
-                  ↔ feval M (<[x':=v]> σ) <! A [x \ x'] !>)).
-  { split; intros Hv v; apply H... }
-  intros v. rewrite <- (feval_subst v).
-  2: { apply TEval_Var. apply lookup_insert. }
-  destruct (decide (x = x')).
-  - subst. rewrite (insert_insert σ)...
-  - rewrite (insert_commute σ)... rewrite (feval_delete_state_var_head x')...
-Qed.
-
-Lemma fequiv_exists_non_free_binder x A :
+Lemma fequiv_exists_non_free_binder x τ A :
   x ∉ formula_fvars A →
-  <! exists x, A !> ≡ A.
+  ((∃ v, v ∈ τ) ∧ <! exists x : τ, A !> ≡ A) ∨
+    ((value_ty_is_empty τ) ∧ <! exists x : τ, A !> ≡ <! false ∧ A !>).
 Proof with auto.
-  intros. intros M σ. simpl. intros. split.
-  - intros [v Hv]. rewrite feval_delete_state_var_head in Hv...
-  - intros H'. exists value_unit. rewrite feval_delete_state_var_head...
+  intros H. destruct (value_ty_choice τ).
+  - left. destruct s as [v Hv]. apply eq_dec_eq in Hv.
+    apply value_elem_of_iff_typeof_eq in Hv. split; [eauto |].
+    intros M σ b. split; intros.
+    + inversion H0; subst.
+      * destruct H5 as [v' [_ ?]]. apply feval_delete_state_var_head in H1...
+      * apply H6 in Hv. apply feval_delete_state_var_head in Hv...
+      * apply H5 in Hv as [].
+    + destruct b.
+      * apply FEval_Exists_True. exists v. split... apply feval_delete_state_var_head...
+      * apply FEval_Exists_False; [eauto|].intros. apply feval_delete_state_var_head...
+  - right. assert (∀ x, x ∉ τ). { intros v contra. apply (n v). apply eq_dec_eq... }
+    clear n. split... split; intros.
+    + inversion H1; subst.
+      * destruct H6 as [? [contra _]]. apply H0 in contra as [].
+      * destruct H6 as [? contra]. apply H0 in contra as [].
+      * rewrite formula_wf_delete_state_var_head in H7... apply feval_lem in H7.
+        destruct H7 as [b Heval]. replace false with (false && b)...
+    + inversion H1; subst. inversion H4; subst. inversion H3; subst.
+      clear H4 H1 H3. simpl. apply feval_wf in H6. apply FEval_Exists_False_Empty...
+      rewrite formula_wf_delete_state_var_head...
 Qed.
 
-Lemma fequiv_forall_non_free_binder x A :
-  x ∉ formula_fvars A →
-  <! forall x, A !> ≡ A.
-Proof with auto.
-  intros. intros M σ. simpl. intros. split.
-  - intros Hv. specialize Hv with value_unit. rewrite feval_delete_state_var_head in Hv...
-  - intros H' v. rewrite feval_delete_state_var_head...
-Qed.
-
-Lemma fequiv_subst_commute : ∀ A x₁ t₁ x₂ t₂,
-    x₁ ≠ x₂ →
-    x₁ ∉ term_fvars t₂ →
-    x₂ ∉ term_fvars t₁ →
-    <! A[x₁ \ t₁][x₂ \ t₂] !> ≡ <! A[x₂ \ t₂][x₁ \ t₁] !>.
+Lemma fequiv_subst_trans : ∀ A (x1 x2 x3 : variable),
+    x2 ∉ formula_fvars A →
+    <! A[x1 \ x2][x2 \ x3] !> ≡ <! A[x1 \ x3] !>.
 Proof with auto.
   induction A; intros.
-  - unfold equiv. unfold fequiv. intros M σ. simpl. rewrite subst_sf_commute...
-  - do 4 rewrite simpl_subst_not. rewrite IHA...
-  - do 4 rewrite simpl_subst_and. rewrite IHA1... rewrite IHA2...
-  - do 4 rewrite simpl_subst_or. rewrite IHA1... rewrite IHA2...
-  - do 4 rewrite simpl_subst_implication. rewrite IHA1... rewrite IHA2...
-  - destruct (quant_subst_skip_cond x A x₁); destruct (quant_subst_skip_cond x A x₂).
+  - admit.
+  - do 3 rewrite simpl_subst_not. rewrite IHA...
+  - simpl in H. apply not_elem_of_union in H as []. do 3 rewrite simpl_subst_and.
+    rewrite IHA1... rewrite IHA2...
+  - simpl in H. apply not_elem_of_union in H as []. do 3 rewrite simpl_subst_or.
+    rewrite IHA1... rewrite IHA2...
+  - simpl in H0. apply not_elem_of_difference in H0. rewrite elem_of_singleton in H0.
+    destruct (quant_subst_skip_cond x A x1); destruct (quant_subst_skip_cond x A x2).
     + do 4 (rewrite simpl_subst_exists_skip; auto).
-    + rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_propagate; auto...
-      destruct (quant_subst_skip_cond (fresh_var x (quant_subst_fvars A x₂ t₂))
-                  (A [x \ fresh_var x (quant_subst_fvars A x₂ t₂)][x₂ \ t₂]) x₁).
+    + simpl in H0. destruct H0; try contradiction. symmetry in H0. contradiction.
+    + destruct (decide (x ∈ formula_fvars A)).
+      2:{
+        assert (x2 ∉ formula_fvars A). { destruct H0... subst... } clear H0 H3.
+        destruct (fequiv_exists_non_free_binder x τ A)...
+          - destruct H0 as [].
+            assert (<! (exists x : τ, A) [x1 \ x2] [x2 \ x3] !> ≡ A[x1 \ x2][x2 \ x3]).
+            { pose proof (@subst_proper x2 x3). apply H5...
+              pose proof (@subst_proper x1 x2). apply H6... }
+            rewrite H5.
+            assert (<! (exists x : τ, A) [x1 \ x3] !> ≡ A[x1 \ x3]).
+            { pose proof (@subst_proper x1 x3). apply H6... }
+            rewrite H6. apply H...
+          - destruct H0 as [].
+            assert (<! (exists x : τ, A) [x1 \ x2] [x2 \ x3] !> ≡ <! (false ∧ A) [x1 \ x2][x2 \ x3] !>).
+            { pose proof (@subst_proper x2 x3). apply H5...
+              pose proof (@subst_proper x1 x2). apply H6... }
+            rewrite H5.
+            assert (<! (exists x : τ, A) [x1 \ x3] !> ≡ <! (false ∧ A) [x1 \ x3] !>).
+            { pose proof (@subst_proper x1 x3). apply H6... }
+            rewrite H6. do 3 rewrite simpl_subst_and. do 3 rewrite simpl_subst_sf. simpl.
+            f_equiv. apply H... }
+      clear H3. rewrite simpl_subst_exists_propagate...
+      generalize_fresh_var x A x1 x2 as x'.
+      simpl in H6. rewrite not_elem_of_singleton in H6.
+      rewrite simpl_subst_exists_propagate...
+      2:{ rewrite subst_free_fvars; [| rewrite subst_free_fvars; auto]; set_solver. }
+      generalize_fresh_var x' <! A [x \ x'] [x1 \ x2] !> x2 x3 as y1.
+      rewrite simpl_subst_exists_propagate...
+      generalize_fresh_var x A x1 x3 as y2.
+
+      simpl in H7.
+
+      symmetry.
+
+      rewrite simpl_subst_exists_propagate; auto...
+      rewrite simpl_subst_exists_skip...
+      generalize_fresh_var x A x2 x3 as x'. symmetry.
+      destruct (quant_subst_skip_cond x' (A [x \ x'][x2 \ x3]) x1).
       * rewrite simpl_subst_exists_skip...
       * exfalso. destruct H3.
-        -- subst x₁.
-           pose proof (fresh_var_fresh x (quant_subst_fvars A x₂ t₂)).
+        -- subst x1.
+           pose proof (fresh_var_fresh x (quant_subst_fvars A x2 t2)).
            apply quant_subst_fvars_inv in H3 as (?&?&?).
            assert (x ∈ formula_fvars A).
            { destruct (decide (x ∈ formula_fvars A))... exfalso.
-             pose proof (fresh_var_free x (quant_subst_fvars A x₂ t₂)).
+             pose proof (fresh_var_free x (quant_subst_fvars A x2 t2)).
              forward H10; try contradiction. set_solver. }
            rewrite subst_free_fvars in H7.
            ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
@@ -203,35 +175,192 @@ Proof with auto.
            apply subst_fvars_superset in H7. apply elem_of_union in H7 as [|]; try contradiction.
            simpl in H7. rewrite elem_of_singleton in H7. apply H6. symmetry...
     + admit.
-    + rewrite simpl_subst_exists_propagate... rewrite (simpl_subst_exists_propagate) with (φ:=A)...
+    + destruct (decide (x ∈ formula_fvars A)).
+      2:{ destruct (fequiv_exists_non_free_binder x τ A)...
+          - destruct H7 as [].
+            assert (<! (exists x : τ, A) [x1 \ t1] [x2 \ t2] !> ≡ A[x1 \ t1][x2 \ t2]).
+            { pose proof (@subst_proper x2 t2). apply H9...
+              pose proof (@subst_proper x1 t1). apply H10... }
+            rewrite H9.
+            assert (<! (exists x : τ, A) [x2 \ t2] [x1 \ t1] !> ≡ A[x2 \ t2][x1 \ t1]).
+            { pose proof (@subst_proper x1 t1). apply H10...
+              pose proof (@subst_proper x2 t2). apply H11... }
+            rewrite H10. apply H...
+          - destruct H7 as [].
+            assert (<! (exists x : τ, A) [x1 \ t1] [x2 \ t2] !> ≡ <! (false ∧ A) [x1 \ t1][x2 \ t2] !>).
+            { pose proof (@subst_proper x2 t2). apply H9...
+              pose proof (@subst_proper x1 t1). apply H10... }
+            rewrite H9.
+            assert (<! (exists x : τ, A) [x2 \ t2] [x1 \ t1] !> ≡ <! (false ∧ A) [x2 \ t2][x1 \ t1] !>).
+            { pose proof (@subst_proper x1 t1). apply H10...
+              pose proof (@subst_proper x2 t2). apply H11... }
+  -
+  -
+
+Lemma fequiv_subst_commute : ∀ A x1 t1 x2 t2,
+    x1 ≠ x2 →
+    x1 ∉ term_fvars t2 →
+    x2 ∉ term_fvars t1 →
+    <! A[x1 \ t1][x2 \ t2] !> ≡ <! A[x2 \ t2][x1 \ t1] !>.
+Proof with auto.
+  induction A; intros.
+  - unfold equiv. unfold fequiv. intros M σ b. split; inversion 1; subst;
+      constructor; rewrite subst_sf_commute...
+  - do 4 rewrite simpl_subst_not. rewrite IHA...
+  - do 4 rewrite simpl_subst_and. rewrite IHA1... rewrite IHA2...
+  - do 4 rewrite simpl_subst_or. rewrite IHA1... rewrite IHA2...
+  - destruct (quant_subst_skip_cond x A x1); destruct (quant_subst_skip_cond x A x2).
+    + do 4 (rewrite simpl_subst_exists_skip; auto).
+    + rewrite simpl_subst_exists_skip... rewrite simpl_subst_exists_propagate; auto...
+      destruct (quant_subst_skip_cond (fresh_var x (quant_subst_fvars A x2 t2))
+                  (A [x \ fresh_var x (quant_subst_fvars A x2 t2)][x2 \ t2]) x1).
+      * rewrite simpl_subst_exists_skip...
+      * exfalso. destruct H3.
+        -- subst x1.
+           pose proof (fresh_var_fresh x (quant_subst_fvars A x2 t2)).
+           apply quant_subst_fvars_inv in H3 as (?&?&?).
+           assert (x ∈ formula_fvars A).
+           { destruct (decide (x ∈ formula_fvars A))... exfalso.
+             pose proof (fresh_var_free x (quant_subst_fvars A x2 t2)).
+             forward H10; try contradiction. set_solver. }
+           rewrite subst_free_fvars in H7.
+           ++ rewrite subst_free_fvars in H7... apply elem_of_union in H7.
+              rewrite elem_of_difference in H7. rewrite not_elem_of_singleton in H7.
+              destruct H7 as [[? []]|]... simpl in H7.
+              apply elem_of_union in H7. rewrite elem_of_difference in H7.
+              rewrite not_elem_of_singleton in H7. destruct H7 as [[? []]|]...
+              rewrite elem_of_singleton in H7. exfalso. apply H6...
+           ++ rewrite subst_free_fvars... rewrite elem_of_union.
+              left. rewrite elem_of_difference. rewrite elem_of_singleton. split...
+        -- apply subst_fvars_superset in H7. apply elem_of_union in H7 as [|]; try contradiction.
+           apply subst_fvars_superset in H7. apply elem_of_union in H7 as [|]; try contradiction.
+           simpl in H7. rewrite elem_of_singleton in H7. apply H6. symmetry...
+    + admit.
+    + destruct (decide (x ∈ formula_fvars A)).
+      2:{ destruct (fequiv_exists_non_free_binder x τ A)...
+          - destruct H7 as [].
+            assert (<! (exists x : τ, A) [x1 \ t1] [x2 \ t2] !> ≡ A[x1 \ t1][x2 \ t2]).
+            { pose proof (@subst_proper x2 t2). apply H9...
+              pose proof (@subst_proper x1 t1). apply H10... }
+            rewrite H9.
+            assert (<! (exists x : τ, A) [x2 \ t2] [x1 \ t1] !> ≡ A[x2 \ t2][x1 \ t1]).
+            { pose proof (@subst_proper x1 t1). apply H10...
+              pose proof (@subst_proper x2 t2). apply H11... }
+            rewrite H10. apply H...
+          - destruct H7 as [].
+            assert (<! (exists x : τ, A) [x1 \ t1] [x2 \ t2] !> ≡ <! (false ∧ A) [x1 \ t1][x2 \ t2] !>).
+            { pose proof (@subst_proper x2 t2). apply H9...
+              pose proof (@subst_proper x1 t1). apply H10... }
+            rewrite H9.
+            assert (<! (exists x : τ, A) [x2 \ t2] [x1 \ t1] !> ≡ <! (false ∧ A) [x2 \ t2][x1 \ t1] !>).
+            { pose proof (@subst_proper x1 t1). apply H10...
+              pose proof (@subst_proper x2 t2). apply H11... }
+            rewrite H10. do 4 rewrite simpl_subst_and. do 4 rewrite simpl_subst_sf...
+            simpl. f_equiv. apply H... }
+      rewrite simpl_subst_exists_propagate... rewrite (simpl_subst_exists_propagate) with (A:=A)...
       rewrite simpl_subst_exists_propagate.
       * rewrite (simpl_subst_exists_propagate).
-        -- remember (fresh_var x (quant_subst_fvars A x₁ t₁)) as y1'.
-           remember (fresh_var y1' (quant_subst_fvars (A [x \ y1'] [x₁ \ t₁]) x₂ t₂)) as y1.
-           remember (fresh_var x (quant_subst_fvars A x₂ t₂)) as y2'.
-           remember (fresh_var y2' (quant_subst_fvars (A [x \ y2'] [x₂ \ t₂]) x₁ t₁)) as y2.
-           pose proof (fresh_var_fresh x (quant_subst_fvars A x₁ t₁)). rewrite <- Heqy1' in H7.
-           clear Heqy1'.
-           pose proof (fresh_var_fresh x (quant_subst_fvars A x₂ t₂)). rewrite <- Heqy2' in H8.
-           clear Heqy2'.
-           pose proof (fresh_var_fresh y1' (quant_subst_fvars (A[x\y1'][x₁\t₁]) x₂ t₂)).
-           rewrite <- Heqy1 in H9. clear Heqy1.
-           pose proof (fresh_var_fresh y2' (quant_subst_fvars (A[x\y2'][x₂\t₂]) x₁ t₁)).
-           rewrite <- Heqy2 in H10. clear Heqy2.
-           unfold quant_subst_fvars in H7, H8, H9, H10.
-           do 2 rewrite not_elem_of_union in H7. rewrite not_elem_of_singleton in H7.
-           do 2 rewrite not_elem_of_union in H8. rewrite not_elem_of_singleton in H8.
-           do 2 rewrite not_elem_of_union in H9. rewrite not_elem_of_singleton in H9.
-           do 2 rewrite not_elem_of_union in H10. rewrite not_elem_of_singleton in H10.
-           remember (fresh_var x (formula_fvars A ∪ term_fvars t₁ ∪
-                                    term_fvars t₂ ∪ {[x₁; x₂; y1'; y1; y2'; y2]})) as x'.
+        -- generalize_fresh_var x A x1 t1 as y1'.
+           generalize_fresh_var y1' (A [x \ y1'] [x1 \ t1]) x2 t2 as y1.
+           generalize_fresh_var x A x2 t2 as y2'.
+           generalize_fresh_var y2' (A [x \ y2'] [x2 \ t2]) x1 t1 as y2.
+           rewrite fequiv_exists_alpha_equiv with (x':=y2).
+           2:{ rewrite subst_non_free
+             rewrite subst_non_free_fvars.
+               - rewrite subst_free_fvars.
+                 + rewrite subst_free_fvars.
+                   * rewrite subst_free_fvars.
+                     --
+           f_equiv.
+           remember (fresh_var x (formula_fvars A ∪ term_fvars t1 ∪
+                                    term_fvars t2 ∪ {[x1; x2; y1'; y1; y2'; y2]})) as x'.
 
            etrans.
            ++ rewrite fequiv_exists_alpha_equiv with (x':=x'); [reflexivity|].
+              admit.
+          ++
               rewrite subst_free_fvars. rewrite subst_free_fvars. rewrite subst_free_fvars.
               rewrite subst_free_fvars.
-              pose proof (fresh_var_fresh x (formula_fvars A ∪ term_fvars t₁ ∪
-                                    term_fvars t₂ ∪ {[x₁; x₂; y1'; y1; y2'; y2]})) as H'.
+              pose proof (fresh_var_fresh x (formula_fvars A ∪ term_fvars t1 ∪
+                                    term_fvars t2 ∪ {[x1; x2; y1'; y1; y2'; y2]})) as H'.
+              rewrite <- Heqx' in H'. set_solver.
+              pose proof (fresh_var )
+                     +++
+
+                apply subst_fvars_superset. )
+           }
+           rewrite subst_free_fvars in H9...
+           2: {  rewrite subst_free_fvars... }
+
+
+
+
+
+
+          simpl. etrans.
+           ++ rewrite fequiv_exists_alpha_equiv.
+           pose proof (subst_fvars_superset )
+
+          eapply elem_of_weaken in H7.
+           2: {  }
+
+      remember (fresh_var x (formula_fvars A ∪ term_fvars t1 ∪
+                                  term_fvars t2 ∪ {[x1]} ∪ {[x2]})) as x'.
+      pose proof (fresh_var_fresh x (formula_fvars A ∪ term_fvars t1 ∪
+                                       term_fvars t2 ∪ {[x1]} ∪ {[x2]})) as H'.
+      rewrite <- Heqx' in H'. apply not_elem_of_union in H' as [].
+      apply not_elem_of_union in H7 as []. apply not_elem_of_union in H7 as [].
+      apply not_elem_of_union in H7 as []. clear Heqx'. apply not_elem_of_singleton in H9, H8.
+      assert (<! (exists x : τ, A) [x1 \ t1] [x2 \ t2] !> ≡ <! (exists x' : τ, A[x \ x']) [x1 \ t1] [x2 \ t2] !>).
+      { pose proof (@subst_proper x2 t2). apply H12...
+        pose proof (@subst_proper x1 t1). apply H13.
+        apply fequiv_exists_alpha_equiv...}
+      assert (<! (exists x : τ, A) [x2 \ t2] [x1 \ t1] !> ≡ <! (exists x' : τ, A[x \ x']) [x2 \ t2] [x1 \ t1] !>).
+      { pose proof (@subst_proper x1 t1). apply H13...
+        pose proof (@subst_proper x2 t2). apply H14.
+        apply fequiv_exists_alpha_equiv...}
+      rewrite H12. rewrite H13. clear H12 H13.
+      rewrite simpl_subst_exists_propagate...
+      2:{ rewrite subst_free_fvars... simpl. set_solver. }
+      assert (fresh_var x' (quant_subst_fvars <! A [x \ x'] !> x1 t1) = x') as ->.
+      { apply fresh_var_free. unfold quant_subst_fvars. rewrite subst_free_fvars...
+        simpl. repeat rewrite not_elem_of_union. repeat rewrite not_elem_of_singleton.
+
+      }
+
+      pose proof (fresh_var_free
+      rewrite H9.
+      etrans.
+      * <! (∃ x : τ ● A) [x1 \ t1] [x2 \ t2] !> ≡ ?y
+        pose proof (@subst_proepr)
+
+        rewrite fequiv_exists_alpha_equiv.
+      rewrite simpl_subst_exists_propagate... rewrite (simpl_subst_exists_propagate) with (A:=A)...
+      rewrite simpl_subst_exists_propagate.
+      * rewrite (simpl_subst_exists_propagate).
+        -- generalize_fresh_var x A x1 t1 as y1'.
+           generalize_fresh_var y1' (A [x \ y1'] [x1 \ t1]) x2 t2 as y1.
+           generalize_fresh_var x A x2 t2 as y2'.
+           generalize_fresh_var y2' (A [x \ y2'] [x2 \ t2]) x1 t1 as y2.
+           rewrite fequiv_exists_alpha_equiv with (x':=y2).
+           2:{ rewrite subst_non_free
+             rewrite subst_non_free_fvars.
+               - rewrite subst_free_fvars.
+                 + rewrite subst_free_fvars.
+                   * rewrite subst_free_fvars.
+                     --
+           f_equiv.
+           remember (fresh_var x (formula_fvars A ∪ term_fvars t1 ∪
+                                    term_fvars t2 ∪ {[x1; x2; y1'; y1; y2'; y2]})) as x'.
+
+           etrans.
+           ++ rewrite fequiv_exists_alpha_equiv with (x':=x'); [reflexivity|].
+              admit.
+          ++
+              rewrite subst_free_fvars. rewrite subst_free_fvars. rewrite subst_free_fvars.
+              rewrite subst_free_fvars.
+              pose proof (fresh_var_fresh x (formula_fvars A ∪ term_fvars t1 ∪
+                                    term_fvars t2 ∪ {[x1; x2; y1'; y1; y2'; y2]})) as H'.
               rewrite <- Heqx' in H'. set_solver.
               pose proof (fresh_var )
                      +++
@@ -290,7 +419,7 @@ Proof with auto.
                  --- intros [? ?].
                  destruct H7 as [[? []]|]... simpl in H3. apply elem_of_singleton in H3...
               ** rewrite subst_non_free_fvars in H7...
-           pose proof (subst_fvars (A [x \ (fresh_var x (quant_subst_fvars A x₂ t₂))]) x₂ t₂).
+           pose proof (subst_fvars (A [x \ (fresh_var x (quant_subst_fvars A x2 t2))]) x2 t2).
            destruct H3 as [[? ?] | [? ?]].
            ++ rewrite H8 in *. clear H8. admit.
            ++
