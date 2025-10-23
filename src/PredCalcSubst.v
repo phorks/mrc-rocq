@@ -9,6 +9,7 @@ From MRC Require Import Model.
 From MRC Require Import Tactics.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
+From MRC Require Import PredCalcEquiv.
 
 Lemma higher_qrank__subst_eq : ∀ A x a r',
   quantifier_rank A <= r' →
@@ -297,7 +298,7 @@ Hint Rewrite simpl_subst_iff : core.
 Hint Rewrite subst_term_diag : core.
 Hint Rewrite subst_sf_diag : core.
 
-Lemma subst_term_non_free t x t' :
+Lemma subst_term_non_free_eq t x t' :
     x ∉ term_fvars t →
     subst_term t x t' = t.
 Proof with auto.
@@ -310,33 +311,67 @@ Proof with auto.
     * apply IHargs... intros. apply H0... simpl. right...
 Qed.
 
-Lemma subst_sf_non_free sf x t :
+Lemma subst_sf_non_free_eq sf x t :
     x ∉ sf_fvars sf →
     subst_sf sf x t = sf.
 Proof with auto.
   intros. destruct sf; simpl; try reflexivity.
-  - simpl in H. apply not_elem_of_union in H as [? ?]. f_equal; apply subst_term_non_free...
+  - simpl in H. apply not_elem_of_union in H as [? ?]. f_equal; apply subst_term_non_free_eq...
   - f_equal. simpl in H. induction args... simpl in *. apply not_elem_of_union in H as [? ?].
     f_equal.
-    + simpl in H. apply subst_term_non_free...
+    + simpl in H. apply subst_term_non_free_eq...
     + apply IHargs...
 Qed.
 
-Lemma subst_non_free A x t :
+Lemma feval_exists_empty M σ1 σ2 x y τ A B b :
+  value_ty_is_empty τ →
+  feval M σ1 <! exists x : τ, A !> b ↔ feval M σ2 <! exists y : τ, B !> b.
+Proof.
+  intros. split; inversion 1; subst.
+  - destruct H5 as [v [Hv _]]. apply H in Hv as [].
+  - constructor. intros. apply H in H1 as [].
+  - destruct H5 as [v [Hv _]]. apply H in Hv as [].
+  - constructor. intros. apply H in H1 as [].
+Qed.
+
+Lemma fequiv_exists_empty_subst y τ A x t :
+  value_ty_is_empty τ →
+  <! (exists y : τ, A) [x \ t] !> ≡ <! exists y : τ, A !>.
+Proof with auto.
+  intros H M σ b. split; intros.
+  - destruct (quant_subst_skip_cond y A x).
+    + rewrite simpl_subst_exists_skip in H0...
+    + rewrite simpl_subst_exists_propagate in H0... rewrite feval_exists_empty...
+      apply H0.
+  - destruct (quant_subst_skip_cond y A x).
+    + rewrite simpl_subst_exists_skip...
+    + rewrite simpl_subst_exists_propagate... rewrite feval_exists_empty...
+      apply H0.
+Qed.
+
+Lemma fequiv_subst_non_free A x t :
     x ∉ formula_fvars A →
-    A[x \ t] = A.
+    A[x \ t] ≡ A.
 Proof with auto.
   induction A using subst_formula_ind; intros.
-  - simpl. rewrite simpl_subst_sf. f_equal. apply subst_sf_non_free...
-  - simpl. rewrite simpl_subst_not. f_equal...
+  - simpl. rewrite simpl_subst_sf. f_equal. rewrite subst_sf_non_free_eq...
+  - simpl. rewrite simpl_subst_not. f_equiv...
   - simpl. rewrite simpl_subst_and. apply not_elem_of_union in H as [? ?].
-    f_equal; [apply IHA1|apply IHA2]...
+    f_equiv; [apply IHA1|apply IHA2]...
   - simpl. rewrite simpl_subst_or. apply not_elem_of_union in H as [? ?].
-    f_equal; [apply IHA1|apply IHA2]...
+    f_equiv; [apply IHA1|apply IHA2]...
   - simpl in H1. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y A x)...
     destruct H0; contradiction.
-  - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
-    destruct H2; subst; contradiction.
+  - simpl in H2. destruct (value_ty_choice τ).
+    + apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
+      destruct H2; subst; contradiction.
+    + intros M σ b. destruct (quant_subst_skip_cond y A x)...
+      * rewrite simpl_subst_exists_skip...
+      * rewrite simpl_subst_exists_propagate... split; inversion 1; subst.
+        -- destruct H10 as [? [? _]]. apply n in H6 as [].
+        -- constructor. intros. apply n in H6 as [].
+        -- destruct H10 as [? [? _]]. apply n in H6 as [].
+        -- constructor. intros. apply n in H6 as [].
 Qed.
 
 Lemma free_var_subst_fvars_subseteq t x t' :
@@ -377,7 +412,7 @@ Proof with auto.
         apply elem_of_difference in H as [? ?]. apply elem_of_difference. split...
         apply elem_of_union_list. exists (term_fvars a_arg). split...
         apply elem_of_list_fmap. exists a_arg. split...
-      * clear H0. rewrite subst_term_non_free in H4... apply elem_of_union.
+      * clear H0. rewrite subst_term_non_free_eq in H4... apply elem_of_union.
         destruct (decide (a = x)); [subst; contradiction |].
         left. apply elem_of_difference. split.
         -- apply elem_of_union_list. exists (term_fvars a_arg).
@@ -396,8 +431,8 @@ Proof with auto.
               eexists. split; [reflexivity|]...
            ++ apply elem_of_union. left. apply elem_of_difference.
               rewrite not_elem_of_singleton. split...
-        -- rewrite subst_term_non_free... split... eexists. split; [reflexivity|].
-           apply elem_of_list_fmap. exists a_arg. rewrite subst_term_non_free...
+        -- rewrite subst_term_non_free_eq... split... eexists. split; [reflexivity|].
+           apply elem_of_list_fmap. exists a_arg. rewrite subst_term_non_free_eq...
       * apply elem_of_union_list. exists (term_fvars (subst_term x_arg x t')).
         split...
         -- apply elem_of_list_fmap. eexists. split; [reflexivity|]. apply elem_of_list_fmap.
@@ -415,10 +450,10 @@ Proof with auto.
   - simpl in *. apply elem_of_union in H. destruct H.
     + rewrite subst_term_free_fvars... destruct (decide (x ∈ term_fvars t2)).
       * rewrite subst_term_free_fvars... set_solver.
-      * rewrite subst_term_non_free... set_solver.
+      * rewrite subst_term_non_free_eq... set_solver.
     + rewrite (subst_term_free_fvars t2)... destruct (decide (x ∈ term_fvars t1)).
       * rewrite subst_term_free_fvars... set_solver.
-      * rewrite subst_term_non_free... set_solver.
+      * rewrite subst_term_non_free_eq... set_solver.
   - simpl in *. apply leibniz_equiv. intros a.
     apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
     apply elem_of_list_fmap in H1 as (x_arg&->&H1). split; intros H.
@@ -431,7 +466,7 @@ Proof with auto.
         apply elem_of_difference in H as [? ?]. apply elem_of_difference. split...
         apply elem_of_union_list. exists (term_fvars a_arg). split...
         apply elem_of_list_fmap. exists a_arg. split...
-      * rewrite subst_term_non_free in H4... apply elem_of_union.
+      * rewrite subst_term_non_free_eq in H4... apply elem_of_union.
         destruct (decide (a = x)); [subst; contradiction|].
         left. apply elem_of_difference. split.
         -- apply elem_of_union_list. exists (term_fvars a_arg).
@@ -449,8 +484,8 @@ Proof with auto.
               eexists. split; [reflexivity|]...
            ++ rewrite subst_term_free_fvars... apply elem_of_union. left. apply elem_of_difference.
               rewrite not_elem_of_singleton. split...
-        -- rewrite subst_term_non_free... split... eexists. split; [reflexivity|].
-           apply elem_of_list_fmap. exists a_arg. rewrite subst_term_non_free...
+        -- rewrite subst_term_non_free_eq... split... eexists. split; [reflexivity|].
+           apply elem_of_list_fmap. exists a_arg. rewrite subst_term_non_free_eq...
       * apply elem_of_union_list. exists (term_fvars (subst_term x_arg x t')).
         split...
         -- apply elem_of_list_fmap. eexists. split; [reflexivity|]. apply elem_of_list_fmap.
@@ -461,7 +496,24 @@ Qed.
 Lemma fvars_subst_non_free A x t :
   x ∉ formula_fvars A →
   formula_fvars (A[x \ t]) = formula_fvars A.
-Proof with auto. intros. rewrite subst_non_free... Qed.
+Proof with auto. intros.
+  induction A using subst_formula_ind; intros.
+  - simpl. rewrite subst_sf_non_free_eq...
+  - simpl. rewrite simpl_subst_not. simpl...
+  - simpl. rewrite simpl_subst_and. simpl in H. apply not_elem_of_union in H as [? ?].
+    simpl. set_solver.
+  - simpl. rewrite simpl_subst_or. simpl in H. apply not_elem_of_union in H as [? ?].
+    simpl. set_solver.
+  - simpl in H. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y A x)...
+    destruct H1; contradiction.
+  - simpl in H2. simpl in H. destruct (value_ty_choice τ).
+    + apply not_elem_of_difference in H. rewrite elem_of_singleton in H.
+      destruct H; subst; contradiction.
+    + destruct (quant_subst_skip_cond y A x)...
+      * rewrite simpl_subst_exists_skip...
+      * rewrite simpl_subst_exists_propagate... simpl. destruct (value_ty_choice τ)...
+        destruct s as [v ?]. apply n in e as [].
+Qed.
 
 Lemma fvars_subst_free : ∀ A x t,
     x ∈ formula_fvars A →
@@ -475,29 +527,39 @@ Proof with auto.
   - rewrite simpl_subst_and. simpl. apply elem_of_union in H as [|].
     + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
       * rewrite IHA2... set_solver.
-      * rewrite subst_non_free... set_solver.
+      * rewrite fvars_subst_non_free... set_solver.
     + rewrite IHA2... destruct (decide (x ∈ formula_fvars A1)).
       * rewrite IHA1... set_solver.
-      * rewrite subst_non_free... set_solver.
+      * rewrite fvars_subst_non_free... set_solver.
   - rewrite simpl_subst_or. simpl. apply elem_of_union in H as [|].
     + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
       * rewrite IHA2... set_solver.
-      * rewrite subst_non_free... set_solver.
+      * rewrite fvars_subst_non_free... set_solver.
     + rewrite IHA2... destruct (decide (x ∈ formula_fvars A1)).
       * rewrite IHA1... set_solver.
-      * rewrite subst_non_free... set_solver.
-  - apply elem_of_difference in H0 as [? ?]. apply not_elem_of_singleton in H1.
-    destruct (quant_subst_skip_cond x A x0).
-    + destruct H2 as [|]; subst; contradiction.
-    + rewrite simpl_subst_exists_propagate... simpl.
+      * rewrite fvars_subst_non_free... set_solver.
+  - destruct (value_ty_choice τ).
+    + apply elem_of_difference in H0 as [? ?]. apply not_elem_of_singleton in H1.
+      destruct (quant_subst_skip_cond x A x0).
+    * destruct H2 as [|]; subst; contradiction.
+    * rewrite simpl_subst_exists_propagate... simpl.
+      destruct (value_ty_choice τ).
+      2:{ destruct s as [v Hv]. apply n in Hv as []. }
       rewrite H...
-      * generalize_fresh_var x A x0 t as x'. destruct (decide (x ∈ formula_fvars A)).
-        -- rewrite H... set_solver.
-        -- rewrite subst_non_free... set_solver.
-      * destruct (decide (x ∈ formula_fvars A)).
-        -- rewrite H... apply elem_of_union. left. apply elem_of_difference. split...
+      -- generalize_fresh_var x A x0 t as x'. destruct (decide (x ∈ formula_fvars A)).
+        ++ rewrite H... set_solver.
+        ++ rewrite fvars_subst_non_free... set_solver.
+      -- destruct (decide (x ∈ formula_fvars A)).
+        ++ rewrite H... apply elem_of_union. left. apply elem_of_difference. split...
            apply not_elem_of_singleton...
-        -- rewrite subst_non_free...
+        ++ rewrite fvars_subst_non_free...
+    + destruct (quant_subst_skip_cond x A x0)...
+      * rewrite simpl_subst_exists_skip... simpl. destruct (value_ty_choice τ).
+        -- destruct s as [v Hv]. apply n in Hv as [].
+        -- set_solver.
+      * rewrite simpl_subst_exists_propagate... simpl. destruct (value_ty_choice τ)...
+        -- destruct s as [v ?]. apply n in e as [].
+        -- set_solver.
 Qed.
 
 Lemma fvars_subst_diag A x :
@@ -525,8 +587,8 @@ Proof with auto.
   intros Hneq H1 H2. induction t using term_ind; simpl...
   - destruct (decide (x = x1)); destruct (decide (x = x2)); subst.
     + contradiction.
-    + simpl. destruct (decide (x1 = x1)); try contradiction. apply subst_term_non_free...
-    + simpl. destruct (decide (x2 = x2)); try contradiction. symmetry. apply subst_term_non_free...
+    + simpl. destruct (decide (x1 = x1)); try contradiction. apply subst_term_non_free_eq...
+    + simpl. destruct (decide (x2 = x2)); try contradiction. symmetry. apply subst_term_non_free_eq...
     + simpl. destruct (decide (x = x2)); destruct (decide (x = x1)); try contradiction...
   - f_equal. induction args; simpl... f_equal.
     + apply H. left...
@@ -658,17 +720,13 @@ Proof with auto.
   - split; inversion 1; subst.
     + constructor; [apply IHA1 | apply IHA2]...
     + constructor; [rewrite IHA1 with (x:=x0) | rewrite IHA2 with (x:=x0)]...
-  - apply not_elem_of_difference in Hfree. rewrite elem_of_singleton in Hfree.
+  - destruct (value_ty_choice τ).
+    2:{ apply feval_exists_empty... }
+    apply not_elem_of_difference in Hfree. rewrite elem_of_singleton in Hfree.
     destruct (decide (x0 = x)); subst; simpl.
-    + apply feval_exists_equiv.
-      * intros. rewrite (insert_delete_insert σ)...
-      * unfold state_types. setoid_rewrite fmap_delete.
-        rewrite (insert_delete_insert (value_typeof <$> σ))...
+    + apply feval_exists_equiv. intros. rewrite (insert_delete_insert σ)...
     + destruct Hfree; [| contradiction]. apply feval_exists_equiv; intros.
-      * rewrite <- (delete_insert_ne σ)...
-      * unfold state_types. setoid_rewrite fmap_delete.
-        rewrite <- (delete_insert_ne (value_typeof <$> σ))...
-        rewrite <- formula_wf_delete_state_var...
+      rewrite <- (delete_insert_ne σ)...
 Qed.
 
 Lemma teval_delete_state_var_head x M σ t v0 v :
@@ -869,12 +927,9 @@ Proof with auto.
         rewrite (formula_wf_delete_state_var _ x' (<[x:=τ]> (<[x0:=τ0]> Γ)))...
         f_equal. rewrite (insert_commute (<[x0:=τ0]> Γ))...
         rewrite (delete_insert_delete (<[x:=τ]> (<[x0:=τ0]> Γ)))...
-    + rewrite simpl_subst_exists_skip... rewrite (formula_wf_delete_state_var _ x0).
-      2:{ simpl. set_solver. }
-      symmetry. etrans.
-      * rewrite (formula_wf_delete_state_var _ x0). 2: { simpl. set_solver. }
-        rewrite (delete_insert_delete Γ). reflexivity.
-      * reflexivity.
+    + rewrite simpl_subst_exists_skip...
+      simpl. destruct (value_ty_choice τ)...
+      rewrite (insert_commute Γ)... rewrite (formula_wf_delete_state_var_head _ x0)...
 Qed.
 
 Lemma term_wf_subst_term_wf M Γ t0 x t :
@@ -927,6 +982,29 @@ Proof with auto.
     + apply (IHargs arg) in H...
 Qed.
 
+Lemma formula_wf_subst_non_free {M Γ} A x t :
+  x ∉ formula_fvars A →
+  formula_wf_aux M Γ (A[x \ t]) ↔ formula_wf_aux M Γ A.
+Proof with auto.
+  generalize dependent t. generalize dependent x. generalize dependent Γ.
+  induction A; intros.
+  - simpl. rewrite subst_sf_non_free_eq...
+  - rewrite simpl_subst_not. simpl. apply IHA...
+  - rewrite simpl_subst_and. simpl. do 2 rewrite Is_true_andb. simpl in H.
+    apply not_elem_of_union in H as []. f_equiv; [apply IHA1 | apply IHA2]...
+  - rewrite simpl_subst_or. simpl. do 2 rewrite Is_true_andb. simpl in H.
+    apply not_elem_of_union in H as []. f_equiv; [apply IHA1 | apply IHA2]...
+  - simpl in *. destruct (quant_subst_skip_cond x A x0).
+    + rewrite simpl_subst_exists_skip...
+    + rewrite simpl_subst_exists_propagate... simpl. destruct (value_ty_choice τ)...
+      generalize_fresh_var x A x0 t as x'. destruct H5.
+      * subst. apply not_elem_of_difference in H0. rewrite elem_of_singleton in H0.
+        destruct H0; contradiction.
+      * apply not_elem_of_difference in H0. rewrite elem_of_singleton in H0.
+        destruct H0; contradiction.
+Qed.
+
+
 
 Lemma formula_wf_subst_term_wf M Γ A x t :
   x ∈ formula_fvars A →
@@ -944,21 +1022,24 @@ Proof with auto.
     apply Is_true_andb in H0 as []. apply elem_of_union in H as [].
     + apply IHA1 in H0...
     + apply IHA2 in H1...
-  - destruct (decide (x0 = x)).
+  - destruct (value_ty_choice τ).
+    2:{ apply elem_of_empty in H0 as []. }
+    destruct (decide (x0 = x)).
     + subst. set_solver.
     + destruct (decide (x0 ∈ formula_fvars A)).
       * rewrite simpl_subst_exists_propagate in H1...
         generalize_fresh_var x A x0 t as x'. simpl in *.
-        destruct (decide (x ∈ formula_fvars A)).
+        destruct (value_ty_choice τ).
+        2:{ destruct s as [v Hv]. apply n0 in Hv as []. }
+        clear s0. destruct (decide (x ∈ formula_fvars A)).
         -- apply H in H1...
            2: { rewrite fvars_subst_free... set_solver. }
            rewrite (term_wf_delete_state_var M x') in H1...
            rewrite (delete_insert_delete Γ) in H1.
            rewrite (term_wf_delete_state_var M x')...
-        -- rewrite (subst_non_free _ x) in H1... apply H in H1...
-           rewrite (term_wf_delete_state_var M x') in H1...
-           rewrite (delete_insert_delete Γ) in H1.
-           rewrite (term_wf_delete_state_var M x')...
+        -- apply H in H1...
+           2: { rewrite fvars_subst_non_free... }
+           rewrite term_wf_delete_state_var_head in H1...
       * apply elem_of_difference in H0 as [? _]. contradiction.
 Qed.
 

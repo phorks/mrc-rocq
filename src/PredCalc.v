@@ -176,7 +176,7 @@ Fixpoint formula_fvars (A : formula) : gset variable :=
   | FNot A => formula_fvars A
   | FAnd A B => formula_fvars A ∪ formula_fvars B
   | FOr A B => formula_fvars A ∪ formula_fvars B
-  | FExists x _ A => formula_fvars A ∖ {[x]}
+  | FExists x τ A => if value_ty_choice τ then formula_fvars A ∖ {[x]} else ∅
   end.
 
 Fixpoint formula_rank f :=
@@ -691,7 +691,7 @@ Section semantics.
     | FNot A => formula_wf_aux Γ A
     | FAnd A B => formula_wf_aux Γ A && formula_wf_aux Γ B
     | FOr A B => formula_wf_aux Γ A && formula_wf_aux Γ B
-    | FExists x τ A => formula_wf_aux (<[x:=τ]> Γ) A
+    | FExists x τ A => if value_ty_choice τ then formula_wf_aux (<[x:=τ]> Γ) A else true
     end.
 
   (*
@@ -802,12 +802,7 @@ Section semantics.
       (∃ v, v ∈ τ ∧ feval (<[x:=v]> σ) A true) →
       feval σ (FExists x τ A) true
   | FEval_Exists_False : ∀ x τ A,
-      (∃ v, v ∈ τ) →
       (∀ v, v ∈ τ → feval (<[x:=v]> σ) A false) →
-      feval σ (FExists x τ A) false
-  | FEval_Exists_False_Empty : ∀ x τ A,
-      value_ty_is_empty τ →
-      formula_wf_aux (<[x:=τ]> (state_types σ)) A →
       feval σ (FExists x τ A) false.
 
 
@@ -885,7 +880,8 @@ Section semantics.
     - apply sf_wf_delete_state_var...
     - apply not_elem_of_union in H as []. f_equal; [apply IHA1 | apply IHA2]...
     - apply not_elem_of_union in H as []. f_equal; [apply IHA1 | apply IHA2]...
-    - apply not_elem_of_difference in H0 as [].
+    - destruct (value_ty_choice τ)...
+      apply not_elem_of_difference in H0 as [].
       + destruct (decide (x = x0)).
         * f_equal. subst. rewrite (insert_delete_insert Γ)...
         * rewrite H... f_equal. rewrite (delete_insert_ne Γ)...
@@ -1061,10 +1057,10 @@ Section semantics.
     - inversion H; subst. apply IHA in H1...
     - inversion H; subst. apply Is_true_andb. apply IHA1 in H2. apply IHA2 in H4. split...
     - inversion H; subst. apply Is_true_andb. apply IHA1 in H2. apply IHA2 in H4. split...
-    - inversion H0; subst...
+    - destruct (value_ty_choice τ)... inversion H0; subst...
       + destruct H5 as [v []]. apply H in H2; [| apply shape_eq_refl].
         apply formula_wf_insert_state with (v:=v)...
-      + destruct H5 as [v Hv]. apply H6 in Hv as H1. apply H in H1; [| apply shape_eq_refl].
+      + destruct s as [v Hv]. apply H5 in Hv as H1. apply H in H1; [| apply shape_eq_refl].
         apply formula_wf_insert_state with (v:=v)...
   Qed.
 
@@ -1126,7 +1122,8 @@ Section semantics.
     - apply IHA...
     - simpl. apply Is_true_andb in H as []. apply IHA1 in H. apply IHA2 in H0. set_solver.
     - simpl. apply Is_true_andb in H as []. apply IHA1 in H. apply IHA2 in H0. set_solver.
-    - apply H in H0; [|apply shape_eq_refl]. set_solver.
+    - destruct (value_ty_choice); [| set_solver]. apply H in H0; [|apply shape_eq_refl].
+      set_solver.
   Qed.
 
   Lemma formula_wf_state_covers : ∀ {σ A},
@@ -1149,21 +1146,17 @@ Section semantics.
   (* some equiv lemmas                                                   *)
   (* ******************************************************************* *)
   Lemma feval_exists_equiv {σ1 σ2 x1 x2 τ A1 A2} b:
-    ((∃ v, v ∈ τ) →
-     ∀ v b', v ∈ τ →
+    (∀ v b', v ∈ τ →
           feval (<[x1:=v]> σ1) A1 b' ↔ feval (<[x2:=v]> σ2) A2 b') →
-    (value_ty_is_empty τ →
-     formula_wf_aux (<[x1:=τ]> (state_types σ1)) A1 =
-       formula_wf_aux (<[x2:=τ]> (state_types σ2)) A2) →
     feval σ1 <! exists x1 : τ, A1 !> b ↔ feval σ2 <! exists x2 : τ, A2 !> b.
   Proof with eauto.
     intros. split; inversion 1; subst.
-    - apply FEval_Exists_True. destruct H6 as [v []]. forward H... apply (H v true) in H3...
+    - apply FEval_Exists_True. destruct H5 as [v []]. apply (H v true) in H1 as H3...
+      exists v. split... apply H3...
     - apply FEval_Exists_False... intros. apply H...
-    - apply FEval_Exists_False_Empty... rewrite <- H0...
-    - apply FEval_Exists_True. destruct H6 as [v []]. forward H... apply (H v true) in H3...
+    - apply FEval_Exists_True. destruct H5 as [v []]. apply (H v true) in H1 as H3...
+      exists v. split... apply H3...
     - apply FEval_Exists_False... intros. apply H...
-    - apply FEval_Exists_False_Empty... rewrite H0...
   Qed.
 End semantics.
 

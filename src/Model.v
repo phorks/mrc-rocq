@@ -170,15 +170,6 @@ Definition value_typeof (v : value) :=
 Global Instance value_inhab : Inhabited value := { inhabitant := VUnit }.
 Global Instance value_ty_eq_dec : EqDecision value_ty. Proof. solve_decision. Defined.
 
-Definition value_ty_choice (τ : value_ty) : {x : value ? value_typeof x = τ}.
-Proof with auto.
-  destruct τ.
-  - right. intros. unfold value_typeof. destruct x; discriminate.
-  - left. exists VUnit. reflexivity.
-  - left. exists (VNat 0). reflexivity.
-  - left. exists (VString ""). reflexivity.
-Defined.
-
 Definition value_has_type (v : value) (τ : value_ty) : bool := value_typeof v =? τ.
 
 Global Instance value_ty_elem_of : ElemOf value value_ty := {
@@ -207,6 +198,16 @@ Lemma value_elem_ofb_det : ∀ (v : value) (τ1 τ2 : value_ty),
 Proof.
   intros v τ1 τ2 H1 H2. apply bool_decide_unpack in H1, H2. apply (value_elem_of_det v); auto.
 Qed.
+
+Definition value_ty_choice (τ : value_ty) : {x : value ? x ∈ τ}.
+Proof with auto.
+  destruct τ.
+  - right. intros. unfold elem_of, value_ty_elem_of, value_has_type, value_typeof.
+    destruct x; rewrite eq_dec_eq; discriminate.
+  - left. exists VUnit. reflexivity.
+  - left. exists (VNat 0). reflexivity.
+  - left. exists (VString ""). reflexivity.
+Defined.
 
 Definition value_ty_is_empty (τ : value_ty) := ∀ x, x ∉ τ.
 

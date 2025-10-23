@@ -2,7 +2,6 @@ From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import PredCalc.
-From MRC Require Import PredCalcSubst.
 From Stdlib Require Import Setoid Morphisms.
 From stdpp Require Import base gmap.
 
@@ -83,4 +82,4 @@ Qed.
 (* Proof with auto. *)
 (*   intros x ? <- τ ? <- A B H M σ b. apply feval_exists_equiv. *)
 (*   - intros. rewrite H... *)
-(*   - intros. *)
+(*   - intros.  *)
