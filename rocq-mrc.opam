@@ -5,6 +5,7 @@ synopsis: "Morgan's Refinement Calculus"
 
 depends: [
   "coq-stdpp"
+  "coq-equations"
 ]
 
 build: [make "-j%{jobs}%"]

@@ -2,6 +2,7 @@ From Stdlib Require Import Strings.String.
 From Stdlib Require Import Arith.PeanoNat. Import Nat.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Lists.List. Import ListNotations.
+From Equations Require Import Equations.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -9,125 +10,116 @@ From MRC Require Import Stdppp.
 From MRC Require Import PredCalc PredCalcSubst PredCalcEquiv.
 From stdpp Require Import gmap fin_maps.
 
-Lemma fequiv_subst_and_diag A x :
-  <! A[x \ x] !> ≡ A ∧ ∀ M σ t v b, teval M σ t v → feval M (<[x:=v]> σ) A b ↔ feval M σ (A[x \ t]) b.
-Proof with auto.
-  generalize dependent x. induction A; intros.
-  - unfold subst_formula. simpl. rewrite subst_sf_diag... split...
-    split; inversion 1; subst.
-    + constructor. apply (sfeval_subst H)...
-    + constructor. apply (sfeval_subst H)...
-  - split.
-    + rewrite simpl_subst_not. destruct (IHA x) as [-> _]...
-    + intros. rewrite simpl_subst_not. split; inversion 1; subst.
-      * constructor. apply IHA with (x:=x) (b:=b0) in H. apply H...
-      * constructor. apply IHA with (x:=x) (b:=b0) in H. apply H...
-  - split.
-    + rewrite simpl_subst_and. destruct (IHA1 x) as [-> _]. destruct (IHA2 x) as [-> _]...
-    + intros. rewrite simpl_subst_and. split; inversion 1; subst.
-      * apply IHA1 with (x:=x) (b:=b1) in H as ?.
-        apply IHA2 with (x:=x) (b:=b2) in H. constructor.
-        -- apply H1...
-        -- apply H...
-      * apply IHA1 with (x:=x) (b:=b1) in H as ?.
-        apply IHA2 with (x:=x) (b:=b2) in H. constructor.
-        -- apply H1...
-        -- apply H...
-  - split.
-    + rewrite simpl_subst_or. destruct (IHA1 x) as [-> _]. destruct (IHA2 x) as [-> _]...
-    + intros. rewrite simpl_subst_or. split; inversion 1; subst.
-      * apply IHA1 with (x:=x) (b:=b1) in H as ?.
-        apply IHA2 with (x:=x) (b:=b2) in H. constructor.
-        -- apply H1...
-        -- apply H...
-      * apply IHA1 with (x:=x) (b:=b1) in H as ?.
-        apply IHA2 with (x:=x) (b:=b2) in H. constructor.
-        -- apply H1...
-        -- apply H...
-  - split.
-    { rename x into y. rename x0 into x. destruct (quant_subst_skip_cond y A x).
-      - rewrite simpl_subst_exists_skip...
-      - rewrite simpl_subst_exists_propagate...
-        generalize_fresh_var y A x x as y'.
-        intros M σ b. apply feval_exists_equiv. intros. destruct H4.
-          + subst. pose proof (H':=H). forward (H' (A[y'\y'])) by auto. destruct (H' x) as [? _].
-            rewrite H3. clear H'. clear H3.
-            forward (H (A)) by auto. destruct (H y') as [? _].
-            rewrite H3...
-          + pose proof (H':=H). forward (H' (A[y\y'])) by auto. destruct (H' x) as [? _].
-            rewrite H4. clear H4 H'. forward (H A) by auto. destruct (H y) as [_ ?].
-            rewrite <- H4 with (v:=v).
-            2: { constructor. apply lookup_insert. }
-            destruct (decide (y = y')).
-            * subst. rewrite (insert_insert σ)...
-            * rewrite (insert_commute σ)... apply feval_delete_state_var_head... }
-    intros. rename H0 into Ht. destruct (decide (x = x0)).
-      + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv.
-        intros. rewrite (insert_insert σ)...
-      + destruct (decide (x0 ∈ formula_fvars A)).
+Section facts.
+  Context (M : model).
+  Let V := value M.
+
+  Implicit Types t : @term V.
+  Implicit Types sf : @simple_formula V.
+  Implicit Types A B C : @formula V.
+  Implicit Types v : V.
+
+  Lemma fequiv_subst_and_diag A x :
+    <! A[x \ x] !> ≡ A ∧ ∀ σ t v, teval σ t v → feval (<[x:=v]> σ) A ↔ feval σ (A[x \ t]).
+  Proof with auto.
+    unfold V. generalize dependent x. induction A; intros.
+    - unfold subst_formula. simpl. rewrite subst_sf_diag... split...
+      intros. simp feval. apply sfeval_subst...
+    - unfold V. setoid_rewrite simpl_subst_not. split.
+      + destruct (IHA x) as [-> _]...
+      + intros. destruct (IHA x) as [_ ?]. simp feval. rewrite H0...
+    - unfold V. setoid_rewrite simpl_subst_and. split.
+      + destruct (IHA1 x) as [-> _]... destruct (IHA2 x) as [-> _]...
+      + intros. apply (proj2 (IHA1 x)) in H as H1. apply (proj2 (IHA2 x)) in H as H2.
+        simp feval. rewrite H1. rewrite H2...
+    - unfold V. setoid_rewrite simpl_subst_or. split.
+      + destruct (IHA1 x) as [-> _]... destruct (IHA2 x) as [-> _]...
+      + intros. apply (proj2 (IHA1 x)) in H as H1. apply (proj2 (IHA2 x)) in H as H2.
+        simp feval. rewrite H1. rewrite H2...
+    - rename x into y, x0 into x. split.
+      { destruct (quant_subst_skip_cond y A x).
+        - rewrite simpl_subst_exists_skip...
+        - rewrite simpl_subst_exists_propagate... fold V. generalize_fresh_var y A x x as y'.
+          intros σ. apply feval_exists_equiv_if. intros.
+          pose proof (H':=H). forward (H (A[y\y'][x\x])). 1: { eapply shape_eq_trans... }
+          destruct (H y') as [_ ?]. rewrite <- (H0 σ (TConst v) v)... clear H H0.
+          pose proof (H:=H'). forward (H (A[y\y'])) by auto.
+          destruct (H x) as [? _]. unfold V. etrans. { apply H0. }
+          clear H H0. pose proof (H:=H'). forward (H A)... destruct (H y) as [_ ?].
+          forward (H0 (<[y':=v]> σ) y' v). { apply TEval_Var. apply (lookup_insert σ). }
+          etrans. { symmetry. apply H0. } clear H0. destruct (H y) as [_ ?].
+          forward (H0 σ (TConst v) v)... symmetry. rewrite <- H0.
+          destruct (decide (y = y')).
+          + subst. rewrite (insert_insert σ)...
+          + destruct H4 as [|]; [contradiction|]. rewrite (insert_commute σ)...
+            rewrite (feval_delete_state_var_head _ y')... }
+      intros. destruct (decide (y = x)).
+      + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv_if.
+        intros. forward (H A)... destruct (H x) as [_ ?].
+        rewrite <- (H1 (<[x:=v]> σ) (TConst v0) v0)...
+        rewrite <- (H1 σ (TConst v0) v0)... rewrite (insert_insert σ)...
+      + destruct (decide (x ∈ formula_fvars A)).
         2: { rewrite simpl_subst_exists_skip... rewrite feval_delete_state_var_head... simpl.
-             destruct (value_ty_choice); set_solver. }
-        rewrite simpl_subst_exists_propagate... generalize_fresh_var x A x0 t0 as x'.
-        apply feval_exists_equiv.
-        intros. destruct H2.
-           * subst.
-              pose proof H as H'. forward (H' (A [x' \ x'])) by auto. destruct (H' x0) as [_ ?].
-              rewrite <- H1 with (v:=v)...
-              2:{ apply teval_delete_state_var_head... }
-              clear H3 H'.
-              forward (H A)... destruct (H x') as [? _].  rewrite H2.
-              rewrite (insert_commute σ)...
-           * pose proof H as H'. forward (H' (A [x \ x'])) by auto. destruct (H' x0) as [_ ?].
-              rewrite <- H2 with (v:=v)...
-              2:{ apply teval_delete_state_var_head... }
-              rewrite (insert_commute σ x0 x')...
-              clear H0 H'.
-              forward (H A)... destruct (H x) as [_ ?]. rewrite <- H0 with (v:=v0).
-              2:{ apply TEval_Var. apply lookup_insert_Some. left... }
-              rewrite (@feval_delete_state_var x' _ (<[x:=v0]> (<[x':=v0]> (<[x0:=v]> σ))))...
-              rewrite (@feval_delete_state_var x' _ (<[x:=v0]> (<[x0:=v]> σ)))...
-              clear H0 H Ht. f_equiv.
-              destruct (decide (x = x')).
-              -- subst. rewrite (insert_insert (<[x0:=v]> σ))...
-              -- rewrite (insert_commute (<[x0:=v]> σ))...
-                 rewrite (delete_insert_delete (<[x:=v0]> (<[x0:=v]> σ)))...
-Qed.
+             set_solver. }
+        rewrite simpl_subst_exists_propagate... fold V. generalize_fresh_var y A x t0 as x'.
+        apply feval_exists_equiv_if. intros.
+        pose proof (H':=H). forward (H (A[y\x'][x\t0])). { eapply shape_eq_trans... }
+        destruct (H x') as [_ ?]. rewrite <- (H1 σ (TConst v0) v0)... clear H1 H.
+        pose proof (H:=H'). forward (H (A[y\x'])). { eapply shape_eq_trans... }
+        destruct (H x) as [_ ?]. specialize (H1 (<[x':=v0]> σ) t0 v). forward H1.
+        { apply teval_delete_state_var_head... }
+        symmetry. etrans. { symmetry. exact H1. } symmetry. clear H1 H.
+        destruct (decide (y = x')).
+        * subst. rename H' into H. forward (H A)...
+          destruct (H x') as [? ?].
+          symmetry. etrans. {  apply H1. } symmetry.
+          forward (H2 (<[x:=v]> σ) (TConst v0) v0)...
+          etrans. { symmetry. apply H2. } rewrite (insert_commute σ)...
+        * destruct H3 as [|H3]; [contradiction|]. rewrite (insert_commute σ)...
+          pose proof (H:=H'). forward (H A). { eapply shape_eq_trans... }
+          destruct (H y) as [_ ?]. specialize (H1 (<[x':=v0]> (<[x:=v]> σ)) x' v0). forward H1.
+          { constructor. rewrite (lookup_insert (<[x:=v]> σ))... }
+          symmetry. etrans. { symmetry. apply H1. } symmetry. clear H1.
+          rewrite (insert_commute (<[x:=v]> σ))... rewrite feval_delete_state_var_head...
+          destruct (H y) as [_ ?]. specialize (H1 (<[x:=v]> σ) (TConst v0) v0). forward H1...
+  Qed.
 
-Lemma feval_subst {M} σ A x t b v :
-  teval M σ t v →
-  feval M (<[x:=v]> σ) A b ↔ feval M σ (A[x \ t]) b.
-Proof. apply fequiv_subst_and_diag. Qed.
+  Lemma feval_subst σ A x t v :
+    teval σ t v →
+    feval (<[x:=v]> σ) A ↔ feval σ (A[x \ t]).
+  Proof. apply fequiv_subst_and_diag. Qed.
 
-Lemma fequiv_subst_diag A x :
-  <! A[x \ x] !> ≡ A.
-Proof with auto. apply fequiv_subst_and_diag. Qed.
+  Lemma fequiv_subst_diag A x :
+    <! A[x \ x] !> ≡ A.
+  Proof with auto. apply fequiv_subst_and_diag. Qed.
 
-Instance subst_proper : Proper ((≡@{formula}) ==> (=) ==> (=) ==> (≡@{formula})) subst_formula.
-Proof with auto.
-  intros A B H x ? <- t ? <- M σ b; split; intros.
-  - apply feval_wf in H0 as ?.
-    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + exfalso. rewrite fequiv_subst_non_free in H0...
-      rewrite feval_delete_state_var with (x:=x) in H0...
-      apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
-      set_solver.
-    + rewrite fequiv_subst_non_free in H0... rewrite fequiv_subst_non_free... apply H...
-  - apply feval_wf in H0 as ?.
-    destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + exfalso. rewrite fequiv_subst_non_free in H0...
-      rewrite feval_delete_state_var with (x:=x) in H0...
-      apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
-      set_solver.
-    + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
-      rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
-    + rewrite fequiv_subst_non_free in H0... rewrite fequiv_subst_non_free... apply H...
-Qed.
+  Global Instance subst_proper : Proper ((≡@{@formula V}) ==> (=) ==> (=) ==> (≡@{@formula V})) subst_formula.
+  Proof with auto.
+    intros A B H x ? <- t ? <- σ; split; intros.
+    - rewrite <- feval_subst...
+    - apply feval_wf in H0 as ?.
+      destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
+      + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+        rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
+      + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+        rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
+      + exfalso. rewrite fequiv_subst_non_free in H0...
+        rewrite feval_delete_state_var with (x:=x) in H0...
+        apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
+        set_solver.
+      + rewrite fequiv_subst_non_free in H0... rewrite fequiv_subst_non_free... apply H...
+    - apply feval_wf in H0 as ?.
+      destruct (decide (x ∈ formula_fvars A)); destruct (decide (x ∈ formula_fvars B)).
+      + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+        rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
+      + exfalso. rewrite fequiv_subst_non_free in H0...
+        rewrite feval_delete_state_var with (x:=x) in H0...
+        apply H in H0. apply feval_wf in H0 as ?. apply formula_wf_state_covers in H2.
+        set_solver.
+      + apply formula_wf_subst_term_wf in H1... apply term_wf_teval in H1 as [v Hv].
+        rewrite <- feval_subst with (v:=v)... apply H. rewrite feval_subst with (t:=t)...
+      + rewrite fequiv_subst_non_free in H0... rewrite fequiv_subst_non_free... apply H...
+  Qed.
 
 Lemma fequiv_exists_alpha_equiv x x' τ A :
   x' ∉ formula_fvars A →

@@ -149,108 +149,36 @@ Proof with auto.
   destruct (decide (x ∈ fvars))... contradiction.
 Qed.
 
-Inductive value :=
-  | VUnit
-  | VNat (n : nat)
-  | VString (s : string).
-
-Inductive value_ty :=
-  | TEmpty
-  | TUnit
-  | TNat
-  | TString.
-
-Definition value_typeof (v : value) :=
-  match v with
-  | VUnit => TUnit
-  | VNat n => TNat
-  | VString s => TString
-  end.
-
-Global Instance value_inhab : Inhabited value := { inhabitant := VUnit }.
-Global Instance value_ty_eq_dec : EqDecision value_ty. Proof. solve_decision. Defined.
-
-Definition value_has_type (v : value) (τ : value_ty) : bool := value_typeof v =? τ.
-
-Global Instance value_ty_elem_of : ElemOf value value_ty := {
-  elem_of v τ := Is_true (value_has_type v τ)
+Record fdef {value value_ty} {hastype : value → value_ty → Prop} := mkFdef {
+  fdef_sig : list value → value_ty;
+  fdef_rel : list value → value → Prop;
+  fdef_typing : ∀ args v, fdef_rel args v → hastype v (fdef_sig args);
+  fdef_det : ∀ {args v1 v2}, fdef_rel args v1 → fdef_rel args v2 → v1 = v2;
+  fdef_total : ∀ args, ∃ v, fdef_rel args v;
 }.
 
-Global Instance value_elem_of_dec : RelDecision (∈@{value_ty}) | 1 := {
-  decide_rel v τ := Is_true_dec (value_has_type v τ)
+Record pdef {value} := mkPdef {
+  pdef_arity : nat;
+  pdef_rel : vec value pdef_arity → Prop;
 }.
 
-Lemma value_elem_of_iff_typeof_eq : ∀ (v : value) τ,
-    v ∈ τ ↔ value_typeof v =? τ.
-Proof. reflexivity. Qed.
-
-
-Lemma value_elem_of_det : ∀ (v : value) (τ1 τ2 : value_ty),
-    v ∈ τ1 → v ∈ τ2 → τ1 = τ2.
-Proof.
-  intros v τ1 τ2 H1 H2. unfold elem_of, value_ty_elem_of, value_has_type.
-  rewrite value_elem_of_iff_typeof_eq in H1, H2.
-  apply bool_decide_unpack in H1, H2. subst. reflexivity.
-Qed.
-
-Lemma value_elem_ofb_det : ∀ (v : value) (τ1 τ2 : value_ty),
-    v ∈? τ1 → v ∈? τ2 → τ1 = τ2.
-Proof.
-  intros v τ1 τ2 H1 H2. apply bool_decide_unpack in H1, H2. apply (value_elem_of_det v); auto.
-Qed.
-
-Definition value_ty_choice (τ : value_ty) : {x : value ? x ∈ τ}.
-Proof with auto.
-  destruct τ.
-  - right. intros. unfold elem_of, value_ty_elem_of, value_has_type, value_typeof.
-    destruct x; rewrite eq_dec_eq; discriminate.
-  - left. exists VUnit. reflexivity.
-  - left. exists (VNat 0). reflexivity.
-  - left. exists (VString ""). reflexivity.
-Defined.
-
-Definition value_ty_is_empty (τ : value_ty) := ∀ x, x ∉ τ.
-
-Fixpoint args_match_sig (args : list value) (sig : list value_ty) :=
-  match args, sig with
-  | [], [] => true
-  | arg :: args, param :: params =>
-      if arg ∈? param
-      then args_match_sig args params
-      else false
-  | _, _ => false
-  end.
-
-Record fdef := mkFdef {
-    fdef_sig : list value_ty * value_ty;
-    fdef_rel : ∀ args, args_match_sig args fdef_sig.1 → ∀ v, v ∈ fdef_sig.2 → Prop;
-    fdef_det : ∀ {args Hsig1 Hsig2 v1 v2 Hret1 Hret2},
-                      fdef_rel args Hsig1 v1 Hret1 →
-                      fdef_rel args Hsig2 v2 Hret2 →
-                      v1 = v2;
-    fdef_total : ∀ args H, ∃ v Hret, fdef_rel args H v Hret;
-}.
-
-Record pdef := mkPdef {
-  pdef_sig : list value_ty;
-  pdef_rel : ∀ args, args_match_sig args pdef_sig → Prop;
-}.
-
-Ltac destr_value_ty_choice V τ :=
-  let H := fresh "H" in
-  let Hempty := fresh "Hempty" in
-  let v0 := fresh "v0" in
-  let Hv0 := fresh "Hv0" in
-  destruct (value_ty_choice V τ) as [[v0 Hv0]|H];
-  [
-    rewrite <- eq_dec_eq in Hv0; rewrite <- value_elem_of_iff_typeof_eq in Hv0
-  | assert (Hempty : value_ty_is_empty V τ);
-    first (unfold value_ty_is_empty; intros; rewrite value_elem_of_iff_typeof_eq;
-            rewrite eq_dec_eq; apply H); clear H
-  ].
-
+(* Ltac destr_value_ty_choice V τ := *)
+(*   let H := fresh "H" in *)
+(*   let Hempty := fresh "Hempty" in *)
+(*   let v0 := fresh "v0" in *)
+(*   let Hv0 := fresh "Hv0" in *)
+(*   destruct (value_ty_choice V τ) as [[v0 Hv0]|H]; *)
+(*   [ *)
+(*     rewrite <- eq_dec_eq in Hv0; rewrite <- value_elem_of_iff_typeof_eq in Hv0 *)
+(*   | assert (Hempty : value_ty_is_empty V τ); *)
+(*     first (unfold value_ty_is_empty; intros; rewrite value_elem_of_iff_typeof_eq; *)
+(*             rewrite eq_dec_eq; apply H); clear H *)
+(*   ]. *)
 
 Record model := mkModel {
-  model_fdefs : gmap string fdef;
-  model_pdefs : gmap string pdef;
+  value : Type;
+  value_ty : Type;
+  hastype : value → value_ty → Prop;
+  fdefs : gmap string (@fdef value value_ty hastype);
+  pdefs : gmap string (@pdef value);
 }.
