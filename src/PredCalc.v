@@ -601,8 +601,7 @@ Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil))) (in custom f
 Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
 Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
 Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "'~' x" := (FNot x) (in custom formula at level 75, only parsing).
-Notation "'¬' x" := (FNot x) (in custom formula at level 75, only printing).
+Notation "'¬' x" := (FNot x) (in custom formula at level 75).
 Notation "x ∧ y" := (FAnd x y) (in custom formula at level 80, left associativity).
 Notation "x ∨ y" := (FOr x y) (in custom formula at level 80, left associativity).
 Notation "x => y" := (FImpl x y) (in custom formula at level 80, only parsing).
@@ -652,7 +651,7 @@ Section pred_calc_semantics.
   Context {M : model}.
   Let V := value M.
 
-  Notation state := (gmap variable V).
+  Definition state := gmap variable V.
 
   Inductive fn_eval fSym vargs : V → Prop :=
   | FnEval : ∀ fdef v,

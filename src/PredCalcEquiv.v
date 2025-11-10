@@ -1,9 +1,9 @@
-From Stdlib Require Import Setoid Morphisms.
-From stdpp Require Import base gmap.
 From Equations Require Import Equations.
+From stdpp Require Import fin_maps.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
+From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
 
 Section equiv.

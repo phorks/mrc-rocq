@@ -1,16 +1,10 @@
-From Stdlib Require Import Strings.String.
-From Stdlib Require Import Nat.
-From Stdlib Require Import Arith.PeanoNat.
-From Stdlib Require Import Lia.
-From Stdlib Require Import Lists.List. Import ListNotations.
 From Equations Require Import Equations.
-From stdpp Require Import gmap fin_maps.
+From stdpp Require Import fin_maps.
 From MRC Require Import Options.
-From MRC Require Import Model.
 From MRC Require Import Tactics.
+From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.
-From MRC Require Import PredCalcEquiv.
+From MRC Require Import PredCalc PredCalcEquiv.
 
 Section subst.
   Context {M : model}.
@@ -162,10 +156,10 @@ Section subst.
   Proof with auto. unfold subst_formula. simpl. reflexivity. Qed.
 
   Lemma simpl_subst_not A x a :
-    <! (~ A)[x \ a] !> = <! ~ (A[x \ a]) !>.
+    <! (¬ A)[x \ a] !> = <! ¬ (A[x \ a]) !>.
   Proof with auto.
     unfold subst_formula.
-    replace (quantifier_rank <! ~A !>) with (quantifier_rank A) by reflexivity.
+    replace (quantifier_rank <! ¬A !>) with (quantifier_rank A) by reflexivity.
     destruct (quantifier_rank A); reflexivity.
   Qed.
 
@@ -256,7 +250,7 @@ Section subst.
 
   Lemma subst_formula_ind {x t} : ∀ P,
       (∀ sf, P (FSimple $ subst_sf sf x t) (FSimple sf)) →
-      (∀ A, P <! A[x \ t] !> A → P <! ~ (A[x \ t]) !> <! ~ A !>) →
+      (∀ A, P <! A[x \ t] !> A → P <! ¬ (A[x \ t]) !> <! ¬ A !>) →
       (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∧ A2[x \ t] !> <! A1 ∧ A2 !>) →
       (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∨ A2[x \ t] !> <! A1 ∨ A2 !>) →
       (∀ y A, (∀ B, shape_eq B A = true → P <! B[x \ t] !> B) →

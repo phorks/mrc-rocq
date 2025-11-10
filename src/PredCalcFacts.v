@@ -1,17 +1,13 @@
-From Stdlib Require Import Strings.String.
-From Stdlib Require Import Arith.PeanoNat. Import Nat.
-From Stdlib Require Import Lia.
-From Stdlib Require Import Lists.List. Import ListNotations.
 From Equations Require Import Equations.
+From stdpp Require Import fin_maps.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalc PredCalcSubst PredCalcEquiv.
-From stdpp Require Import gmap fin_maps.
+From MRC Require Import PredCalc PredCalcEquiv PredCalcSubst.
 
 Section facts.
-  Context (M : model).
+  Context {M : model}.
 
   Implicit Types t : @term (value M).
   Implicit Types sf : @simple_formula (value M).
@@ -60,12 +56,12 @@ Section facts.
       + destruct (decide (x ∈ formula_fvars A)).
         2: { rewrite simpl_subst_exists_skip... rewrite feval_delete_state_var_head... simpl.
              set_solver. }
-        rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t0 as x'.
+        rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t as x'.
         apply feval_exists_equiv_if. intros.
-        pose proof (H':=H). forward (H (A[y\x'][x\t0])). { eapply shape_eq_trans... }
+        pose proof (H':=H). forward (H (A[y\x'][x\t])). { eapply shape_eq_trans... }
         destruct (H x') as [_ ?]. rewrite <- (H1 σ (TConst v0) v0)... clear H1 H.
         pose proof (H:=H'). forward (H (A[y\x'])). { eapply shape_eq_trans... }
-        destruct (H x) as [_ ?]. specialize (H1 (<[x':=v0]> σ) t0 v). forward H1.
+        destruct (H x) as [_ ?]. specialize (H1 (<[x':=v0]> σ) t v). forward H1.
         { apply teval_delete_state_var_head... }
         symmetry. etrans. { symmetry. exact H1. } symmetry. clear H1 H.
         destruct (decide (y = x')).
@@ -97,6 +93,13 @@ Section facts.
     intros A B H x ? <- t ? <- σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
+
+  Global Instance fexists_proper : Proper ((=) ==> (≡@{@formula (value M)}) ==> (≡@{@formula (value M)})) FExists.
+  Proof with auto.
+    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v.
+    rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
 
   Lemma fequiv_exists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
@@ -144,7 +147,7 @@ Section facts.
     rewrite (feval_subst v3)... rewrite (feval_subst v3).
     2:{ constructor. rewrite (lookup_total_insert σ)... }
     rewrite (feval_subst v3)... rewrite (insert_commute σ)...
-    rewrite feval_delete_state_var_head...
+    rewrite (feval_delete_state_var_head x2)...
   Qed.
 
   Lemma fequiv_subst_commute A x1 t1 x2 t2 :
