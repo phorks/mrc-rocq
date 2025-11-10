@@ -13,13 +13,12 @@ From MRC Require Import PredCalc.
 From MRC Require Import PredCalcEquiv.
 
 Section subst.
-  Context (M : model).
-  Let V := value M.
+  Context {M : model}.
 
-  Implicit Types t : @term V.
-  Implicit Types sf : @simple_formula V.
-  Implicit Types A B C : @formula V.
-  Implicit Types v : V.
+  Implicit Types t : @term (value M).
+  Implicit Types sf : @simple_formula (value M).
+  Implicit Types A B C : @formula (value M).
+  Implicit Types v : value M.
 
   Lemma higher_qrank__subst_eq A : ∀ x a r',
     quantifier_rank A <= r' →
@@ -604,7 +603,7 @@ Section subst.
         + intros x' v H H' Hfree. constructor. simpl in Hfree.
           destruct (decide (x' = x)); subst; simpl.
           * apply not_elem_of_singleton in Hfree. contradiction.
-          * apply (lookup_delete_Some σ). split...
+          * pose proof (@lookup_total_delete_ne _ _ _ _ _ _ _ _ _ _ _ _ (@model_value_Inhabited M) σ)...
         + intros f args vargs v Hargs IHargs Hfn H Hfree. apply TEval_App with vargs...
           apply IHargs... simpl in Hfree. clear Hfn IHargs Hargs H. induction args; subst; simpl in *...
           apply not_elem_of_union in Hfree as [H1 H2].
@@ -625,7 +624,8 @@ Section subst.
         + intros x' v H H' Hfree. constructor. simpl in Hfree.
           destruct (decide (x' = x)); subst; simpl.
           * apply not_elem_of_singleton in Hfree. contradiction.
-          * apply (lookup_delete_Some σ) in H as [? ?]...
+          * pose proof (@lookup_total_delete_ne _ _ _ _ _ _ _ _ _ _ _ _ (@model_value_Inhabited M) σ).
+            rewrite H...
         + intros f args vargs v Hargs IHargs Hfn H Hfree. apply TEval_App with vargs...
           apply IHargs... simpl in Hfree. clear Hfn IHargs Hargs H. induction args; subst; simpl in *...
           apply not_elem_of_union in Hfree as [? ?].
@@ -702,8 +702,8 @@ Section subst.
           * rewrite fvars_subst_non_free...
     Qed.
 
-    Lemma teval_delete_state_var_head x σ t v0 v :
-      x ∉ term_fvars t → teval (<[x:=v0]> σ) t v ↔ teval σ t v.
+    Lemma teval_delete_state_var_head {σ t vt} x v :
+      x ∉ term_fvars t → teval (<[x:=v]> σ) t vt ↔ teval σ t vt.
     Proof with auto.
       intros. etrans.
       - apply teval_delete_state_var. exact H.
@@ -719,7 +719,7 @@ Section subst.
       - rewrite (delete_insert_delete σ). rewrite <- teval_args_delete_state_var...
     Qed.
 
-    Lemma sfeval_delete_state_var_head x σ sf v :
+    Lemma sfeval_delete_state_var_head {σ sf v} x :
       x ∉ sf_fvars sf → sfeval (<[x:=v]> σ) sf ↔ sfeval σ sf.
     Proof with auto.
       intros. etrans.
@@ -727,7 +727,7 @@ Section subst.
       - rewrite (delete_insert_delete σ). rewrite <- sfeval_delete_state_var...
     Qed.
 
-    Lemma feval_delete_state_var_head x σ A v :
+    Lemma feval_delete_state_var_head {σ A v} x :
       x ∉ formula_fvars A →
       feval (<[x:=v]> σ) A ↔ feval σ A.
     Proof with auto.
@@ -747,12 +747,12 @@ Section subst.
       simpl in Hind. apply Hind; clear Hind.
       + constructor.
       + rename x into x'. intros x v H t' Heval. destruct (decide (x = x')).
-        * apply (lookup_insert_Some σ) in H. destruct H as [[<- ->] | [H1 H2]].
-          -- assumption.
-          -- exfalso. apply H1...
-        * apply (lookup_insert_Some σ) in H. destruct H as [[<- ->] | [H1 H2]].
-          -- contradiction.
-          -- constructor...
+        * subst.
+          pose proof (@lookup_total_insert _ _ _ _ _ _ _ _ _ _ _ _ (@model_value_Inhabited M) σ).
+          rewrite H...
+        * subst.
+          pose proof (@lookup_total_insert_ne _ _ _ _ _ _ _ _ _ _ _ _ (@model_value_Inhabited M) σ).
+          rewrite H...
       + intros. apply TEval_App with vargs...
       + constructor.
       + constructor; [apply H | apply H0]...
@@ -768,20 +768,23 @@ Section subst.
       + intros. destruct tpre; simpl in H0.
         * inversion H0. subst. constructor.
         * destruct (decide (x0 = x)); try discriminate. subst. inversion H; subst.
-          constructor. apply (lookup_insert_Some σ)...
+          constructor. rewrite (lookup_total_insert σ)...
         * discriminate.
       + intros. destruct tpre; simpl in H0; try discriminate.
         simpl in H0. destruct (decide (x1 = x)); subst.
-        * apply TEval_Var. inversion H; subst. rewrite e in H1. inversion H1.
-          apply (lookup_insert_Some σ)...
-        * inversion H0. subst. apply TEval_Var.  apply (lookup_insert_Some σ)...
+        * apply TEval_Var. rewrite (lookup_total_insert σ). inversion H; subst...
+        * inversion H0. subst. apply TEval_Var. rewrite (lookup_total_insert_ne σ)...
       + intros. destruct tpre; simpl in H1; try discriminate.
         * destruct (decide (x0 = x)); try discriminate. inversion H1; subst.
-          inversion H0; subst. inversion H6; subst. inversion f0; subst.
-          rewrite H1 in H5. inversion H5; subst fdef0. clear H5.
+          inversion H0; subst. inversion H6; subst.
+          2: { inversion f0; subst.
+               - rewrite H1 in H3. discriminate.
+               - constructor. rewrite (lookup_total_insert σ)... }
+          inversion f0; subst; rewrite H1 in H5; [| discriminate].
+          inversion H5; subst fdef0. clear H5.
           pose proof (Heq := teval_args_det _ _ _ H4 t). subst.
           pose proof (Heq := fdef_det _ H3 H7). subst.
-          constructor. apply (lookup_insert_Some σ)...
+          constructor. rewrite (lookup_total_insert σ)...
         * inversion H1. subst. apply TEval_App with vargs... apply H with t'...
       + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor...
       + intros. symmetry in H2. apply map_eq_cons in H2. destruct H2 as (y&ys&H3&H4&H5).

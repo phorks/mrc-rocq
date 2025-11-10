@@ -651,17 +651,19 @@ Hint Resolve subst_preserves_shape : core.
 Section pred_calc_semantics.
   Context {M : model}.
   Let V := value M.
-  Definition state := gmap variable V.
 
-  Inductive fn_eval fSym vargs (v : V) : Prop :=
-  | FnEval : ∀ fdef,
+  Notation state := (gmap variable V).
+
+  Inductive fn_eval fSym vargs : V → Prop :=
+  | FnEval : ∀ fdef v,
       (fdefs M) !! fSym = Some fdef →
       fdef_rel fdef vargs v →
-      fn_eval fSym vargs v.
+      fn_eval fSym vargs v
+  | FnEvalBottom : (fdefs M) !! fSym = None → fn_eval fSym vargs ⊥.
 
   Inductive teval (σ : state) : term → V → Prop :=
   | TEval_Const : ∀ v, teval σ (TConst v) v
-  | TEval_Var : ∀ x v, σ !! x = Some v → teval σ (TVar x) v
+  | TEval_Var : ∀ x v, σ !!! x = v → teval σ (TVar x) v
   | TEval_App : ∀ f args vargs fval,
       teval_args σ args vargs →
       fn_eval f vargs fval →
@@ -684,18 +686,39 @@ Section pred_calc_semantics.
     apply (teval_ind_mut σ (λ t v₁ _, forall v₂, teval σ t v₂ → v₁ = v₂)
              (λ args vargs₁ _, forall vargs₂, teval_args σ args vargs₂ → vargs₁ = vargs₂)).
     - intros. inversion H...
-    - intros. inversion H; subst. rewrite e in H1. inversion H1...
-    - intros. inversion H0; subst. inversion H5; subst. inversion f0; subst.
-      apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
-      eapply fdef_det.
-      + exact H6.
-      + exact H2.
+    - intros. inversion H; subst...
+    - intros. inversion H0; subst. inversion H5; subst; inversion f0; subst...
+      + apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
+        eapply fdef_det; [exact H6 | exact H2].
+      + setoid_rewrite H1 in H4. discriminate.
+      + setoid_rewrite H1 in H2. discriminate.
     - inversion 1...
     - intros. destruct vargs₂.
       + inversion H1.
       + inversion H1; subst. f_equal.
         * apply H...
         * apply H0...
+  Qed.
+
+  Lemma teval_total σ t : ∃ v, teval σ t v.
+  Proof with auto.
+    induction t.
+    - exists v. constructor.
+    - exists (σ !!! x). constructor...
+    - assert (∃ vargs, teval_args σ args vargs) as [vargs Hvargs].
+      { induction args.
+        + exists []. constructor.
+        + forward IHargs. { intros. apply H. right... }
+          destruct IHargs as [vargs ?]. destruct (H a) as [v Hv]; [left; auto|].
+          exists (v :: vargs). constructor... }
+      destruct (fdefs M !! f) eqn:Hdef.
+      + rename f0 into fdef. pose proof (fdef_total fdef vargs) as [v Hv]. exists v.
+        econstructor.
+        * exact Hvargs.
+        * apply FnEval with (fdef:=fdef)...
+      + exists ⊥. econstructor.
+        * exact Hvargs.
+        * apply FnEvalBottom...
   Qed.
 
   Lemma teval_args_det {σ} args vargs1 vargs2 :

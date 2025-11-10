@@ -8,8 +8,7 @@ From MRC Require Import PredCalc.
 
 Section equiv.
   Context {M : model}.
-  Let V := value M.
-  Implicit Types A B C : @formula V.
+  Implicit Types A B C : @formula (value M).
 
   Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B .
   Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.

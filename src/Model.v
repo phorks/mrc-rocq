@@ -178,7 +178,11 @@ Record pdef {value} := mkPdef {
 Record model := mkModel {
   value : Type;
   value_ty : Type;
+  value_bottom : value;
   hastype : value → value_ty → Prop;
   fdefs : gmap string (@fdef value value_ty hastype);
   pdefs : gmap string (@pdef value);
 }.
+
+Global Instance model_value_bottom {M} : Bottom (value M) := value_bottom M.
+Global Instance model_value_Inhabited {M} : Inhabited (value M) := populate (value_bottom M).
