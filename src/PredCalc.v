@@ -791,7 +791,7 @@ End pred_calc_semantics.
 
 Hint Constructors teval : core.
 
-Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) ident(t) "as" ident(y') :=
+Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) constr(t) "as" ident(y') :=
   let Hfresh := fresh in
   let Heq := fresh in
   let H1 := fresh in let H2 := fresh in let H3 := fresh in

@@ -121,7 +121,7 @@ Section facts.
     rewrite simpl_subst_not...
   Qed.
 
-  Lemma fequiv_exists_non_free_binder x A :
+  Lemma fexists_unused x A :
     x ∉ formula_fvars A →
     <! exists x, A !> ≡ A.
   Proof with auto.
@@ -129,6 +129,14 @@ Section facts.
     - intros [v Hv]. rewrite (feval_subst v) in Hv...
       rewrite feval_delete_state_var_head in Hv...
     - intros. exists ⊥. rewrite (feval_subst ⊥)... rewrite feval_delete_state_var_head...
+  Qed.
+
+  Lemma fforall_unused x A :
+    x ∉ formula_fvars A →
+    <! forall x, A !> ≡ A.
+  Proof with auto.
+    unfold FForall. intros. rewrite fexists_unused... intros σ.
+    simp feval. rewrite feval_stable...
   Qed.
 
   Lemma fequiv_subst_trans : ∀ A (x1 x2 x3 : variable),
@@ -191,6 +199,28 @@ Section facts.
         rewrite fequiv_subst_non_free...
         rewrite fequiv_subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
         rewrite fequiv_subst_non_free in H2...
+  Qed.
+
+  Lemma simpl_feval_fimpl σ A B :
+    feval σ <! A => B !> ↔ (feval σ A → feval σ B).
+  Proof with auto.
+    unfold FImpl. simp feval. split.
+    - intros [|] ?... contradiction.
+    - intros. destruct (feval_lem σ A)...
+  Qed.
+
+  Lemma simpl_feval_fiff σ A B :
+    feval σ <! A <=> B !> ↔ (feval σ A ↔ feval σ B).
+  Proof with auto.
+    unfold FIff. simp feval. do 2 rewrite simpl_feval_fimpl. naive_solver.
+  Qed.
+
+  Lemma simpl_feval_fforall σ x A :
+    feval σ <! forall x, A !> ↔ ∀ v, feval σ (A [x \ (TConst v)]).
+  Proof with auto.
+    unfold FForall. simp feval. setoid_rewrite (simpl_subst_not). split; intros.
+    - destruct (feval_lem σ (A [x \ (TConst v)]))... exfalso. apply H. exists v. simp feval.
+    - intros [v contra]. simp feval in contra...
   Qed.
 
 End facts.

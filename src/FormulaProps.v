@@ -6,6 +6,7 @@ From MRC Require Import Model.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalc PredCalcEquiv PredCalcSubst PredCalcFacts.
 
+Open Scope mrc_scope.
 (* Ltac prove_equiv_by_inversion := *)
 (*   let HTT := fresh "HTT" in *)
 (*   let HFF := fresh "HFF" in *)
@@ -389,3 +390,249 @@ Section props.
     apply (existential_one_point x t(FNot A)) in Hfree. rewrite Hfree.
     rewrite simpl_subst_not. rewrite not_stable...
   Qed.
+
+  (* A.60 *)
+  Lemma fexists_idemp x A :
+    <! exists x x, A !> ≡ <! exists x, A !>.
+  Proof with auto. rewrite fexists_unused... simpl. set_solver. Qed.
+
+  (* A.59 *)
+  Lemma fforall_idemp x A :
+    <! forall x x, A !> ≡ <! forall x, A !>.
+  Proof with auto. unfold FForall. rewrite not_stable. rewrite fexists_idemp... Qed.
+
+  (* A.61 *)
+  Lemma fnot_fforall x A :
+    <! ¬ forall x, A !> ≡ <! exists x, ¬ A !>.
+  Proof. unfold FForall. rewrite not_stable. auto. Qed.
+
+  (* A.62 *)
+  Lemma fnot_fexists x A :
+    <! ¬ exists x, A !> ≡ <! forall x, ¬ A !>.
+  Proof. unfold FForall. rewrite not_stable. auto. Qed.
+
+  (* A.64 *)
+  Lemma fexists_comm x y A :
+    <! exists x y, A !> ≡ <! exists y x, A !>.
+  Proof with auto.
+    intros σ. destruct (decide (x = y)). 1:{ subst... }
+    destruct (decide (x ∈ formula_fvars A)).
+    2:{ rewrite fexists_unused.
+        - rewrite (fexists_unused x)...
+        - simpl. set_solver. }
+    destruct (decide (y ∈ formula_fvars A)).
+    2:{ rewrite (fexists_unused y)...
+        rewrite (fexists_unused y)... simpl. set_solver. }
+    simp feval. split.
+    - intros [vx H]. rewrite (feval_subst vx) in H... simp feval in H. destruct H as [vy H].
+      rewrite (feval_subst vy) in H... exists vy. rewrite (feval_subst vy)...
+      simp feval. exists vx. rewrite (feval_subst vx)... rewrite (insert_commute σ)...
+    - intros [vy H]. rewrite (feval_subst vy) in H... simp feval in H. destruct H as [vx H].
+      rewrite (feval_subst vx) in H... exists vx. rewrite (feval_subst vx)...
+      simp feval. exists vy. rewrite (feval_subst vy)... rewrite (insert_commute σ)...
+  Qed.
+
+  (* A.63 *)
+  Lemma fforall_comm x y A :
+    <! forall x y, A !> ≡ <! forall y x, A !>.
+  Proof. unfold FForall. do 2 rewrite not_stable. rewrite fexists_comm. reflexivity. Qed.
+
+  (* A.66 *)
+  Lemma fexists_for x A B :
+    <! exists x, A ∨ B !> ≡ <! (exists x, A) ∨ (exists x, B) !>.
+  Proof with auto.
+    intros σ. simp feval. setoid_rewrite simpl_subst_or. split.
+    - intros [v H]. simp feval in H. destruct H as [|]; [left|right]; exists v...
+    - intros [[v H] | [v H]]; exists v; simp feval...
+  Qed.
+
+  (* A.65 *)
+  Lemma fforall_fand x A B :
+    <! forall x, A ∧ B !> ≡ <! (forall x, A) ∧ (forall x, B) !>.
+  Proof. unfold FForall. rewrite not_and. rewrite fexists_for. rewrite not_or; auto. Qed.
+
+  (* A.67 *)
+  Lemma fexists_fimpl x A B :
+    <! exists x, A => B !> ≡ <! (forall x, A) => (exists x, B) !>.
+  Proof with auto.
+    intros σ. unfold FImpl. rewrite fexists_for. unfold FForall. rewrite not_stable...
+  Qed.
+
+  (* A.68 *)
+  Lemma fforall_fent_fexists x A :
+    <! forall x, A !> ⇛ <! exists x, A !>.
+  Proof.
+    intros σ. rewrite simpl_feval_fforall. intros. simp feval.
+    exists ⊥. apply H.
+  Qed.
+
+  (* A.69 *)
+  Lemma for_fforall x A B :
+    <! (forall x, A) ∨ (forall x, B) !> ⇛ <! forall x, A ∨ B !>.
+  Proof.
+    intros σ. simp feval. do 3 rewrite simpl_feval_fforall.
+    setoid_rewrite simpl_subst_or.
+    intros [|]; intros; simp feval; naive_solver.
+  Qed.
+
+  (* A.70 *)
+  Lemma fforall_fimpl x A B :
+    <! forall x, A => B !> ⇛ <! (forall x, A) => (forall x, B) !>.
+  Proof.
+    intros σ. rewrite simpl_feval_fimpl. do 3 rewrite simpl_feval_fforall.
+    intros. specialize (H v). rewrite simpl_subst_impl in H. rewrite simpl_feval_fimpl in H.
+    naive_solver.
+  Qed.
+
+  (* A.71 *)
+  Lemma fexists_fand x A B :
+    <! exists x, A ∧ B !> ⇛ <! (exists x, A) ∧ (exists x, B) !>.
+  Proof with auto.
+    intros σ. simp feval. intros [v H]. rewrite simpl_subst_and in H. simp feval in H.
+    destruct H as []. split; exists v...
+  Qed.
+
+  (* A.72 *)
+  Lemma fimpl_fexists x A B :
+    <! (exists x, A) => (exists x, B) !> ⇛ <! exists x, A => B !>.
+  Proof with auto.
+    intros σ. rewrite simpl_feval_fimpl. intros. simp feval.
+    setoid_rewrite simpl_subst_impl. setoid_rewrite simpl_feval_fimpl.
+    destruct (feval_lem σ <! exists x, A !>).
+    - apply H in H0. simp feval in H0. destruct H0 as [v Hv]. exists v. intros...
+    - exists ⊥. intros. simp feval in H0. exfalso. apply H0. exists ⊥...
+  Qed.
+
+  (* A.73 *)
+  Lemma fexists_fforall x y A :
+    <! exists x, (forall y, A) !> ⇛ <! forall y, (exists x, A) !>.
+  Proof with auto.
+    intros σ. simp feval. rewrite simpl_feval_fforall. intros [vx H] vy.
+    destruct (decide (x = y)).
+    1:{ subst y. rewrite simpl_subst_forall_skip in H... rewrite simpl_subst_exists_skip...
+        apply fforall_fent_fexists in H... }
+    rewrite (feval_subst vx) in H... rewrite simpl_feval_fforall in H.
+    specialize (H vy). rewrite (feval_subst vy) in H...
+    rewrite (feval_subst vy)... simp feval. exists vx. rewrite (feval_subst vx)...
+    rewrite (insert_commute σ)...
+  Qed.
+
+  (* A.74: fforall_unused *)
+  (* A.75: fequiv_forall_non_free_binder *)
+
+  (* A.76 *)
+  Lemma fforall_fand_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! forall x, A ∧ B !> ≡ <! A ∧ (forall x, B) !>.
+  Proof with auto. intros. rewrite fforall_fand. rewrite fforall_unused... Qed.
+
+  (* A.76' *)
+  Lemma fforall_fand_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! forall x, A ∧ B !> ≡ <! (forall x, A) ∧ B !>.
+  Proof with auto. intros. rewrite fforall_fand. rewrite (fforall_unused x B)... Qed.
+
+  (* A.77 *)
+  Lemma fforall_for_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! forall x, A ∨ B !> ≡ <! A ∨ (forall x, B) !>.
+  Proof with auto.
+    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or.
+    split; intros.
+    - simp feval. destruct (feval_lem σ A)... right. rewrite simpl_feval_fforall.
+      intros. specialize (H0 v). simp feval in H0. destruct H0...
+      rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0...
+      contradiction.
+    - simp feval in *. rewrite (feval_subst v)... rewrite feval_delete_state_var_head...
+      destruct H0... right. rewrite simpl_feval_fforall in H0. apply H0.
+  Qed.
+
+  (* A.77' *)
+  Lemma fforall_for_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! forall x, A ∨ B !> ≡ <! (forall x, A) ∨ B !>.
+  Proof with auto.
+    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or.
+    split; intros.
+    - simp feval. destruct (feval_lem σ B)... left. rewrite simpl_feval_fforall.
+      intros. specialize (H0 v). simp feval in H0. destruct H0...
+      rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0...
+      contradiction.
+    - simp feval in *. destruct H0.
+      + left. rewrite simpl_feval_fforall in H0. apply H0...
+      + right. rewrite (feval_subst v)... rewrite feval_delete_state_var_head...
+  Qed.
+
+  (* A.78 *)
+  Lemma fforall_fimpl_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! forall x, A => B !> ≡ <! A => (forall x, B) !>.
+  Proof with auto.
+    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl.
+    rewrite simpl_feval_fimpl.
+    split; intros.
+    - rewrite simpl_feval_fforall. intros. specialize (H0 v). rewrite simpl_feval_fimpl in H0.
+      rewrite (feval_subst v) in H0... rewrite feval_delete_state_var_head in H0...
+    - rewrite simpl_feval_fimpl. intros. rewrite (feval_subst v) in H1...
+      rewrite feval_delete_state_var_head in H1... apply H0 in H1.
+      rewrite simpl_feval_fforall in H1...
+  Qed.
+
+  (* A.79 *)
+  Lemma fforall_fimpl_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! forall x, A => B !> ≡ <! (exists x, A) => B !>.
+  Proof with auto.
+    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl.
+    setoid_rewrite simpl_feval_fimpl. simp feval.
+    split; intros.
+    - destruct H1 as [v Hv]. apply H0 in Hv. apply (feval_subst v) in Hv...
+      apply feval_delete_state_var_head in Hv...
+    - forward H0 by (exists v)... apply (feval_subst v)... apply feval_delete_state_var_head...
+  Qed.
+
+  (* A.80 *)
+  Lemma fexists_fand_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! exists x, A ∧ B !> ≡ <! A ∧ (exists x, B) !>.
+  Proof with auto.
+    intros. rewrite <- (not_stable A). rewrite <- (not_stable B). rewrite <- (not_or).
+    rewrite <- (fnot_fforall). rewrite fforall_for_unused_l by (simpl; auto).
+    rewrite not_or. rewrite fnot_fforall...
+  Qed.
+
+  (* A.80' *)
+  Lemma fexists_fand_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! exists x, A ∧ B !> ≡ <! (exists x, A) ∧ B !>.
+  Proof with auto.
+    intros. rewrite <- (not_stable A). rewrite <- (not_stable B). rewrite <- (not_or).
+    rewrite <- (fnot_fforall). rewrite fforall_for_unused_r by (simpl; auto).
+    rewrite not_or. rewrite fnot_fforall...
+  Qed.
+
+  (* A.81 *)
+  Lemma fexists_for_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! exists x, A ∨ B !> ≡ <! A ∨ (exists x, B) !>.
+  Proof with auto. intros. rewrite fexists_for. rewrite fexists_unused... Qed.
+
+  (* A.81' *)
+  Lemma fexists_for_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! exists x, A ∨ B !> ≡ <! (exists x, A) ∨ B !>.
+  Proof with auto. intros. rewrite fexists_for. rewrite (fexists_unused _ B)... Qed.
+
+  (* A.82 *)
+  Lemma fexists_fimpl_unused_l x A B:
+    x ∉ formula_fvars A →
+    <! exists x, A => B !> ≡ <! A => (exists x, B) !>.
+  Proof with auto. intros. rewrite fexists_fimpl. rewrite fforall_unused... Qed.
+
+  (* A.83 *)
+  Lemma fexists_fimpl_unused_r x A B:
+    x ∉ formula_fvars B →
+    <! exists x, A => B !> ≡ <! (forall x, A) => B !>.
+  Proof with auto. intros. rewrite fexists_fimpl. rewrite fexists_unused... Qed.
+
+End props.
