@@ -4,12 +4,13 @@ From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalc PredCalcEquiv.
+From MRC Require Import PredCalcBasic PredCalcEquiv.
 
 Section subst.
   Context {M : model}.
+  Local Notation term := (term (value M)).
 
-  Implicit Types t : @term (value M).
+  Implicit Types t : term.
   Implicit Types sf : @simple_formula (value M).
   Implicit Types A B C : @formula (value M).
   Implicit Types v : value M.

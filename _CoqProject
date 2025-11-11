@@ -3,7 +3,11 @@ src/Options.v
 src/Stdppp.v
 src/Model.v
 src/Tactics.v
-src/PredCalc.v
+src/PredCalcBasic.v
 src/PredCalcSubst.v
 src/PredCalcEquiv.v
 src/PredCalcFacts.v
+src/PredCalcEquivLemmas.v
+src/PredCalcTactics.v
+src/PredCalc.v
+src/Prog.v

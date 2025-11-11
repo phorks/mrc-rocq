@@ -4,12 +4,15 @@ From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.
+From MRC Require Import PredCalcBasic.
 
 Section equiv.
   Context {M : model}.
-  Implicit Types A B C : @formula (value M).
-  Implicit Types t : @term (value M).
+  Local Notation term := (term (value M)).
+  Local Notation formula := (formula (value M)).
+
+  Implicit Types A B C : formula.
+  Implicit Types t : term.
 
   Global Instance tequiv : Equiv term := λ t1 t2, ∀ σ v, teval σ t1 v ↔ teval σ t2 v.
 
@@ -50,6 +53,18 @@ Section equiv.
   Global Instance fent_antisym : Antisymmetric formula (≡@{formula}) fent.
   Proof. intros A B H1 H2 σ. specialize (H1 σ). specialize (H2 σ). naive_solver. Qed.
 
+  Global Instance fent_proper_l : Proper ((≡@{formula}) ==> (=) ==> iff) fent.
+  Proof with auto.
+    intros A B H C ? <-. split; intros Hent σ; specialize (Hent σ);
+      specialize (H σ); naive_solver.
+  Qed.
+
+  Global Instance fent_proper_r : Proper ((=) ==> (≡@{formula}) ==> iff) fent.
+  Proof with auto.
+    intros A ? <- B C H. split; intros Hent σ; specialize (Hent σ);
+      specialize (H σ); naive_solver.
+  Qed.
+
   Global Instance feval_proper : Proper ((=) ==> (≡@{formula}) ==> iff) feval.
   Proof with auto.
     intros σ ? <- A B H. split; intros; apply H...
@@ -77,6 +92,10 @@ Section equiv.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
 
+  Global Instance fiff_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FIff.
+  Proof with auto.
+    intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
+  Qed.
 End equiv.
 
 Declare Scope mrc_scope.

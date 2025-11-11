@@ -29,6 +29,7 @@ Definition var_with_sub x i :=
   mkVar (var_name x) (i) (var_is_initial x).
 Definition var_increase_sub x i :=
   var_with_sub x (var_sub x + i).
+Definition var_non_initial (x : variable) := mkVar (var_name x) (var_sub x) false.
 
 Lemma var_with_sub_var_sub_id : forall x,
     var_with_sub x (var_sub x) = x.

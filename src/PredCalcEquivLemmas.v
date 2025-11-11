@@ -4,25 +4,26 @@ From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalc PredCalcEquiv PredCalcSubst PredCalcFacts.
+From MRC Require Import PredCalcBasic PredCalcEquiv PredCalcSubst PredCalcFacts.
 
 Open Scope mrc_scope.
 Section props.
   Context {M : model}.
+  Local Notation term := (term (value M)).
+  Local Notation formula := (formula (value M)).
 
-  Implicit Types t : @term (value M).
-  Implicit Types sf : @simple_formula (value M).
-  Implicit Types A B C : @formula (value M).
+  Implicit Types t : term.
+  Implicit Types A B C : formula.
   Implicit Types v : value M.
 
   Ltac prove_equiv := intros; intros σ; unfold FIff, FImpl; simp feval;
                       split; try (pose proof (@feval_lem M); naive_solver).
 
-  Lemma f_and_commute A B :
+  Lemma f_and_comm A B :
     <! A ∧ B !> ≡ <! B ∧ A !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_or_commute A B :
+  Lemma f_or_comm A B :
       <! A ∨ B !> ≡ <! B ∨ A !>.
   Proof. prove_equiv. Qed.
 
@@ -42,11 +43,11 @@ Section props.
       <! A ∨ (B ∨ C) !> ≡ <! (A ∨ B) ∨ C !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_and_absorption A B :
+  Lemma f_and_absorb A B :
     <! A ∧ (A ∨ B) !> ≡ A.
   Proof. prove_equiv. Qed.
 
-  Lemma f_or_absorption A B :
+  Lemma f_or_absorb A B :
     <! A ∨ (A ∧ B) !> ≡ A.
   Proof. prove_equiv. Qed.
 
@@ -74,10 +75,10 @@ Section props.
     <! A ∨ false !> ≡ <! A !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_not_true : <! ¬ true !> ≡@{@formula (value M)} <! false !>.
+  Lemma f_not_true : <! ¬ true !> ≡@{formula} <! false !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_not_false : <! ¬ false !> ≡@{@formula (value M)} <! true !>.
+  Lemma f_not_false : <! ¬ false !> ≡@{formula} <! true !>.
   Proof. prove_equiv. Qed.
 
   Lemma f_and_not_self A :
@@ -100,11 +101,11 @@ Section props.
       <! ¬ (A ∨ B) !> ≡ <! ¬ A ∧ ¬ B !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_or_not_absorption A B :
+  Lemma f_or_not_absorb A B :
       <! A ∨ (¬ A ∧ B) !> ≡ <! A ∨ B !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_and_not_absorption A B :
+  Lemma f_and_not_absorb A B :
     <! A ∧ (¬ A ∨ B) !> ≡ <! A ∧ B !>.
   Proof. prove_equiv. Qed.
 
@@ -124,7 +125,7 @@ Section props.
   Proof. prove_equiv. Qed.
 
   (* A.25 *)
-  Lemma f_not_impl_as_and A B :
+  Lemma f_not_impl A B :
       <! ¬ (A => B) !> ≡ <! A ∧ ¬ B !>.
   Proof. prove_equiv. Qed.
 
@@ -208,17 +209,17 @@ Section props.
   Proof. prove_equiv. Qed.
 
   (* A.39 *)
-  Lemma f_iff_equiv1 A B C :
+  Lemma f_iff_as_and A B C :
     <! A <=> B !> ≡ <! (A => B) ∧ (B => A) !>.
   Proof. prove_equiv. Qed.
 
   (* A.40 *)
-  Lemma f_iff_equiv2 A B :
+  Lemma f_iff_as_or A B :
     <! A <=> B !> ≡ <! (A ∧ B) ∨ ¬(A ∨ B) !>.
   Proof. prove_equiv. Qed.
 
   (* A.41 *)
-  Lemma f_iff_equiv3 A B :
+  Lemma f_iff_negate A B :
     <! A <=> B !> ≡ <! ¬A <=> ¬B !>.
   Proof. prove_equiv. Qed.
 
@@ -243,23 +244,23 @@ Section props.
   Proof. prove_equiv. Qed.
 
   (* A.46 *)
-  Lemma f_impl_equiv_iff A B :
-    <! A => B !> ≡ <! A <=> (A ∧ B) !>.
+  Lemma f_iff_and_absorb A B :
+    <! A <=> (A ∧ B) !> ≡ <! A => B !>.
   Proof. prove_equiv. Qed.
 
   (* A.47 *)
-  Lemma f_impl_equiv_iff2 A B :
-    <! B => A !> ≡ <! A <=> (A ∨ B) !>.
+  Lemma f_iff_or_absorb A B :
+    <! A <=> (A ∨ B) !> ≡ <! B => A !>.
   Proof with auto.
     intros σ. unfold FIff, FImpl. simp feval. split.
+    - intros []. destruct_or! H; naive_solver.
     - intros [|]; [|naive_solver]. split.
       + pose proof (feval_lem σ A). destruct H0 as [|]...
       + pose proof (feval_lem σ A) as [|]; naive_solver.
-    - intros []. destruct_or! H; naive_solver.
   Qed.
 
   (* A.48 *)
-  Lemma f_or_equiv_iff A B C :
+  Lemma f_or_iff A B C :
     <! A ∨ (B <=> C) !> ≡ <! (A ∨ B) <=> (A ∨ C) !>.
   Proof with auto.
     intros σ. unfold FIff, FImpl. simp feval. split; [|naive_solver].
@@ -267,12 +268,12 @@ Section props.
   Qed.
 
   (* A.49 *)
-  Lemma f_equiv_comm A B :
+  Lemma f_iff_comm A B :
     <! A <=> B !> ≡ <! B <=> A !>.
   Proof. prove_equiv. Qed.
 
   (* A.50 *)
-  Lemma f_equiv_assoc A B C :
+  Lemma f_iff_assoc A B C :
       <! A <=> (B <=> C) !> ≡ <! (A <=> B) <=> C !>.
   Proof.
     unfold FIff, FImpl. rewrite f_not_and.
@@ -305,7 +306,7 @@ Section props.
       x ∉ term_fvars t →
       <! forall x, x = t => A !> ≡ <! A[x \ t] !>.
   Proof with auto.
-    intros Hfree. unfold FForall. rewrite f_not_impl_as_and.
+    intros Hfree. unfold FForall. rewrite f_not_impl.
     apply (f_exists_one_point x t(FNot A)) in Hfree. rewrite Hfree.
     rewrite simpl_subst_not. rewrite f_not_stable...
   Qed.
@@ -412,7 +413,7 @@ Section props.
   Qed.
 
   (* A.72 *)
-  Lemma fimpl_fexists x A B :
+  Lemma f_impl_exists x A B :
     <! (exists x, A) => (exists x, B) !> ⇛ <! exists x, A => B !>.
   Proof with auto.
     intros σ. rewrite simpl_feval_fimpl. intros. simp feval.
@@ -423,7 +424,7 @@ Section props.
   Qed.
 
   (* A.73 *)
-  Lemma fexists_fforall x y A :
+  Lemma f_exists_forall x y A :
     <! exists x, (forall y, A) !> ⇛ <! forall y, (exists x, A) !>.
   Proof with auto.
     intros σ. simp feval. rewrite simpl_feval_fforall. intros [vx H] vy.
@@ -521,7 +522,7 @@ Section props.
   Qed.
 
   (* A.80' *)
-  Lemma fexists_fand_unused_r x A B :
+  Lemma f_exists_and_unused_r x A B :
     x ∉ formula_fvars B →
     <! exists x, A ∧ B !> ≡ <! (exists x, A) ∧ B !>.
   Proof with auto.
@@ -531,25 +532,25 @@ Section props.
   Qed.
 
   (* A.81 *)
-  Lemma fexists_for_unused_l x A B :
+  Lemma f_exists_or_unused_l x A B :
     x ∉ formula_fvars A →
     <! exists x, A ∨ B !> ≡ <! A ∨ (exists x, B) !>.
   Proof with auto. intros. rewrite f_exists_or. rewrite fexists_unused... Qed.
 
   (* A.81' *)
-  Lemma fexists_for_unused_r x A B :
+  Lemma f_exists_or_unused_r x A B :
     x ∉ formula_fvars B →
     <! exists x, A ∨ B !> ≡ <! (exists x, A) ∨ B !>.
   Proof with auto. intros. rewrite f_exists_or. rewrite (fexists_unused _ B)... Qed.
 
   (* A.82 *)
-  Lemma fexists_fimpl_unused_l x A B :
+  Lemma f_exists_impl_unused_l x A B :
     x ∉ formula_fvars A →
     <! exists x, A => B !> ≡ <! A => (exists x, B) !>.
   Proof with auto. intros. rewrite f_exists_impl. rewrite fforall_unused... Qed.
 
   (* A.83 *)
-  Lemma fexists_fimpl_unused_r x A B :
+  Lemma f_exists_impl_unused_r x A B :
     x ∉ formula_fvars B →
     <! exists x, A => B !> ≡ <! (forall x, A) => B !>.
   Proof with auto. intros. rewrite f_exists_impl. rewrite fexists_unused... Qed.
@@ -572,5 +573,106 @@ Section props.
     intros σ. simp feval. intros. pose proof (teval_total σ t) as [v Hv].
     exists v. rewrite (feval_subst v) in H... rewrite (feval_subst v)...
   Qed.
+
+
+  (* some lemmas for proving equivalences and entailments *)
+
+  Lemma f_and_cancel_l A B C :
+    B ≡ C → <! A ∧ B !> ≡ <! A ∧ C !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_and_cancel_r A B C :
+    B ≡ C → <! B ∧ A !> ≡ <! C ∧ A !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_or_cancel_l A B C :
+    B ≡ C → <! A ∨ B !> ≡ <! A ∨ C !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_or_cancel_r A B C :
+    B ≡ C → <! B ∨ A !> ≡ <! C ∨ A !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_impl_cancel_l A B C :
+    B ≡ C → <! A => B !> ≡ <! A => C !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_impl_cancel_r A B C :
+    B ≡ C → <! B => A !> ≡ <! C => A !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_subst_cancel A B x t :
+    A ≡ B → <! A[x \ t] !> ≡ <! B[x \ t] !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_subst_cancel_term A x t1 t2 :
+    t1 ≡ t2 → <! A[x \ t1] !> ≡ <! A[x \ t2] !>.
+  Proof. intros. rewrite H. reflexivity. Qed.
+
+  Lemma f_exists_equiv A B y1 y2 :
+    (∀ t, A[y1 \ t] ≡ B[y2 \ t]) →
+    <! exists y1, A !> ≡ <! exists y2, B !>.
+  Proof. intros Hequiv σ. apply feval_exists_equiv_if. naive_solver. Qed.
+
+  Lemma f_forall_equiv A B y1 y2 :
+    (∀ t, A[y1 \ t] ≡ B[y2 \ t]) →
+    <! forall y1, A !> ≡ <! forall y2, B !>.
+  Proof. intros Hequiv σ. do 2 rewrite simpl_feval_fforall. naive_solver. Qed.
+
+  Lemma f_ent_and_cancel_l A B C :
+    B ⇛ C → <! A ∧ B !> ⇛ <! A ∧ C !>.
+  Proof. intros H σ. simp feval. specialize (H σ). naive_solver. Qed.
+
+  Lemma f_ent_and_cancel_r A B C :
+    B ⇛ C → <! B ∧ A !> ⇛ <! C ∧ A !>.
+  Proof. intros H σ. simp feval. specialize (H σ). naive_solver. Qed.
+
+  Lemma f_ent_or_cancel_l A B C :
+    B ⇛ C → <! A ∨ B !> ⇛ <! A ∨ C !>.
+  Proof. intros H σ. simp feval. specialize (H σ). naive_solver. Qed.
+
+  Lemma f_ent_or_cancel_r A B C :
+    B ⇛ C → <! B ∨ A !> ⇛ <! C ∨ A !>.
+  Proof. intros H σ. simp feval. specialize (H σ). naive_solver. Qed.
+
+  Lemma f_ent_subst_cancel A B x t :
+    A ⇛ B → <! A[x \ t] !> ⇛ <! B[x \ t] !>.
+  Proof with auto.
+    intros Hent σ H. pose proof (teval_total σ t) as [v Hv]. rewrite (feval_subst v) in H...
+    apply Hent in H. rewrite (feval_subst v)...
+  Qed.
+
+  Lemma f_ent_impl_cancel_l A B C :
+    B ⇛ C → <! A => B !> ⇛ <! A => C !>.
+  Proof. intros H σ. do 2 rewrite simpl_feval_fimpl. naive_solver. Qed.
+
+  Lemma f_ent_impl_cancel_r A B C :
+    C ⇛ B → <! B => A !> ⇛ <! C => A !>.
+  Proof. intros H σ. do 2 rewrite simpl_feval_fimpl. naive_solver. Qed.
+
+  Lemma f_exists_ent A B y1 y2 :
+    (∀ t, A[y1 \ t] ⇛ B[y2 \ t]) →
+    <! exists y1, A !> ⇛ <! exists y2, B !>.
+  Proof.
+    intros Hequiv σ. simp feval. intros [v Hv]. exists v. naive_solver.
+  Qed.
+
+  Lemma f_forall_ent A B y1 y2 :
+    (∀ t, A[y1 \ t] ⇛ B[y2 \ t]) →
+    <! forall y1, A !> ⇛ <! forall y2, B !>.
+  Proof.
+    intros Hequiv σ. do 2 rewrite simpl_feval_fforall. intros. naive_solver.
+  Qed.
+
+  Lemma f_ent_elim σ A B :
+    σ ⊨ A →
+    A ⇛ B →
+    σ ⊨ B.
+  Proof. naive_solver. Qed.
+
+  Lemma f_ent_intro A B :
+    (∀ σ, σ ⊨ A → σ ⊨ B) →
+    A ⇛ B.
+  Proof. naive_solver. Qed.
 
 End props.
