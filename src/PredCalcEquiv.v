@@ -9,6 +9,9 @@ From MRC Require Import PredCalc.
 Section equiv.
   Context {M : model}.
   Implicit Types A B C : @formula (value M).
+  Implicit Types t : @term (value M).
+
+  Global Instance tequiv : Equiv term := λ t1 t2, ∀ σ v, teval σ t1 v ↔ teval σ t2 v.
 
   Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B .
   Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
@@ -73,13 +76,6 @@ Section equiv.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
-
-  (* Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExists. *)
-  (* Proof with auto. *)
-  (*   intros x ? <- A B H σ. simp feval.  *)
-  (*   intros x ? <- A B H σ b. apply feval_exists_equiv. *)
-  (*   - intros. rewrite H... *)
-  (*   - intros. *)
 
 End equiv.
 

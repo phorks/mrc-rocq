@@ -88,10 +88,16 @@ Section facts.
     <! A[x \ x] !> ≡ A.
   Proof with auto. apply fequiv_subst_and_diag. Qed.
 
-  Global Instance subst_proper : Proper ((≡@{@formula (value M)}) ==> (=) ==> (=) ==> (≡@{@formula (value M)})) subst_formula.
+  Global Instance subst_proper : Proper ((≡@{@formula (value M)}) ==> (=) ==> (=) ==> (≡)) subst_formula.
   Proof with auto.
     intros A B H x ? <- t ? <- σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
+  Global Instance subst_proper_in_term : Proper ((=) ==> (=) ==> (≡@{@term (value M)}) ==> (≡)) subst_formula.
+  Proof with auto.
+    intros A ? <- x ? <- t1 t2 Hterm σ. pose proof (teval_total σ t1) as [v Hv].
+    apply Hterm in Hv as Hv'. rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
   Global Instance fexists_proper : Proper ((=) ==> (≡@{@formula (value M)}) ==> (≡@{@formula (value M)})) FExists.
@@ -100,8 +106,7 @@ Section facts.
     rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
-
-  Lemma fequiv_exists_alpha_equiv x x' A :
+  Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
     <! exists x, A !> ≡ <! exists x', A[x \ x'] !>.
   Proof with auto.
@@ -113,11 +118,11 @@ Section facts.
     - rewrite (insert_commute σ)... rewrite feval_delete_state_var_head with (x:=x')...
   Qed.
 
-  Lemma fequiv_forall_alpha_equiv x x' A :
+  Lemma fforall_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
     <! forall x, A !> ≡ <! forall x', A[x \ x'] !>.
   Proof with auto.
-    intros. unfold FForall. rewrite fequiv_exists_alpha_equiv with (x':=x')...
+    intros. unfold FForall. rewrite fexists_alpha_equiv with (x':=x')...
     rewrite simpl_subst_not...
   Qed.
 
