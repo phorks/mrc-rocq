@@ -19,7 +19,6 @@ Section equiv.
   Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B .
   Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
 
-
   Global Instance fent_refl : Reflexive fent.
   Proof with auto. intros ? ? ?... Qed.
 
@@ -96,8 +95,62 @@ Section equiv.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
+
+  Global Instance feval_proper_fent : Proper ((=) ==> (fent) ==> (→)) feval.
+  Proof with auto.
+    intros σ ? <- A B Hent H. apply Hent...
+  Qed.
+
 End equiv.
 
-Declare Scope mrc_scope.
-Infix "⇛" := fent (at level 70, no associativity) : mrc_scope.
+Infix "⇛" := fent (at level 70, no associativity).
 Notation "(⇛)" := fent (only parsing).
+Notation "(⇛@{ M } )" := (@fent M) (only parsing).
+Infix "⇚" := (flip fent) (at level 70, no associativity).
+Notation "(⇚)" := (flip fent) (only parsing).
+Notation "(⇚@{ M } )" := (flip (@fent M)) (only parsing).
+
+Section ent.
+  Context {M : model}.
+  Implicit Types A B C : formula (value M).
+
+  Global Instance fnot_proper_fent : Proper ((⇛) ==> (flip (⇛@{M}))) FNot.
+  Proof with auto.
+    intros A B Hent σ. simp feval. intros H contra. apply H. apply Hent...
+  Qed.
+
+
+  Lemma f_ent_contrapositive A B :
+    <! ¬ B !> ⇛ <! ¬ A !> ↔ <! A !> ⇛ <! B !>.
+  Proof with auto.
+    split; intros.
+    - intros σ. specialize (H σ). simp feval in H. intros. pose proof (feval_lem σ B) as []...
+      apply H in H1. contradiction.
+    - rewrite H... reflexivity.
+  Qed.
+
+  Lemma f_ent_reverse_direction A B :
+    <! A !> ⇚ <! B !> ↔ <! ¬ A !> ⇛ <! ¬ B !>.
+  Proof with auto.
+    unfold flip. rewrite f_ent_contrapositive...
+  Qed.
+
+  Global Instance fand_proper_ent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FAnd.
+  Proof with auto.
+    intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
+    intros [? ?]; split; [apply Hent1 | apply Hent2]...
+  Qed.
+
+  Global Instance for_proper_ent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FOr.
+  Proof with auto.
+    intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
+    intros [|]; [left; apply Hent1 | right; apply Hent2]...
+  Qed.
+
+  Global Instance fimpl_proper_ent : Proper ((⇚) ==> (⇛@{M}) ==> (⇛)) FImpl.
+  Proof with auto.
+    intros A1 A2 Hent1 B1 B2 Hent2. unfold FImpl. rewrite f_ent_reverse_direction in Hent1.
+    rewrite Hent1. rewrite Hent2. reflexivity.
+  Qed.
+
+End ent.

@@ -1,4 +1,5 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
+From Equations Require Import Equations.
 From stdpp Require Import base tactics listset.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
@@ -18,15 +19,14 @@ Section refinement.
   (* Implicit Types w : list variable. *)
 
   Definition refines (p1 p2 : prog) :=
-    ∀ A,
+    ∀ A : ni_formula,
       (∀ x, x ∈ formula_fvars A → var_is_initial x = false) ->
       wp p1 A ⇛ (wp p2 A).
 
   Notation "x '⊑' y" := (refines x y)
                           (in custom prog at level 60,
                               x custom prog,
-                              y custom prog at level 95)
-      : mrc_scope.
+                              y custom prog at level 95).
 
   Lemma r_strengthen_post pre post post' w :
     post' ⇛ post ->
@@ -43,19 +43,33 @@ Section refinement.
     intros Hent A Hinit. simpl. f_simpl. assumption.
   Qed.
 
-  Lemma assignment : forall pre post x E,
-      pre ⇛ post[x \ E] ->
-      <{ x : [pre, post] ⊑ x := E }>.
-  Proof.
-    intros pre post w E H A Hfree. simpl.
-    assert ((ni_formula_formula pre) ≡ pre [w \ (var_non_initial w)]) by admit.
-    rewrite H0.
+  Lemma r_assignment : forall pre post (x : ni_variable) t,
+      <! `ni_var_i x` = x ∧ pre !> ⇛ post[x \ t] ->
+      <{ x : [pre, post] ⊑ x := t }>.
+  Proof with auto.
+    intros pre post x t H A Hfree. simpl.
+    assert ((ni_formula_formula pre) ≡ pre [x ₀ \ x]).
+    { rewrite fequiv_subst_non_free... pose proof (ni_formula_no_initials pre).
+      destruct (decide (x ₀ ∈ formula_fvars pre))... apply H0 in e. simpl in e. discriminate. }
+    rewrite H0. clear H0.
     rewrite <- simpl_subst_and.
     rewrite <- (f_forall_one_point).
-    2:{ admit. }
-    2: {  }
-    -
-      simpl.
+    2:{ simpl. rewrite not_elem_of_singleton. apply ni_var_i_ne_ni_var. }
+    assert
+      (<! `ni_var_i x` = x => (pre ∧ (∀ x ● post => A)) !> ⇛
+                                <! `ni_var_i x` = x => (post [x \ t] ∧ (∀ x ● post => A)) !>).
+    { intros σ ?. rewrite simpl_feval_fimpl in H0. rewrite simpl_feval_fimpl. intros.
+      simp feval in *. apply H0 in H1 as H2. destruct H2 as []. split... apply H.
+      simp feval. split... }
+    rewrite H0. clear H0. rewrite (f_forall_elim t x). rewrite simpl_subst_impl.
+    f_simpl. rewrite f_forall_one_point.
+    2:{ simpl. rewrite not_elem_of_singleton. apply ni_var_i_ne_ni_var. }
+    rewrite fequiv_subst_non_free.
+    2:{ destruct (decide (x ₀ ∈ formula_fvars <! A [x \ t] !>))... exfalso.
+        apply fvars_subst_superset in e. apply elem_of_union in e. destruct e.
+        - apply Hfree in H0. simpl in H0. discriminate.
+        - admit. }
+    reflexivity.
   Qed.
 
 

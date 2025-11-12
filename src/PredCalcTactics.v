@@ -387,6 +387,16 @@ Ltac f_simpl :=
           by (rewrite f_or_comm; rewrite f_iff_comm; reflexivity);
         rewrite Heq; rewrite f_iff_or_absorb; clear Heq
 
+    (* f_impl_elim *)
+    | H : context[<! ?A ∧ (?A => ?B) !>] |- _ =>
+        rewrite f_impl_elim in H
+    | H : context[<! (?A => ?B) ∧ ?A !>] |- _ =>
+        rewrite (f_and_comm (<! ?A => ?B !>) ?A) in H; rewrite f_impl_elim in H
+    | |- context[<! ?A ∧ (?A => ?B) !>] =>
+        rewrite f_impl_elim
+    | |- context[<! (?A => ?B) ∧ ?A !>] =>
+        rewrite (f_and_comm (<! ?A => ?B !>) ?A); rewrite f_impl_elim
+
     (* automatically prove A ≡ A and discharge ¬ A ≡ A *)
     | H : ¬ (<! ?A !> ≡ <! ?A !>) |- _ =>
         specialize (H (reflexivity A)); destruct H

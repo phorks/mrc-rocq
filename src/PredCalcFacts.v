@@ -102,8 +102,30 @@ Section facts.
 
   Global Instance fexists_proper : Proper ((=) ==> (≡@{@formula (value M)}) ==> (≡@{@formula (value M)})) FExists.
   Proof with auto.
-    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v.
+    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v. rewrite H...
+  Qed.
+
+  Global Instance fforall_proper : Proper ((=) ==> (≡@{@formula (value M)}) ==> (≡@{@formula (value M)})) FForall.
+  Proof with auto.
+    intros x ? <- A B H σ. unfold FForall. rewrite H...
+  Qed.
+
+  Global Instance subst_proper_fent : Proper ((⇛@{M}) ==> (=) ==> (=) ==> (⇛)) subst_formula.
+  Proof with auto.
+    intros A B Hent x ? <- t ? <- σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
+  Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FExists.
+  Proof with auto.
+    intros x ? <- A B Hent σ H. simp feval. simp feval in H. destruct H as [v Hv].
+    exists v. revert Hv. rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
+  Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FForall.
+  Proof with auto.
+    intros x ? <- A B H. unfold FForall. apply f_ent_contrapositive.
+    apply f_ent_contrapositive in H. rewrite H. reflexivity.
   Qed.
 
   Lemma fexists_alpha_equiv x x' A :

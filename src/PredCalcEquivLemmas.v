@@ -6,7 +6,6 @@ From MRC Require Import Model.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalcBasic PredCalcEquiv PredCalcSubst PredCalcFacts.
 
-Open Scope mrc_scope.
 Section props.
   Context {M : model}.
   Local Notation term := (term (value M)).
@@ -574,6 +573,11 @@ Section props.
     exists v. rewrite (feval_subst v) in H... rewrite (feval_subst v)...
   Qed.
 
+  Lemma f_impl_elim A B :
+    <! A ∧ (A => B) !> ⇛ B.
+  Proof with auto.
+    intros σ. simp feval. rewrite simpl_feval_fimpl. naive_solver.
+  Qed.
 
   (* some lemmas for proving equivalences and entailments *)
 

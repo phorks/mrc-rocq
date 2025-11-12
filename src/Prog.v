@@ -19,11 +19,11 @@ Section prog.
   Global Coercion ni_formula_formula : ni_formula >-> formula.
 
   Inductive prog : Type :=
-  | PAsgn (x : variable) (t : term)
+  | PAsgn (x : ni_variable) (t : term)
   | PSeq (p1 p2 : prog)
   | PIf (gcs : list gcom)
   | PDo (gcs : list gcom)
-  | PSpec (w : list variable) (pre : ni_formula) (post : formula)
+  | PSpec (w : list ni_variable) (pre : ni_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog)
   with gcom :=
@@ -51,16 +51,16 @@ Section prog.
     | h::t => <! (`gcom_guard h` => a) ∧ `gcoms_all_cmds t a` !>
     end.
 
-  Fixpoint spec_post_wp (w : list variable) post A : formula :=
+  Fixpoint spec_post_wp (w : list ni_variable) post A : formula :=
     match w with
     | [] => <! post => A !>
     | h :: t => <! forall h, `spec_post_wp t post A` !>
     end.
 
-  Fixpoint subst_initials A (w : list variable) : formula :=
+  Fixpoint subst_initials A (w : list ni_variable) : formula :=
     match w with
     | [] => A
-    | x :: xs => subst_initials (A[x \ (var_non_initial x)]) xs
+    | x :: xs => subst_initials (A[(x)₀ \ x]) xs
     end.
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
