@@ -91,6 +91,18 @@ Section pred_calc_syntax.
   Definition FIff A B := FAnd (FImpl A B) (FImpl B A).
   Definition FForall x A := FNot (FExists x (FNot A)).
 
+  Fixpoint FExistsList (xs : list variable) (A : formula) :=
+    match xs with
+    | [] => A
+    | x :: xs => FExists x (FExistsList xs A)
+    end.
+
+  Fixpoint FForallList (xs : list variable) (A : formula) :=
+    match xs with
+    | [] => A
+    | x :: xs => FForall x (FForallList xs A)
+    end.
+
   Fixpoint subst_term t x a : term :=
     match t with
     | TConst v => TConst v
@@ -608,8 +620,12 @@ Notation "x <=> y" := (FIff x y) (in custom formula at level 80, only parsing).
 Notation "x ⇔ y" := (FIff x y) (in custom formula at level 80, only printing).
 Notation "'exists' x .. y ',' A" := (FExists x .. (FExists y A) ..) (in custom formula at level 85, only parsing).
 Notation "'∃' x .. y '●' A" := (FExists x .. (FExists y A) ..) (in custom formula at level 85, only printing).
+Notation "'exists*' xs ',' A" := (FExistsList xs A) (in custom formula at level 85, only parsing).
+Notation "'∃*' xs '●' A" := (FExistsList xs A) (in custom formula at level 85, only printing).
 Notation "'forall' x .. y ',' A" := (FForall x .. (FForall y A) ..) (in custom formula at level 85).
-Global Notation "'∀' x .. y '●' A" := (FForall x .. (FForall y A) ..) (in custom formula at level 85).
+Notation "'∀' x .. y '●' A" := (FForall x .. (FForall y A) ..) (in custom formula at level 85).
+Notation "'forall*' xs ',' A" := (FForallList xs A) (in custom formula at level 85).
+Notation "'∀*' xs '●' A" := (FForallList xs A) (in custom formula at level 85).
 Notation rank A := (formula_rank A + quantifier_rank A).
 
 Open Scope formula_scope.

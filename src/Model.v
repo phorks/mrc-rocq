@@ -40,6 +40,7 @@ Definition var_increase_sub x i :=
 Definition var_ni (x : variable) := mkVar (var_name x) (var_sub x) false.
 Definition ni_var_i (x : ni_variable) := mkVar (var_name x) (var_sub x) true.
 
+Coercion raw_var : string >-> variable.
 Notation "x '₀'" := (ni_var_i x).
 
 Lemma var_with_sub_var_sub_id : forall x,
@@ -57,8 +58,6 @@ Proof. destruct x. unfold ni_var_var. unfold ni_var_i. done. Qed.
 
 Hint Rewrite var_with_sub_var_sub_id : core.
 Hint Rewrite var_with_sub_idemp : core.
-
-Coercion raw_var : string >-> variable.
 
 Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
   match fuel with
@@ -195,6 +194,7 @@ Record model := mkModel {
   value_ty : Type;
   value_bottom : value;
   hastype : value → value_ty → Prop;
+  as_nat : value → option nat;
   fdefs : gmap string (@fdef value value_ty hastype);
   pdefs : gmap string (@pdef value);
 }.

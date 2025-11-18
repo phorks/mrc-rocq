@@ -70,7 +70,11 @@ Section refinement.
         - apply Hfree in H0. simpl in H0. discriminate.
         - admit. }
     reflexivity.
-  Qed.
+  Admitted.
+
+  Lemma r_iteration w (I : formula) (v : variable) gcs :
+    w : [inv, inv ∧ ¬ (gcomc_any_guard gcs)] ⊑ `PDo gcs`
+
 
 
 

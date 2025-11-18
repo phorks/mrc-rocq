@@ -1,5 +1,6 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
-From stdpp Require Import base.
+From Stdlib Require Import Strings.String.
+From stdpp Require Import base gmap.
 From MRC Require Import Options.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -21,34 +22,46 @@ Section prog.
   Inductive prog : Type :=
   | PAsgn (x : ni_variable) (t : term)
   | PSeq (p1 p2 : prog)
-  | PIf (gcs : list gcom)
-  | PDo (gcs : list gcom)
+  | PIf (gcmds : list (formula * prog))
+  | PWhile (g inv : formula) (variant : variable) (p : prog)
   | PSpec (w : list ni_variable) (pre : ni_formula) (post : formula)
   | PVar (x : variable) (p : prog)
-  | PConst (x : variable) (p : prog)
-  with gcom :=
-  | GCom (g : formula) (p : prog).
+  | PConst (x : variable) (p : prog).
 
-  Definition gcom_guard (c : gcom) :=
-    match c with
-    | GCom a _ => a
+  Fixpoint modified_ni_vars p : list ni_variable :=
+    match p with
+    | PAsgn x t => [x]
+    | PSeq p1 p2 => modified_ni_vars p1 ++ modified_ni_vars p2
+    | PIf gcmds => mjoin ((modified_ni_vars ∘ snd) <$> gcmds)
+    | PWhile _ _ _ p => modified_ni_vars p
+    | PSpec w pre post => w
+    | PVar x p => modified_ni_vars p
+    | PConst x p => modified_ni_vars p
     end.
 
-  Definition gcom_cmd (c : gcom) :=
-    match c with
-    | GCom _ p => p
-    end.
+  Definition modified_vars p : list variable := ni_var_var <$> modified_ni_vars p.
 
-  Fixpoint gcoms_any_guard (gcoms : list gcom) : formula :=
-    match gcoms with
+  Fixpoint prog_fvars p : gset variable :=
+    match p with
+    | PAsgn x t => {[ni_var_var x]}
+    | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
+    | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
+    | PWhile _ _ _ p => prog_fvars p
+    | PSpec w pre post => list_to_set (ni_var_var <$> w) ∪ formula_fvars pre ∪ formula_fvars post
+    | PVar x p => prog_fvars p ∖ {[x]}
+    | PConst x p => prog_fvars p ∖ {[x]}
+  end.
+
+  Fixpoint any_guard (gcmds : list (formula * prog)) : formula :=
+    match gcmds with
     | [] => <! true !>
-    | h::t => <! `gcom_guard h` ∨ `gcoms_any_guard t` !>
+    | (g, _)::cmds => <! g ∨ `any_guard cmds` !>
     end.
 
-  Fixpoint gcoms_all_cmds (gcoms : list gcom) (a : formula) : formula :=
-    match gcoms with
+  Fixpoint all_cmds (gcmds : list (formula * prog)) (A : formula) : formula :=
+    match gcmds with
     | [] => <! true !>
-    | h::t => <! (`gcom_guard h` => a) ∧ `gcoms_all_cmds t a` !>
+    | (g, _)::cmds => <! (g => A) ∧ `all_cmds cmds A` !>
     end.
 
   Fixpoint spec_post_wp (w : list ni_variable) post A : formula :=
@@ -63,12 +76,27 @@ Section prog.
     | x :: xs => subst_initials (A[(x)₀ \ x]) xs
     end.
 
+  (* Inductive wp_raw (A : formula) : prog → formula → Prop := *)
+  (* | WP_Asgn x e : wp_raw A (PAsgn x e) (A [x \ e]) *)
+  (* | WP_Seq p1 p2 : ∀ wp wp', wp_raw A p2 wp' → wp_raw wp' p1 wp → wp_raw A (PSeq p1 p2) wp *)
+  (* | WP_If gcs : wp_raw A (PIf gcs) (<! `gcmds_any_guard (gcs)` ∧ `gcmds_all_cmds (gcs) A` !>) *)
+  (* | WP_Do gcs : ∀ I : formula,  *)
+                                             (* . *)
+  (* | WP_Seq p1 p2 : *)
+
+  (*   wp p1 (wp p2 A ≡ (FSimple AT_True)) ≡ <! true !> → wp (PSeq p1 p2) A. *)
+
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
     | PAsgn x e => A[x \ e]
     | PSeq p1 p2 => wp p1 (wp p2 A)
-    | PIf gcs => <! `gcoms_any_guard (gcs)` ∧ `gcoms_all_cmds (gcs) A` !>
-    | PDo gcs => <! false !>
+    | PIf gcs => <! `any_guard (gcs)` ∧ `all_cmds (gcs) A` !>
+    | PWhile g inv v p =>
+        let x := fresh_var (raw_var "x") (formula_fvars inv ∪ prog_fvars p ∪ formula_fvars A) in
+        <! forall* `modified_vars p`,
+            (inv ∧ g => `wp p inv`) ∧
+            (inv ∧ ¬ g => A) ∧
+            (inv ∧ g ∧ v = x => `wp p (<! v < x !>)`) !>
     | PSpec w pre post => <! pre ∧ `subst_initials (spec_post_wp w post A) w` !>
     | PVar x p => <! forall x, `wp p A` !>
     | PConst x p => <! exists x, `wp p A` !>
@@ -77,7 +105,7 @@ Section prog.
 End prog.
 
 Declare Custom Entry prog.
-Declare Custom Entry gcom.
+Declare Custom Entry gcmd.
 Declare Scope prog_scope.
 Declare Custom Entry prog_aux.
 Bind Scope prog_scope with prog.
@@ -99,22 +127,22 @@ Notation "x := e" := (PAsgn x e)
 Notation "x ; y" := (PSeq x y)
                       (in custom prog at level 95, right associativity) : prog_scope.
 
-Notation "x -> y" := (GCom x y)
-                       (in custom gcom at level 60, x custom formula,
+Notation "x -> y" := (GCmd x y)
+                       (in custom gcmd at level 60, x custom formula,
                            y custom prog,
                            no associativity) : prog_scope.
 
 Notation "'if' | x | .. | y 'fi'" :=
   (PIf (cons (x) .. (cons (y) nil) ..))
     (in custom prog at level 95,
-        x custom gcom,
-        y custom gcom, no associativity) : prog_scope.
+        x custom gcmd,
+        y custom gcmd, no associativity) : prog_scope.
 
 Notation "'do' | x | .. | y 'od'" :=
   (PDo (cons (x) .. (cons (y) nil) ..))
     (in custom prog at level 95,
-        x custom gcom,
-        y custom gcom, no associativity) : prog_scope.
+        x custom gcmd,
+        y custom gcmd, no associativity) : prog_scope.
 
 Notation "x , .. , y : [ p , q ]" :=
   (PSpec (cons x .. (cons y nil) ..) p q)
