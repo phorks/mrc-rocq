@@ -10,13 +10,13 @@ Record variable := mkVar {
   var_is_initial : bool;
 }.
 
-Record ni_variable := mkNiVar {
-  ni_var_name : string;
-  ni_var_sub : nat;
+Record final_variable := mkFinalVar {
+  final_var_name : string;
+  final_var_sub : nat;
 }.
 
-Definition ni_var_var (x : ni_variable) := mkVar (ni_var_name x) (ni_var_sub x) false.
-Coercion ni_var_var : ni_variable >-> variable.
+Definition final_var_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
+Coercion final_var_var : final_variable >-> variable.
 
 Global Instance variable_eq_dec : EqDecision variable. Proof. solve_decision. Defined.
 Global Instance variable_countable : Countable variable.
@@ -37,11 +37,11 @@ Definition var_with_sub x i :=
   mkVar (var_name x) (i) (var_is_initial x).
 Definition var_increase_sub x i :=
   var_with_sub x (var_sub x + i).
-Definition var_ni (x : variable) := mkVar (var_name x) (var_sub x) false.
-Definition ni_var_i (x : ni_variable) := mkVar (var_name x) (var_sub x) true.
+Definition var_to_final (x : variable) := mkVar (var_name x) (var_sub x) false.
+Definition final_to_initial (x : final_variable) := mkVar (var_name x) (var_sub x) true.
 
 Coercion raw_var : string >-> variable.
-Notation "x '₀'" := (ni_var_i x).
+(* Notation "x '₀'" := (final_var_i x). *)
 
 Lemma var_with_sub_var_sub_id : forall x,
     var_with_sub x (var_sub x) = x.
@@ -52,9 +52,10 @@ Proof. intros. unfold var_with_sub. reflexivity. Qed.
 Lemma var_sub_of_var_with_sub : forall x i,
     var_sub (var_with_sub x i) = i.
 Proof. reflexivity. Qed.
-Lemma ni_var_i_ne_ni_var (x : ni_variable) :
-  x ₀ ≠ x.
-Proof. destruct x. unfold ni_var_var. unfold ni_var_i. done. Qed.
+
+Lemma final_var_ne_initial (x : final_variable) :
+  final_to_initial x ≠ x.
+Proof. destruct x. unfold final_var_var, final_to_initial. done. Qed.
 
 Hint Rewrite var_with_sub_var_sub_id : core.
 Hint Rewrite var_with_sub_idemp : core.

@@ -12,19 +12,12 @@ Section prog.
   Local Notation term := (term (value M)).
   Local Notation formula := (formula (value M)).
 
-  Record ni_formula := mkNiFormula {
-    ni_formula_formula : formula;
-    ni_formula_no_initials : ∀ x, x ∈ formula_fvars ni_formula_formula → var_is_initial x = false
-  }.
-
-  Global Coercion ni_formula_formula : ni_formula >-> formula.
-
   Inductive prog : Type :=
-  | PAsgn (x : ni_variable) (t : term)
+  | PAsgn (x : final_variable) (t : term)
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
-  | PWhile (g inv : formula) (variant : variable) (p : prog)
-  | PSpec (w : list ni_variable) (pre : ni_formula) (post : formula)
+  | PWhile (g : formula) (p: prog) (inv : formula) (variant : variable)
+  | PSpec (w : list ni_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
 
@@ -33,7 +26,7 @@ Section prog.
     | PAsgn x t => [x]
     | PSeq p1 p2 => modified_ni_vars p1 ++ modified_ni_vars p2
     | PIf gcmds => mjoin ((modified_ni_vars ∘ snd) <$> gcmds)
-    | PWhile _ _ _ p => modified_ni_vars p
+    | PWhile _ p _ _ => modified_ni_vars p
     | PSpec w pre post => w
     | PVar x p => modified_ni_vars p
     | PConst x p => modified_ni_vars p
@@ -46,7 +39,7 @@ Section prog.
     | PAsgn x t => {[ni_var_var x]}
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
-    | PWhile _ _ _ p => prog_fvars p
+    | PWhile _ p _ _ => prog_fvars p
     | PSpec w pre post => list_to_set (ni_var_var <$> w) ∪ formula_fvars pre ∪ formula_fvars post
     | PVar x p => prog_fvars p ∖ {[x]}
     | PConst x p => prog_fvars p ∖ {[x]}
@@ -76,22 +69,12 @@ Section prog.
     | x :: xs => subst_initials (A[(x)₀ \ x]) xs
     end.
 
-  (* Inductive wp_raw (A : formula) : prog → formula → Prop := *)
-  (* | WP_Asgn x e : wp_raw A (PAsgn x e) (A [x \ e]) *)
-  (* | WP_Seq p1 p2 : ∀ wp wp', wp_raw A p2 wp' → wp_raw wp' p1 wp → wp_raw A (PSeq p1 p2) wp *)
-  (* | WP_If gcs : wp_raw A (PIf gcs) (<! `gcmds_any_guard (gcs)` ∧ `gcmds_all_cmds (gcs) A` !>) *)
-  (* | WP_Do gcs : ∀ I : formula,  *)
-                                             (* . *)
-  (* | WP_Seq p1 p2 : *)
-
-  (*   wp p1 (wp p2 A ≡ (FSimple AT_True)) ≡ <! true !> → wp (PSeq p1 p2) A. *)
-
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
     | PAsgn x e => A[x \ e]
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! `any_guard (gcs)` ∧ `all_cmds (gcs) A` !>
-    | PWhile g inv v p =>
+    | PWhile g p inv v =>
         let x := fresh_var (raw_var "x") (formula_fvars inv ∪ prog_fvars p ∪ formula_fvars A) in
         <! forall* `modified_vars p`,
             (inv ∧ g => `wp p inv`) ∧
@@ -127,7 +110,7 @@ Notation "x := e" := (PAsgn x e)
 Notation "x ; y" := (PSeq x y)
                       (in custom prog at level 95, right associativity) : prog_scope.
 
-Notation "x -> y" := (GCmd x y)
+Notation "x -> y" := ((x, y))
                        (in custom gcmd at level 60, x custom formula,
                            y custom prog,
                            no associativity) : prog_scope.
@@ -138,11 +121,10 @@ Notation "'if' | x | .. | y 'fi'" :=
         x custom gcmd,
         y custom gcmd, no associativity) : prog_scope.
 
-Notation "'do' | x | .. | y 'od'" :=
-  (PDo (cons (x) .. (cons (y) nil) ..))
+Notation "'while' g 'do' p 'invariant' i 'variant' v 'end'" :=
+  (PWhile g p i v)
     (in custom prog at level 95,
-        x custom gcmd,
-        y custom gcmd, no associativity) : prog_scope.
+        g custom formula, p custom prog, i custom formula, no associativity) : prog_scope.
 
 Notation "x , .. , y : [ p , q ]" :=
   (PSpec (cons x .. (cons y nil) ..) p q)

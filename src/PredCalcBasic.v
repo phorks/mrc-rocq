@@ -579,6 +579,17 @@ The following is not a limitation; however we enforce it to make proofs easier
       apply rank_eq_if_shape_eq in H. lia.
   Qed.
 
+  Record final_term := mkFinalTerm {
+    final_term_term : term;
+    final_term_final : ∀ x, x ∈ term_fvars final_term_term → var_is_initial x = false;
+  }.
+
+  Record final_formula := mkFinalFormula {
+    final_formula_formula : formula;
+    final_formula_final : ∀ x, x ∈ formula_fvars final_formula_formula →
+                                     var_is_initial x = false
+  }.
+
 End pred_calc_syntax.
 
 Declare Custom Entry formula.
