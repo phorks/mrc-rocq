@@ -10,7 +10,7 @@ Section facts.
   Context {M : model}.
 
   Implicit Types t : term (value M).
-  Implicit Types sf : @simple_formula (value M).
+  Implicit Types af : @atomic_formula (value M).
   Implicit Types A B C : formula (value M).
   Implicit Types v : value M.
 
@@ -18,8 +18,8 @@ Section facts.
     <! A[x \ x] !> ≡ A ∧ ∀ σ t v, teval σ t v → feval (<[x:=v]> σ) A ↔ feval σ (A[x \ t]).
   Proof with auto.
     generalize dependent x. induction A; intros.
-    - unfold subst_formula. simpl. rewrite subst_sf_diag... split...
-      intros. simp feval. apply sfeval_subst...
+    - unfold subst_formula. simpl. rewrite subst_af_diag... split...
+      intros. simp feval. apply afeval_subst...
     - setoid_rewrite simpl_subst_not. split.
       + destruct (IHA x) as [-> _]...
       + intros. destruct (IHA x) as [_ ?]. simp feval. rewrite H0...
@@ -130,7 +130,7 @@ Section facts.
 
   Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
-    <! exists x, A !> ≡ <! exists x', A[x \ x'] !>.
+    <! ∃ x, A !> ≡ <! ∃ x', A[x \ x'] !>.
   Proof with auto.
     intros Hfree σ. apply feval_exists_equiv_if. intros.
     rewrite (feval_subst v)... rewrite (feval_subst v)...
@@ -142,7 +142,7 @@ Section facts.
 
   Lemma fforall_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
-    <! forall x, A !> ≡ <! forall x', A[x \ x'] !>.
+    <! ∀ x, A !> ≡ <! ∀ x', A[x \ x'] !>.
   Proof with auto.
     intros. unfold FForall. rewrite fexists_alpha_equiv with (x':=x')...
     rewrite simpl_subst_not...
@@ -150,7 +150,7 @@ Section facts.
 
   Lemma fexists_unused x A :
     x ∉ formula_fvars A →
-    <! exists x, A !> ≡ A.
+    <! ∃ x, A !> ≡ A.
   Proof with auto.
     intros H σ. simp feval. split.
     - intros [v Hv]. rewrite (feval_subst v) in Hv...
@@ -160,7 +160,7 @@ Section facts.
 
   Lemma fforall_unused x A :
     x ∉ formula_fvars A →
-    <! forall x, A !> ≡ A.
+    <! ∀ x, A !> ≡ A.
   Proof with auto.
     unfold FForall. intros. rewrite fexists_unused... intros σ.
     simp feval. rewrite feval_stable...
@@ -229,7 +229,7 @@ Section facts.
   Qed.
 
   Lemma simpl_feval_fimpl σ A B :
-    feval σ <! A => B !> ↔ (feval σ A → feval σ B).
+    feval σ <! A ⇒ B !> ↔ (feval σ A → feval σ B).
   Proof with auto.
     unfold FImpl. simp feval. split.
     - intros [|] ?... contradiction.
@@ -237,13 +237,13 @@ Section facts.
   Qed.
 
   Lemma simpl_feval_fiff σ A B :
-    feval σ <! A <=> B !> ↔ (feval σ A ↔ feval σ B).
+    feval σ <! A ⇔ B !> ↔ (feval σ A ↔ feval σ B).
   Proof with auto.
     unfold FIff. simp feval. do 2 rewrite simpl_feval_fimpl. naive_solver.
   Qed.
 
   Lemma simpl_feval_fforall σ x A :
-    feval σ <! forall x, A !> ↔ ∀ v, feval σ (A [x \ (TConst v)]).
+    feval σ <! ∀ x, A !> ↔ ∀ v, feval σ (A [x \ (TConst v)]).
   Proof with auto.
     unfold FForall. simp feval. setoid_rewrite (simpl_subst_not). split; intros.
     - destruct (feval_lem σ (A [x \ (TConst v)]))... exfalso. apply H. exists v. simp feval.

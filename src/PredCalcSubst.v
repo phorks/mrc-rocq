@@ -11,7 +11,7 @@ Section subst.
   Local Notation term := (term (value M)).
 
   Implicit Types t : term.
-  Implicit Types sf : @simple_formula (value M).
+  Implicit Types af : @atomic_formula (value M).
   Implicit Types A B C : @formula (value M).
   Implicit Types v : value M.
 
@@ -151,9 +151,9 @@ Section subst.
         * rewrite Heqinner...
   Qed.
 
-  Lemma simpl_subst_sf sf x a :
-    subst_formula (FSimple sf) x a =
-      FSimple (subst_sf sf x a).
+  Lemma simpl_subst_af af x a :
+    subst_formula (FAtom af) x a =
+      FAtom (subst_af af x a).
   Proof with auto. unfold subst_formula. simpl. reflexivity. Qed.
 
   Lemma simpl_subst_not A x a :
@@ -196,20 +196,20 @@ Section subst.
   Qed.
 
   Lemma simpl_subst_impl A B x a :
-    <! (A => B)[x \ a] !> = <! (A[x \ a]) => (B[x \ a])!>.
+    <! (A ⇒ B)[x \ a] !> = <! (A[x \ a]) ⇒ (B[x \ a])!>.
   Proof with auto.
     unfold FImpl. rewrite simpl_subst_or. rewrite simpl_subst_not...
   Qed.
 
   Lemma simpl_subst_iff A B x a :
-    <! (A <=> B)[x \ a] !> = <! (A[x \ a]) <=> (B[x \ a])!>.
+    <! (A ⇔ B)[x \ a] !> = <! (A[x \ a]) ⇔ (B[x \ a])!>.
   Proof with auto.
     intros. unfold FIff. rewrite simpl_subst_and. do 2 rewrite simpl_subst_impl...
   Qed.
 
   Lemma simpl_subst_exists_skip x y A a :
     x = y ∨ x ∉ formula_fvars A →
-    <! (exists y, A)[x\a] !> = <! exists y, A !>.
+    <! (∃ y, A)[x\a] !> = <! ∃ y, A !>.
   Proof with auto.
     intros Heq. unfold subst_formula. simpl. destruct (quant_subst_skip_cond y A x)...
     destruct Heq; contradiction.
@@ -219,7 +219,7 @@ Section subst.
     x ≠ y →
     x ∈ formula_fvars A →
     let y' := fresh_var y (quant_subst_fvars y A x a) in
-    <! (exists y, A)[x\a] !> = <! (exists y', A[y\y'][x\a]) !>.
+    <! (∃ y, A)[x\a] !> = <! (∃ y', A[y\y'][x\a]) !>.
   Proof.
     intros Hneq Hfree. simpl. unfold subst_formula. simpl.
     destruct (quant_subst_skip_cond y A x)...
@@ -234,7 +234,7 @@ Section subst.
 
   Lemma simpl_subst_forall_skip x y A a :
     x = y ∨ x ∉ formula_fvars A →
-    <! (forall y, A)[x\a] !> = <! forall y, A !>.
+    <! (∀ y, A)[x\a] !> = <! ∀ y, A !>.
   Proof with auto.
     intros Heq. unfold FForall. rewrite simpl_subst_not. rewrite simpl_subst_exists_skip...
   Qed.
@@ -243,28 +243,28 @@ Section subst.
     x ≠ y →
     x ∈ formula_fvars A →
     let y' := fresh_var y (quant_subst_fvars y A x a) in
-    <! (forall y, A)[x\a] !> = <! (forall y', A[y\y'][x\a]) !>.
+    <! (∀ y, A)[x\a] !> = <! (∀ y', A[y\y'][x\a]) !>.
   Proof with auto.
     intros Hneq Hfree. unfold FForall. rewrite simpl_subst_not.
     rewrite simpl_subst_exists_propagate... do 2 rewrite simpl_subst_not...
   Qed.
 
   Lemma subst_formula_ind {x t} : ∀ P,
-      (∀ sf, P (FSimple $ subst_sf sf x t) (FSimple sf)) →
+      (∀ af, P (FAtom $ subst_af af x t) (FAtom af)) →
       (∀ A, P <! A[x \ t] !> A → P <! ¬ (A[x \ t]) !> <! ¬ A !>) →
       (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∧ A2[x \ t] !> <! A1 ∧ A2 !>) →
       (∀ A1 A2, P <! A1[x \ t] !> A1 → P <! A2[x \ t] !> A2 → P <! A1[x \ t] ∨ A2[x \ t] !> <! A1 ∨ A2 !>) →
       (∀ y A, (∀ B, shape_eq B A = true → P <! B[x \ t] !> B) →
-              (x = y ∨ x ∉ formula_fvars A → P <! exists y, A !> <! exists y, A !>)) →
+              (x = y ∨ x ∉ formula_fvars A → P <! ∃ y, A !> <! ∃ y, A !>)) →
       (∀ y A, (∀ B, shape_eq B A = true → P <! B[x \ t] !> B) →
               (x ≠ y → x ∈ formula_fvars A →
                let y' := fresh_var y (quant_subst_fvars y A x t) in
-               P <! exists y', A[y \ y'][x \ t] !> <! exists y, A !>)) →
+               P <! ∃ y', A[y \ y'][x \ t] !> <! ∃ y, A !>)) →
       ∀ A, P <! A[x \ t] !> A.
   Proof with auto.
     simpl.
-    intros P Hsf Hnot Hand Hor Hexists1 Hexists2 A. induction A using formula_ind.
-    - apply Hsf.
+    intros P Haf Hnot Hand Hor Hexists1 Hexists2 A. induction A using formula_ind.
+    - apply Haf.
     - rewrite simpl_subst_not. apply Hnot...
     - rewrite simpl_subst_and. apply Hand...
     - rewrite simpl_subst_or. apply Hor...
@@ -283,22 +283,22 @@ Section subst.
       * apply IHargs. intros. apply H. simpl. right...
   Qed.
 
-  Lemma subst_sf_diag : forall sf x,
-      subst_sf sf x x = sf.
+  Lemma subst_af_diag : forall af x,
+      subst_af af x x = af.
   Proof with auto.
-    intros sf x. destruct sf...
+    intros af x. destruct af...
     - simpl... f_equal; apply subst_term_diag.
     - simpl. f_equal. induction args... rewrite map_cons. f_equal; auto; apply subst_term_diag.
   Qed.
 
-(* Hint Resolve simpl_subst_sf : core. *)
+(* Hint Resolve simpl_subst_af : core. *)
 (* Hint Resolve simpl_subst_not : core. *)
 (* Hint Rewrite simpl_subst_and : core. *)
 (* Hint Rewrite simpl_subst_or : core. *)
 (* Hint Rewrite simpl_subst_impl : core. *)
 (* Hint Rewrite simpl_subst_iff : core. *)
 (* Hint Rewrite subst_term_diag : core. *)
-(* Hint Rewrite subst_sf_diag : core. *)
+(* Hint Rewrite subst_af_diag : core. *)
 
   Lemma subst_term_non_free_eq t x t' :
     x ∉ term_fvars t →
@@ -313,11 +313,11 @@ Section subst.
       * apply IHargs... intros. apply H0... simpl. right...
   Qed.
 
-  Lemma subst_sf_non_free_eq sf x t :
-    x ∉ sf_fvars sf →
-    subst_sf sf x t = sf.
+  Lemma subst_af_non_free_eq af x t :
+    x ∉ af_fvars af →
+    subst_af af x t = af.
   Proof with auto.
-    intros. destruct sf; simpl; try reflexivity.
+    intros. destruct af; simpl; try reflexivity.
     - simpl in H. apply not_elem_of_union in H as [? ?]. f_equal; apply subst_term_non_free_eq...
     - f_equal. simpl in H. induction args... simpl in *. apply not_elem_of_union in H as [? ?].
       f_equal.
@@ -357,7 +357,7 @@ Section subst.
     A[x \ t] ≡ A.
   Proof with auto.
     apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A ≡ B); intros.
-    - rewrite subst_sf_non_free_eq...
+    - rewrite subst_af_non_free_eq...
     - f_equiv...
     - simpl in H1. apply not_elem_of_union in H1 as [? ?].
       f_equiv; [apply H|apply H0]...
@@ -434,10 +434,10 @@ Section subst.
           -- apply free_var_subst_fvars_subseteq...
   Qed.
 
-  Lemma subst_sf_free_fvars sf x t' :
-    x ∈ sf_fvars sf →
-    sf_fvars (subst_sf sf x t') = (sf_fvars sf ∖ {[x]}) ∪ term_fvars t'.
-    intros. destruct sf.
+  Lemma subst_af_free_fvars af x t' :
+    x ∈ af_fvars af →
+    af_fvars (subst_af af x t') = (af_fvars af ∖ {[x]}) ∪ term_fvars t'.
+    intros. destruct af.
     Proof with auto.
       - simpl in H. apply elem_of_empty in H as [].
       - simpl in H. apply elem_of_empty in H as [].
@@ -493,7 +493,7 @@ Section subst.
     Proof with auto.
       apply subst_formula_ind with
         (P:=λ A B, x ∉ formula_fvars B → formula_fvars A = formula_fvars B); intros; simpl.
-      - rewrite subst_sf_non_free_eq...
+      - rewrite subst_af_non_free_eq...
       - simpl...
       - simpl in H. simpl in H1. apply not_elem_of_union in H1 as [? ?]. simpl. set_solver.
       - simpl in H. simpl in H1. apply not_elem_of_union in H1 as [? ?]. simpl. set_solver.
@@ -509,7 +509,7 @@ Section subst.
       intros.
       generalize dependent t. generalize dependent x.
       induction A; simpl; intros.
-      - rewrite subst_sf_free_fvars...
+      - rewrite subst_af_free_fvars...
       - rewrite simpl_subst_not. simpl. rewrite IHA...
       - rewrite simpl_subst_and. simpl. apply elem_of_union in H as [|].
         + rewrite IHA1... destruct (decide (x ∈ formula_fvars A2)).
@@ -571,14 +571,14 @@ Section subst.
         + apply IHargs. intros. apply H. right...
     Qed.
 
-    Lemma subst_sf_commute sf x1 t1 x2 t2 :
+    Lemma subst_af_commute af x1 t1 x2 t2 :
       x1 ≠ x2 →
       x1 ∉ term_fvars t2 →
       x2 ∉ term_fvars t1 →
-      subst_sf (subst_sf sf x1 t1) x2 t2 =
-        subst_sf (subst_sf sf x2 t2) x1 t1.
+      subst_af (subst_af af x1 t1) x2 t2 =
+        subst_af (subst_af af x2 t2) x1 t1.
     Proof with auto.
-      intros. destruct sf; simpl...
+      intros. destruct af; simpl...
       - f_equal; auto using subst_term_commute.
       - f_equal. induction args... repeat rewrite map_cons. f_equal... apply subst_term_commute...
     Qed.
@@ -653,10 +653,10 @@ Section subst.
           * apply IHteval_args...
     Qed.
 
-    Lemma sfeval_delete_state_var {σ sf} x :
-      x ∉ sf_fvars sf → sfeval σ sf ↔ sfeval (delete x σ) sf.
+    Lemma afeval_delete_state_var {σ af} x :
+      x ∉ af_fvars af → afeval σ af ↔ afeval (delete x σ) af.
     Proof with auto.
-      intros Hfree. destruct sf; simpl.
+      intros Hfree. destruct af; simpl.
       - split; inversion 1; subst; constructor.
       - split; inversion 1; subst; constructor.
       - simpl in Hfree. apply not_elem_of_union in Hfree as [? ?].
@@ -682,8 +682,8 @@ Section subst.
       induction A; simpl; intros σ x0 Hfree;
         try (apply not_elem_of_union in Hfree as [H1 H2]); simp feval.
       - split; subst; intros.
-        + apply sfeval_delete_state_var...
-        + apply sfeval_delete_state_var in H...
+        + apply afeval_delete_state_var...
+        + apply afeval_delete_state_var in H...
       - rewrite IHA with (x:=x0)...
       - rewrite IHA1 with (x:=x0)... rewrite IHA2 with (x:=x0)...
       - rewrite IHA1 with (x:=x0)... rewrite IHA2 with (x:=x0)...
@@ -714,12 +714,12 @@ Section subst.
       - rewrite (delete_insert_delete σ). rewrite <- teval_args_delete_state_var...
     Qed.
 
-    Lemma sfeval_delete_state_var_head {σ sf v} x :
-      x ∉ sf_fvars sf → sfeval (<[x:=v]> σ) sf ↔ sfeval σ sf.
+    Lemma afeval_delete_state_var_head {σ af v} x :
+      x ∉ af_fvars af → afeval (<[x:=v]> σ) af ↔ afeval σ af.
     Proof with auto.
       intros. etrans.
-      - apply sfeval_delete_state_var. exact H.
-      - rewrite (delete_insert_delete σ). rewrite <- sfeval_delete_state_var...
+      - apply afeval_delete_state_var. exact H.
+      - rewrite (delete_insert_delete σ). rewrite <- afeval_delete_state_var...
     Qed.
 
     Lemma feval_delete_state_var_head {σ A v} x :
@@ -808,15 +808,15 @@ Section subst.
         * assumption.
   Qed.
 
-  Lemma sfeval_subst {σ sf x t v} :
+  Lemma afeval_subst {σ af x t v} :
     teval σ t v →
-    sfeval (<[x:=v]>σ) sf ↔ sfeval σ (subst_sf sf x t).
+    afeval (<[x:=v]>σ) af ↔ afeval σ (subst_af af x t).
   Proof with auto.
     intros Ht. split.
-    - destruct sf; simpl; inversion 1; subst...
+    - destruct af; simpl; inversion 1; subst...
       + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
       + destruct H0 as []. apply (teval_args_subst Ht) in H0. eauto.
-    - destruct sf; simpl; inversion 1; subst...
+    - destruct af; simpl; inversion 1; subst...
       + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
       + destruct H0 as []. apply (teval_args_subst Ht) in H0. eauto.
   Qed.
@@ -850,11 +850,11 @@ Section subst.
   (*   intros. unfold term_wf_aux. rewrite (term_ty_subst H)... *)
   (* Qed. *)
 
-  (* Lemma sf_wf_subst {M Γ sf x t τ} : *)
+  (* Lemma af_wf_subst {M Γ af x t τ} : *)
   (*   term_has_type M Γ t τ → *)
-  (*   sf_wf_aux M Γ (subst_sf sf x t) = sf_wf_aux M (<[x:=τ]> Γ) sf. *)
+  (*   af_wf_aux M Γ (subst_af af x t) = af_wf_aux M (<[x:=τ]> Γ) af. *)
   (* Proof with auto. *)
-  (*   intros. destruct sf... *)
+  (*   intros. destruct af... *)
   (*   - simpl. do 2 rewrite (term_wf_subst H)... *)
   (*   - simpl. destruct (model_pdefs M !! symbol)... remember (pdef_sig p) as sig; clear Heqsig. *)
   (*     generalize dependent sig. induction args... intros. simpl. destruct sig... *)
@@ -873,7 +873,7 @@ Section subst.
   (*   intros. *)
   (*   generalize dependent τ. generalize dependent t. generalize dependent x. *)
   (*   generalize dependent Γ. induction A; intros. *)
-  (*   - simpl. rewrite (sf_wf_subst H)... *)
+  (*   - simpl. rewrite (af_wf_subst H)... *)
   (*   - rewrite simpl_subst_not. simpl... *)
   (*   - rewrite simpl_subst_and. simpl. rewrite (IHA1 _ _ _ _ H). rewrite (IHA2 _ _ _ _ H)... *)
   (*   - rewrite simpl_subst_or. simpl. rewrite (IHA1 _ _ _ _ H). rewrite (IHA2 _ _ _ _ H)... *)
@@ -928,11 +928,11 @@ Section subst.
   (*     + apply (IHargs arg) in H... *)
   (* Qed. *)
 
-  (* Lemma sf_wf_subst_term_wf M Γ sf x t : *)
-  (*   x ∈ sf_fvars sf → *)
-  (*   sf_wf_aux M Γ (subst_sf sf x t) → term_wf_aux M Γ t. *)
+  (* Lemma af_wf_subst_term_wf M Γ af x t : *)
+  (*   x ∈ af_fvars af → *)
+  (*   af_wf_aux M Γ (subst_af af x t) → term_wf_aux M Γ t. *)
   (* Proof with auto. *)
-  (*   intros. destruct sf; simpl in *; try (apply elem_of_empty in H as []). *)
+  (*   intros. destruct af; simpl in *; try (apply elem_of_empty in H as []). *)
   (*   - apply elem_of_union in H. apply Is_true_andb in H0 as []. destruct H. *)
   (*     + apply term_wf_subst_term_wf in H0... *)
   (*     + apply term_wf_subst_term_wf in H1... *)
@@ -958,7 +958,7 @@ Section subst.
   (* Proof with auto. *)
   (*   generalize dependent t. generalize dependent x. generalize dependent Γ. *)
   (*   induction A; intros. *)
-  (*   - simpl. rewrite subst_sf_non_free_eq... *)
+  (*   - simpl. rewrite subst_af_non_free_eq... *)
   (*   - rewrite simpl_subst_not. simpl. apply IHA... *)
   (*   - rewrite simpl_subst_and. simpl. do 2 rewrite Is_true_andb. simpl in H. *)
   (*     apply not_elem_of_union in H as []. f_equiv; [apply IHA1 | apply IHA2]... *)
@@ -982,7 +982,7 @@ Section subst.
   (* Proof with auto. *)
   (*   generalize dependent t. generalize dependent x. generalize dependent Γ. *)
   (*   induction A; intros; simpl in *. *)
-  (*   - apply sf_wf_subst_term_wf in H0... *)
+  (*   - apply af_wf_subst_term_wf in H0... *)
   (*   - rewrite simpl_subst_not in H0. simpl in H0. apply IHA in H0... *)
   (*   - rewrite simpl_subst_and in H0. simpl in H0. *)
   (*     apply Is_true_andb in H0 as []. apply elem_of_union in H as []. *)
@@ -1038,10 +1038,10 @@ Section subst.
   (*   - unfold term_wf_aux. rewrite term_ty_subst_diag... *)
   (* Qed. *)
 
-  (* Lemma sf_wf_subst_diag M Γ sf x : *)
-  (*   sf_wf_aux M Γ (subst_sf sf x x) = sf_wf_aux M Γ sf. *)
+  (* Lemma af_wf_subst_diag M Γ af x : *)
+  (*   af_wf_aux M Γ (subst_af af x x) = af_wf_aux M Γ af. *)
   (* Proof with auto. *)
-  (*   destruct sf; simpl... *)
+  (*   destruct af; simpl... *)
   (*   - f_equal; apply term_wf_subst_diag. *)
   (*   - simpl in *. unfold term_wf_aux. simpl. destruct (model_pdefs M !! symbol) eqn:E... *)
   (*     remember (pdef_sig p) as sig; clear Heqsig. *)
@@ -1055,7 +1055,7 @@ Section subst.
   (*   formula_wf_aux M Γ (A[x \ x]) = formula_wf_aux M Γ A. *)
   (* Proof with auto. *)
   (*   generalize dependent x. generalize dependent Γ. induction A; intros. *)
-  (*   - simpl. apply sf_wf_subst_diag. *)
+  (*   - simpl. apply af_wf_subst_diag. *)
   (*   - rewrite simpl_subst_not. apply IHA. *)
   (*   - rewrite simpl_subst_and. simpl. f_equal; [apply IHA1 | apply IHA2]. *)
   (*   - rewrite simpl_subst_or. simpl. f_equal; [apply IHA1 | apply IHA2]. *)

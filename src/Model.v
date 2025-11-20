@@ -10,14 +10,6 @@ Record variable := mkVar {
   var_is_initial : bool;
 }.
 
-Record final_variable := mkFinalVar {
-  final_var_name : string;
-  final_var_sub : nat;
-}.
-
-Definition final_var_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
-Coercion final_var_var : final_variable >-> variable.
-
 Global Instance variable_eq_dec : EqDecision variable. Proof. solve_decision. Defined.
 Global Instance variable_countable : Countable variable.
 Proof.
@@ -37,8 +29,6 @@ Definition var_with_sub x i :=
   mkVar (var_name x) (i) (var_is_initial x).
 Definition var_increase_sub x i :=
   var_with_sub x (var_sub x + i).
-Definition var_to_final (x : variable) := mkVar (var_name x) (var_sub x) false.
-Definition final_to_initial (x : final_variable) := mkVar (var_name x) (var_sub x) true.
 
 Coercion raw_var : string >-> variable.
 (* Notation "x '₀'" := (final_var_i x). *)
@@ -53,12 +43,29 @@ Lemma var_sub_of_var_with_sub : forall x i,
     var_sub (var_with_sub x i) = i.
 Proof. reflexivity. Qed.
 
-Lemma final_var_ne_initial (x : final_variable) :
-  final_to_initial x ≠ x.
-Proof. destruct x. unfold final_var_var, final_to_initial. done. Qed.
-
 Hint Rewrite var_with_sub_var_sub_id : core.
 Hint Rewrite var_with_sub_idemp : core.
+
+(* ******************************************************************* *)
+(* final variables                                                     *)
+(* ******************************************************************* *)
+
+Record final_variable := mkFinalVar {
+  final_var_name : string;
+  final_var_sub : nat;
+}.
+
+Definition final_var_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
+Coercion final_var_var : final_variable >-> variable.
+Definition initial_var_of (x : final_variable) := mkVar (var_name x) (var_sub x) true.
+
+Lemma initial_var_of_ne (x : final_variable) :
+  initial_var_of x ≠ x.
+Proof. destruct x. unfold final_var_var, initial_var_of. done. Qed.
+
+(* ******************************************************************* *)
+(* fresh variables                                                     *)
+(* ******************************************************************* *)
 
 Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
   match fuel with
@@ -69,10 +76,6 @@ Fixpoint fresh_var_aux x (fvars : gset variable) fuel :=
 
 Definition fresh_var (x : variable) (fvars : gset variable) : variable :=
   fresh_var_aux x fvars (S (size fvars)).
-
-(* ******************************************************************* *)
-(* fresh_var specification                                             *)
-(* ******************************************************************* *)
 
 Notation var_seq x i n := (var_with_sub x <$> seq i n).
 

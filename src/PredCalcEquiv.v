@@ -16,7 +16,7 @@ Section equiv.
 
   Global Instance tequiv : Equiv term := λ t1 t2, ∀ σ v, teval σ t1 v ↔ teval σ t2 v.
 
-  Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B .
+  Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B.
   Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
 
   Global Instance fent_refl : Reflexive fent.

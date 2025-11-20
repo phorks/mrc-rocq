@@ -11,36 +11,40 @@ Section prog.
   Context {M : model}.
   Local Notation term := (term (value M)).
   Local Notation formula := (formula (value M)).
+  Local Notation final_formula := (final_formula (value M)).
 
   Inductive prog : Type :=
   | PAsgn (x : final_variable) (t : term)
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
-  | PWhile (g : formula) (p: prog) (inv : formula) (variant : variable)
-  | PSpec (w : list ni_variable) (pre : final_formula) (post : formula)
+  (* | PWhile (g : formula) (p: prog) (inv : formula) (variant : variable) *)
+  | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
 
-  Fixpoint modified_ni_vars p : list ni_variable :=
+  Axiom re : (prog → prog) → prog.
+
+  Fixpoint modified_final_vars p : list final_variable :=
     match p with
     | PAsgn x t => [x]
-    | PSeq p1 p2 => modified_ni_vars p1 ++ modified_ni_vars p2
-    | PIf gcmds => mjoin ((modified_ni_vars ∘ snd) <$> gcmds)
-    | PWhile _ p _ _ => modified_ni_vars p
+    | PSeq p1 p2 => modified_final_vars p1 ++ modified_final_vars p2
+    | PIf gcmds => mjoin ((modified_final_vars ∘ snd) <$> gcmds)
+    (* | PWhile _ p _ _ => modified_ni_vars p *)
     | PSpec w pre post => w
-    | PVar x p => modified_ni_vars p
-    | PConst x p => modified_ni_vars p
+    | PVar x p => modified_final_vars p
+    | PConst x p => modified_final_vars p
     end.
 
-  Definition modified_vars p : list variable := ni_var_var <$> modified_ni_vars p.
+  Definition modified_vars p : list variable := final_var_var <$> modified_final_vars p.
+  Notation "'Δ' p" := (modified_vars p) (at level 50).
 
   Fixpoint prog_fvars p : gset variable :=
     match p with
-    | PAsgn x t => {[ni_var_var x]}
+    | PAsgn x t => {[final_var_var x]}
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
-    | PWhile _ p _ _ => prog_fvars p
-    | PSpec w pre post => list_to_set (ni_var_var <$> w) ∪ formula_fvars pre ∪ formula_fvars post
+    (* | PWhile _ p _ _ => prog_fvars p *)
+    | PSpec w pre post => list_to_set (final_var_var <$> w) ∪ formula_fvars pre ∪ formula_fvars post
     | PVar x p => prog_fvars p ∖ {[x]}
     | PConst x p => prog_fvars p ∖ {[x]}
   end.
@@ -76,7 +80,7 @@ Section prog.
     | PIf gcs => <! `any_guard (gcs)` ∧ `all_cmds (gcs) A` !>
     | PWhile g p inv v =>
         let x := fresh_var (raw_var "x") (formula_fvars inv ∪ prog_fvars p ∪ formula_fvars A) in
-        <! forall* `modified_vars p`,
+        <! forall* Δ p`,
             (inv ∧ g => `wp p inv`) ∧
             (inv ∧ ¬ g => A) ∧
             (inv ∧ g ∧ v = x => `wp p (<! v < x !>)`) !>
@@ -84,6 +88,16 @@ Section prog.
     | PVar x p => <! forall x, `wp p A` !>
     | PConst x p => <! exists x, `wp p A` !>
     end.
+
+  Definition refines (p1 p2 : prog) :=
+    ∀ A : ni_formula,
+      (∀ x, x ∈ formula_fvars A → var_is_initial x = false) ->
+      wp p1 A ⇛ (wp p2 A).
+
+  Notation "x '⊑' y" := (refines x y)
+                          (in custom prog at level 60,
+                              x custom prog,
+                              y custom prog at level 95).
 
 End prog.
 

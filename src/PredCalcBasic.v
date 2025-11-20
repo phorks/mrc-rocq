@@ -66,7 +66,7 @@ Section pred_calc_syntax.
     apply IH with (term_rank arg); lia.
   Qed.
 
-  Inductive simple_formula : Type :=
+  Inductive atomic_formula : Type :=
   | AT_True
   | AT_False
   | AT_Eq (t1 t2 : term)
@@ -74,7 +74,7 @@ Section pred_calc_syntax.
 
   Unset Elimination Schemes.
   Inductive formula : Type :=
-  | FSimple (sf : simple_formula)
+  | FAtom (af : atomic_formula)
   | FNot (A : formula)
   | FAnd (A B : formula)
   | FOr (A B : formula)
@@ -85,7 +85,7 @@ Section pred_calc_syntax.
   Set Warnings "-uniform-inheritance".
   Global Coercion TVar : variable >-> term.
   Set Warnings "+uniform-inheritance".
-  Global Coercion FSimple : simple_formula >-> formula.
+  Global Coercion FAtom : atomic_formula >-> formula.
 
   Definition FImpl A B := FOr (FNot A) B.
   Definition FIff A B := FAnd (FImpl A B) (FImpl B A).
@@ -110,11 +110,11 @@ Section pred_calc_syntax.
     | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
     end.
 
-  Definition subst_sf sf x a :=
-    match sf with
+  Definition subst_af af x a :=
+    match af with
     | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
     | AT_Pred sym args => AT_Pred sym (map (fun arg => subst_term arg x a) args)
-    | _ => sf
+    | _ => af
     end.
 
   Fixpoint term_fvars t : gset variable :=
@@ -124,8 +124,8 @@ Section pred_calc_syntax.
     | TApp sym args => ⋃ (map term_fvars args)
     end.
 
-  Definition sf_fvars sf : gset variable :=
-    match sf with
+  Definition af_fvars af : gset variable :=
+    match af with
     | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
     | AT_Pred _ args => ⋃ (map term_fvars args)
     | _ => ∅
@@ -133,7 +133,7 @@ Section pred_calc_syntax.
 
   Fixpoint formula_fvars A : gset variable :=
     match A with
-    | FSimple sf => sf_fvars sf
+    | FAtom af => af_fvars af
     | FNot A => formula_fvars A
     | FAnd A B => formula_fvars A ∪ formula_fvars B
     | FOr A B => formula_fvars A ∪ formula_fvars B
@@ -142,7 +142,7 @@ Section pred_calc_syntax.
 
   Fixpoint formula_rank A :=
     match A with
-    | FSimple sf => 1
+    | FAtom af => 1
     | FNot A => 1 + formula_rank A
     | FAnd A B => 1 + max (formula_rank A) (formula_rank B)
     | FOr A B => 1 + max (formula_rank A) (formula_rank B)
@@ -151,7 +151,7 @@ Section pred_calc_syntax.
 
   Fixpoint quantifier_rank A :=
     match A with
-    | FSimple sf => 0
+    | FAtom af => 0
     | FNot A => quantifier_rank A
     | FAnd A B => max (quantifier_rank A) (quantifier_rank B)
     | FOr A B => max (quantifier_rank A) (quantifier_rank B)
@@ -222,7 +222,7 @@ The following is not a limitation; however we enforce it to make proofs easier
   Fixpoint subst_formula_aux qrank :=
     fix subst_aux A x t :=
       match A with
-      | FSimple sf => FSimple (subst_sf sf x t)
+      | FAtom af => FAtom (subst_af af x t)
       | FNot A => FNot (subst_aux A x t)
       | FAnd A₁ A₂ => FAnd
                         (subst_aux A₁ x t)
@@ -278,14 +278,14 @@ The following is not a limitation; however we enforce it to make proofs easier
 
   Lemma formula_rank_one_is_simple : forall A,
       formula_rank A = 1 →
-      exists sf, A = FSimple sf.
+      ∃ af, A = FAtom af.
   Proof with auto.
     intros A Hr. destruct A;
       try solve [inversion Hr; auto];
       try solve [inversion Hr;
                  destruct (Nat.max_spec (formula_rank A1) (formula_rank A2))
                    as [[_ H] | [_ H]]; rewrite H0 in *; auto].
-    - exists sf...
+    - exists af...
   Qed.
 
   Lemma formula_rank_ind : forall P,
@@ -314,7 +314,7 @@ The following is not a limitation; however we enforce it to make proofs easier
 
   Definition ctor_eq A B :=
     match A, B with
-    | FSimple _, FSimple _ => true
+    | FAtom _, FAtom _ => true
     | FNot _, FNot _ => true
     | FAnd _ _, FAnd _ _  => true
     | FOr _ _, FOr _ _ => true
@@ -324,7 +324,7 @@ The following is not a limitation; however we enforce it to make proofs easier
 
   Fixpoint shape_eq A B :=
     match A, B with
-    | FSimple _, FSimple _ => true
+    | FAtom _, FAtom _ => true
     | FNot A, FNot B => shape_eq A B
     | FAnd A1 A2, FAnd B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
     | FOr A1 A2, FOr B1 B2 => shape_eq A1 B1 && shape_eq A2 B2
@@ -339,18 +339,18 @@ The following is not a limitation; however we enforce it to make proofs easier
     intros. destruct A; destruct B; try discriminate...
   Qed.
 
-  Lemma ctor_eq_simple sf B :
-    ctor_eq (FSimple sf) B = true →
-    ∃ sf', B = FSimple sf'.
+  Lemma ctor_eq_atomic af B :
+    ctor_eq (FAtom af) B = true →
+    ∃ af', B = FAtom af'.
   Proof with auto.
-    intros. simpl in H. destruct B; try discriminate. exists sf0...
+    intros. simpl in H. destruct B; try discriminate. exists af0...
   Qed.
 
-  Lemma shape_eq_simple sf B :
-    shape_eq (FSimple sf) B = true →
-    ∃ sf', B = FSimple sf'.
+  Lemma shape_eq_simple af B :
+    shape_eq (FAtom af) B = true →
+    ∃ af', B = FAtom af'.
   Proof with auto.
-    intros. simpl in H. destruct B; try discriminate. exists sf0...
+    intros. simpl in H. destruct B; try discriminate. exists af0...
   Qed.
 
   Lemma ctor_eq_not A1 B :
@@ -562,16 +562,16 @@ The following is not a limitation; however we enforce it to make proofs easier
   Hint Resolve subst_preserves_shape : core.
 
   Lemma formula_ind P :
-    (∀ sf, P (FSimple sf)) →
+    (∀ af, P (FAtom af)) →
     (∀ A, P A → P (FNot A)) →
     (∀ A1 A2, P A1 → P A2 → P (FAnd A1 A2)) →
     (∀ A1 A2, P A1 → P A2 → P (FOr A1 A2)) →
     (∀ x A, (∀ B, shape_eq B A = true → P B) → P (FExists x A)) →
     ∀ A, P A.
   Proof with auto.
-    intros Hsf Hnot Hand Hor Hexists A.
+    intros Haf Hnot Hand Hor Hexists A.
     induction A using formula_rank_ind. destruct A; subst; simpl in *.
-    - apply Hsf.
+    - apply Haf.
     - apply Hnot. apply X with (rank A); lia.
     - apply Hand; [apply X with (rank A1) | apply X with (rank A2)]; lia.
     - apply Hor; [apply X with (rank A1) | apply X with (rank A2)]; lia.
@@ -590,66 +590,123 @@ The following is not a limitation; however we enforce it to make proofs easier
                                      var_is_initial x = false
   }.
 
+  Coercion final_formula_formula : final_formula >-> formula.
+
 End pred_calc_syntax.
 
-Declare Custom Entry formula.
-Declare Scope formula_scope.
-Declare Custom Entry formula_aux.
-Bind Scope formula_scope with simple_formula.
-Delimit Scope formula_scope with formula.
-
-Notation "<! e !>" := e (e custom formula_aux) : formula_scope.
-Notation "e" := e (in custom formula_aux at level 0, e custom formula) : formula_scope.
-
-Notation "( x )" := x (in custom formula, x at level 99) : formula_scope.
-Notation "'`' f x .. y '`'" := (.. (f x) .. y)
-                                  (in custom formula at level 0, only parsing,
-                                      f constr at level 0, x constr at level 9,
-                                      y constr at level 9) : formula_scope.
-Notation "x" := x (in custom formula at level 0, x constr at level 0) : formula_scope.
-
-Notation "x + y" := (TApp "+" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "x - y" := (TApp "-" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "x * y" := (TApp "*" (@cons term x (@cons term y nil))) (in custom formula at level 50, left associativity).
-Notation "f '(' x ',' .. ',' y ')'" := (TApp f (@cons term x .. (@cons term y nil) ..)) (in custom formula at level 40).
-
-Notation "'true'" := (AT_True) (in custom formula at level 0).
-Notation "'false'" := (AT_False) (in custom formula at level 0).
-Notation "x = y" := (AT_Eq x y) (in custom formula at level 70, no associativity).
-Notation "x <> y" := (FNot (FSimple (AT_Eq x y))) (in custom formula at level 70, no associativity, only parsing).
-Notation "x ≠ y" := (FNot (FSimple (AT_Eq x y))) (in custom formula at level 70, no associativity, only printing).
-Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil))) (in custom formula at level 70, no associativity).
-Notation "'¬' x" := (FNot x) (in custom formula at level 75).
-Notation "x ∧ y" := (FAnd x y) (in custom formula at level 80, left associativity).
-Notation "x ∨ y" := (FOr x y) (in custom formula at level 80, left associativity).
-Notation "x => y" := (FImpl x y) (in custom formula at level 80, only parsing).
-Notation "x ⇒ y" := (FImpl x y) (in custom formula at level 80, only printing).
-Notation "x <=> y" := (FIff x y) (in custom formula at level 80, only parsing).
-Notation "x ⇔ y" := (FIff x y) (in custom formula at level 80, only printing).
-Notation "'exists' x .. y ',' A" := (FExists x .. (FExists y A) ..) (in custom formula at level 85, only parsing).
-Notation "'∃' x .. y '●' A" := (FExists x .. (FExists y A) ..) (in custom formula at level 85, only printing).
-Notation "'exists*' xs ',' A" := (FExistsList xs A) (in custom formula at level 85, only parsing).
-Notation "'∃*' xs '●' A" := (FExistsList xs A) (in custom formula at level 85, only printing).
-Notation "'forall' x .. y ',' A" := (FForall x .. (FForall y A) ..) (in custom formula at level 85).
-Notation "'∀' x .. y '●' A" := (FForall x .. (FForall y A) ..) (in custom formula at level 85).
-Notation "'forall*' xs ',' A" := (FForallList xs A) (in custom formula at level 85).
-Notation "'∀*' xs '●' A" := (FForallList xs A) (in custom formula at level 85).
 Notation rank A := (formula_rank A + quantifier_rank A).
 
-Open Scope formula_scope.
+Declare Scope refiney_scope.
+Delimit Scope refiney_scope with refiney.
+Open Scope refiney_scope.
+
+Declare Custom Entry term.
+Declare Custom Entry formula.
+Declare Custom Entry term_relation.
+Declare Custom Entry atomic_formula.
+
+Notation "e" := e (in custom term at level 0, e constr at level 0) : refiney_scope.
+Notation "$( e )" := e (in custom term at level 0, only parsing,
+                          e constr at level 200) : refiney_scope.
+Notation "( e )" := e (in custom term, e custom term at level 200) : refiney_scope.
+Notation "%% t" := (final_term_term t)
+                     (in custom term at level 0, only parsing,
+                         t constr at level 0) : refiney_scope.
+Notation "% x" := (final_var_var x)
+                       (in custom term at level 0,
+                           only parsing,
+                           x constr at level 0) : refiney_scope.
+Notation "t + u" := (TApp "+" (@cons term t (@cons term u nil)))
+                      (in custom term at level 50,
+                          t custom term,
+                          u custom term,
+                          left associativity) : refiney_scope.
+Notation "t - u" := (TApp "-" (@cons term t (@cons term u nil)))
+                      (in custom term at level 50,
+                          t custom term,
+                          u custom term,
+                          left associativity) : refiney_scope.
+Notation "t * u" := (TApp "*" (@cons term t (@cons term u nil)))
+                      (in custom term at level 50,
+                          t custom term,
+                          u custom term,
+                          left associativity) : refiney_scope.
+Notation "t [ x \ t' ]" := (subst_term t x t')
+                            (in custom term at level 10, left associativity,
+                              x at next level) : refiney_scope.
+
+Notation "t = u" := (FAtom (AT_Eq t u))
+                      (in custom term_relation at level 60,
+                          t custom term at level 60,
+                          u custom term at level 60,
+                          no associativity) : refiney_scope.
+Notation "t '≠' u" := (FNot (FAtom (AT_Eq t u)))
+                       (in custom term_relation at level 60,
+                           t custom term at level 60,
+                           u custom term at level 60,
+                           no associativity) : refiney_scope.
+
+(* Notation "f '(' x ',' .. ',' y ')'" := (TApp f (@cons term x .. (@cons term y nil) ..)) *)
+(*                                          (in custom term at level 40, *)
+(*                                              x custom term, y custom term) : refiney_scope. *)
+
+(* Declare Custom Entry aformula. *)
+
+(* Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil)))
+                              (in custom formula at level 70, no associativity). *)
+(* Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil)))
+                              (in custom formula at level 70, no associativity). *)
+(* Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil)))
+                              (in custom formula at level 70, no associativity). *)
+(* Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil)))
+                              (in custom formula at level 70, no associativity). *)
+
+Notation "<! e !>" := e (e custom formula) : refiney_scope.
+
+Notation "e" := e (in custom formula at level 0, e constr at level 0) : refiney_scope.
+Notation "$( e )" := e (in custom formula at level 0, only parsing,
+                           e constr at level 200) : refiney_scope.
+Notation "( e )" := e (in custom formula, e at level 200) : refiney_scope.
+Notation "⌜ r ⌝" := r (in custom formula, r custom term_relation) : refiney_scope.
+Notation "% A" := (final_formula_formula A)
+                    (in custom formula at level 0, only parsing,
+                        A constr at level 0) : refiney_scope.
+Notation "'true'" := (FAtom AT_True) (in custom formula at level 0).
+Notation "'false'" := (FAtom AT_False) (in custom formula at level 0).
+Notation "¬ A" := (FNot A) (in custom formula at level 70, right associativity) : refiney_scope.
+Notation "A ∧ B" := (FAnd A B) (in custom formula at level 75, right associativity) : refiney_scope.
+Notation "A ∨ B" := (FOr A B) (in custom formula at level 80, right associativity) : refiney_scope.
+Notation "A ⇒ B" := (FImpl A B) (in custom formula at level 95, right associativity) : refiney_scope.
+Notation "A ⇔ B" := (FIff A B) (in custom formula at level 90, no associativity) : refiney_scope.
+Notation "∃ x .. y , A" := (FExists x .. (FExists y A) ..)
+                                      (in custom formula at level 99, only parsing) : refiney_scope.
+Notation "∃ x .. y ● A" := (FExists x .. (FExists y A) ..)
+                                 (in custom formula at level 99, only printing) : refiney_scope.
+Notation "∃* xs , A" := (FExistsList xs A)
+                          (in custom formula at level 99, only parsing)
+    : refiney_scope.
+Notation "∃* xs ● A" := (FExistsList xs A)
+                          (in custom formula at level 99, only printing)
+    : refiney_scope.
+Notation "∀ x .. y , A" := (FForall x .. (FForall y A) ..)
+                                 (in custom formula at level 99, only parsing) : refiney_scope.
+Notation "∀ x .. y ● A" := (FForall x .. (FForall y A) ..)
+                                 (in custom formula at level 99, only printing) : refiney_scope.
+Notation "∀* xs , A" := (FForallList xs A)
+                              (in custom formula at level 99, only parsing)
+    :refiney_scope.
+Notation "∀* xs ● A" := (FForallList xs A)
+                              (in custom formula at level 99, only parsing)
+    :refiney_scope.
 
 Notation "A [ x \ t ]" := (subst_formula A x t)
                             (at level 10, left associativity,
-                              x at next level) : formula_scope.
+                              x at next level) : refiney_scope.
 
 Notation "A [ x \ t ]" := (subst_formula A x t)
                             (in custom formula at level 74, left associativity,
                                 A custom formula,
-                                x constr at level 0, t custom formula) : formula_scope.
-
+                                x constr at level 0, t custom formula) : refiney_scope.
 
 Ltac fold_qrank_subst n A x t :=
   let R := fresh in
@@ -762,8 +819,8 @@ Section pred_calc_semantics.
                ∀ H : length vargs = pdef_arity pdef,
                  pdef_rel pdef (list_to_vec_n vargs H)).
 
-  Definition sfeval (σ : state) (sf : simple_formula) :=
-    match sf with
+  Definition afeval (σ : state) (af : atomic_formula) :=
+    match af with
     | AT_True => True
     | AT_False => False
     | AT_Eq t1 t2 => ∃ v, teval σ t1 v ∧ teval σ t2 v
@@ -771,7 +828,7 @@ Section pred_calc_semantics.
   end.
 
   Equations? feval (σ : state) (A : formula) : Prop by wf (rank A) lt :=
-    feval σ (FSimple sf) => sfeval σ sf;
+    feval σ (FAtom af) => afeval σ af;
     feval σ (FNot A) => ¬ feval σ A;
     feval σ (FAnd A B) => feval σ A ∧ feval σ B;
     feval σ (FOr A B) => feval σ A ∨ feval σ B;
@@ -797,21 +854,23 @@ Section pred_calc_semantics.
   (* ******************************************************************* *)
   (* some useful lemmas                                                  *)
   (* ******************************************************************* *)
-  Lemma feval_exists_equiv_if {σ1 σ2 x1 x2 A1 A2}:
+  Lemma feval_exists_equiv_if {σ1 σ2 x1 x2} {A1 A2 : formula}:
     (∀ v, feval σ1 (A1 [x1 \ (TConst v)]) ↔ feval σ2 (A2 [x2 \ (TConst v)])) →
-    feval σ1 <! exists x1, A1 !> ↔ feval σ2 <! exists x2, A2 !>.
+    feval σ1 <! ∃ x1, A1 !> ↔ feval σ2 <! ∃ x2, A2 !>.
   Proof with auto.
     intros. simp feval. split; intros [v Hv]; exists v; apply H...
   Qed.
 End pred_calc_semantics.
 
 Arguments term V : clear implicits.
-Arguments simple_formula : clear implicits.
+Arguments final_term V : clear implicits.
+Arguments atomic_formula : clear implicits.
 Arguments formula V : clear implicits.
+Arguments final_formula V : clear implicits.
 
 Hint Constructors teval : core.
 
-Notation "σ '⊨' A" := (feval σ A) (at level 100, A custom formula).
+Notation "σ '⊨' A" := (feval σ A) (at level 100, only printing, A custom formula).
 
 Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) constr(t) "as" ident(y') :=
   let Hfresh := fresh in

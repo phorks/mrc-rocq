@@ -72,55 +72,55 @@ Ltac f_simpl :=
         rewrite Heq; rewrite f_or_absorb; clear Heq
 
     (* f_and_true *)
-    | H : context[FAnd ?A (FSimple AT_True)] |- _ =>
+    | H : context[<! ?A ∧ true !>] |- _ =>
         rewrite f_and_true in H
-    | H : context[FAnd (FSimple AT_True) ?A] |- _ =>
+    | H : context[<! true ∧ ?A !>] |- _ =>
         rewrite (f_and_comm <! true !> A) in H; rewrite f_and_true in H
-    | |- context[FAnd ?A (FSimple AT_True)] =>
+    | |- context[<! ?A ∧ true !>] =>
         rewrite f_and_true
-    | |- context[FAnd (FSimple AT_True) ?A] =>
+    | |- context[<! true ∧ ?A !>] =>
         rewrite (f_and_comm <! true !> A); rewrite f_and_true
 
     (* f_and_false *)
-    | H : context[FAnd ?A (FSimple AT_False)] |- _ =>
+    | H : context[<! ?A ∧ false !>] |- _ =>
         rewrite f_and_false in H
-    | H : context[FAnd (FSimple AT_False) ?A] |- _ =>
+    | H : context[<! false ∧ ?A !>] |- _ =>
         rewrite (f_and_comm <! false !> A) in H; rewrite f_and_false in H
-    | |- context[FAnd ?A (FSimple AT_False)] =>
+    | |- context[<! ?A ∧ false !>] =>
         rewrite f_and_false
-    | |- context[FAnd (FSimple AT_False) ?A] =>
+    | |- context[<! false ∧ ?A !>] =>
         rewrite (f_and_comm <! false !> A); rewrite f_and_false
 
     (* f_or_true *)
-    | H : context[FOr ?A (FSimple AT_True)] |- _ =>
+    | H : context[<! ?A ∨ true !>] |- _ =>
         rewrite f_or_true in H
-    | H : context[FOr (FSimple AT_True) ?A] |- _ =>
+    | H : context[<! true ∨ ?A !>] |- _ =>
         rewrite (f_or_comm <! true !> A) in H; rewrite f_or_true in H
-    | |- context[FOr ?A (FSimple AT_True)] =>
+    | |- context[<! ?A ∨ true !>] =>
         rewrite f_or_true
-    | |- context[FOr (FSimple AT_True) ?A] =>
+    | |- context[<! true ∨ ?A !>] =>
         rewrite (f_or_comm <! true !> A); rewrite f_or_true
 
     (* f_or_false *)
-    | H : context[FOr ?A (FSimple AT_False)] |- _ =>
+    | H : context[<! ?A ∨ false !>] |- _ =>
         rewrite f_or_false in H
-    | H : context[FOr (FSimple AT_False) ?A] |- _ =>
+    | H : context[<! false ∨ ?A !>] |- _ =>
         rewrite (f_or_comm <! false !> A) in H; rewrite f_or_false in H
-    | |- context[FOr ?A (FSimple AT_False)] =>
+    | |- context[<! ?A ∨ false !>] =>
         rewrite f_or_false
-    | |- context[FOr (FSimple AT_False) ?A] =>
+    | |- context[<! false ∨ ?A !>] =>
         rewrite (f_or_comm <! false !> A); rewrite f_or_false
 
     (* f_not_true *)
-    | H : context[FNot (FSimple AT_True)] |- _ =>
+    | H : context[<! ¬ true !>] |- _ =>
         rewrite f_not_true in H
-    | |- context[FNot (FSimple AT_True)] =>
+    | |- context[<! ¬ true !>] =>
         rewrite f_not_true
 
     (* f_false_true *)
-    | H : context[FNot (FSimple AT_False)] |- _ =>
+    | H : context[<! ¬ false !>] |- _ =>
         rewrite f_not_false in H
-    | |- context[FNot (FSimple AT_False)] =>
+    | |- context[<! ¬ false !>] =>
         rewrite f_not_false
 
     (* f_and_not_self *)
@@ -234,168 +234,168 @@ Ltac f_simpl :=
         rewrite Heq; rewrite f_or_not_absorb; clear Heq
 
     (* f_implies_self *)
-    | H : context[<! ?A => ?A !>] |- _ =>
+    | H : context[<! ?A ⇒ ?A !>] |- _ =>
         rewrite f_implies_self in H
-    | |- context[<! ?A => ?A !>] =>
+    | |- context[<! ?A ⇒ ?A !>] =>
         rewrite f_implies_self
 
     (* f_not_impl *)
-    | H : context[<! ¬ (?A => ?B) !>] |- _ =>
+    | H : context[<! ¬ (?A ⇒ ?B) !>] |- _ =>
         rewrite f_not_impl in H
-    | |- context[<! ¬ (?A => ?B) !>] =>
+    | |- context[<! ¬ (?A ⇒ ?B) !>] =>
         rewrite f_not_impl
 
     (* f_implies_true *)
-    | H : context[<! ?A => true !>] |- _ =>
+    | H : context[<! ?A ⇒ true !>] |- _ =>
         rewrite f_implies_true in H
-    | |- context[<! ?A => true !>] =>
+    | |- context[<! ?A ⇒ true !>] =>
         rewrite f_implies_true
 
     (* f_true_implies *)
-    | H : context[<! true => ?A !>] |- _ =>
+    | H : context[<! true ⇒ ?A !>] |- _ =>
         rewrite f_true_implies in H
-    | |- context[<! true => ?A !>] =>
+    | |- context[<! true ⇒ ?A !>] =>
         rewrite f_true_implies
 
     (* f_implies_false *)
-    | H : context[<! ?A => false !>] |- _ =>
+    | H : context[<! ?A ⇒ false !>] |- _ =>
         rewrite f_implies_false in H
-    | |- context[<! ?A => false !>] =>
+    | |- context[<! ?A ⇒ false !>] =>
         rewrite f_implies_false
 
     (* f_false_implies *)
-    | H : context[<! false => ?A !>] |- _ =>
+    | H : context[<! false ⇒ ?A !>] |- _ =>
         rewrite f_false_implies in H
-    | |- context[<! false => ?A !>] =>
+    | |- context[<! false ⇒ ?A !>] =>
         rewrite f_false_implies
 
     (* f_implies_not_self *)
-    | H : context[<! ?A => ¬ ?A !>] |- _ =>
+    | H : context[<! ?A ⇒ ¬ ?A !>] |- _ =>
         rewrite f_implies_not_self in H
-    | |- context[<! ?A => ¬ ?A !>] =>
+    | |- context[<! ?A ⇒ ¬ ?A !>] =>
         rewrite f_implies_not_self
 
     (* f_not_implies_self *)
-    | H : context[<! ¬ ?A => ?A !>] |- _ =>
+    | H : context[<! ¬ ?A ⇒ ?A !>] |- _ =>
         rewrite f_not_implies_self in H
-    | |- context[<! ¬ ?A => ?A !>] =>
+    | |- context[<! ¬ ?A ⇒ ?A !>] =>
         rewrite f_not_implies_self
 
     (* f_iff_equiv3 *)
-    | H : context[<! ¬ ?A <=> ¬ ?B !>] |- _ =>
+    | H : context[<! ¬ ?A ⇔ ¬ ?B !>] |- _ =>
         rewrite <- f_iff_negate in H
-    | |- context[<! ¬ ?A <=> ¬ ?B !>] =>
+    | |- context[<! ¬ ?A ⇔ ¬ ?B !>] =>
         rewrite <- f_iff_negate
 
     (* f_iff_self *)
-    | H : context[<! ?A <=> ?A !>] |- _ =>
+    | H : context[<! ?A ⇔ ?A !>] |- _ =>
         rewrite f_iff_self in H
-    | |- context[<! ?A <=> ?A !>] =>
+    | |- context[<! ?A ⇔ ?A !>] =>
         rewrite f_iff_self
 
     (* f_iff_not_self *)
-    | H : context[<! ?A <=> ¬ ?A !>] |- _ =>
+    | H : context[<! ?A ⇔ ¬ ?A !>] |- _ =>
         rewrite f_iff_not_self in H
-    | H : context[<! ¬ ?A <=> ?A !>] |- _ =>
+    | H : context[<! ¬ ?A ⇔ ?A !>] |- _ =>
         rewrite (f_iff_comm (<! ¬ A !>) A) in H; rewrite f_iff_not_self in H
-    | |- context[<! ?A <=> ?A !>] =>
+    | |- context[<! ?A ⇔ ?A !>] =>
         rewrite f_iff_self
-    | |- context[<! ¬ ?A <=> ?A !>] =>
+    | |- context[<! ¬ ?A ⇔ ?A !>] =>
         rewrite (f_iff_comm (<! ¬ A !>) A); rewrite f_iff_not_self
 
     (* f_iff_true *)
-    | H : context[FIff ?A (FSimple AT_True)] |- _ =>
+    | H : context[<! ?A ⇔ true !>] |- _ =>
         rewrite f_iff_true in H
-    | H : context[FIff (FSimple AT_True) ?A] |- _ =>
+    | H : context[<! true ⇔ ?A !>] |- _ =>
         rewrite (f_iff_comm (<! true !>) A) in H; rewrite f_iff_true in H
-    | |- context[FIff ?A (FSimple AT_True)] =>
+    | |- context[<! ?A ⇔ true !>] =>
         rewrite f_iff_true
-    | |- context[FIff (FSimple AT_True) ?A] =>
+    | |- context[<! true ⇔ ?A !>] =>
         rewrite (f_iff_comm (<! true !>) A); rewrite f_iff_true
 
     (* f_iff_false *)
-    | H : context[FIff ?A (FSimple AT_False)] |- _ =>
+    | H : context[<! ?A ⇔ false !>] |- _ =>
         rewrite f_iff_false in H
-    | H : context[FIff (FSimple AT_False) ?A] |- _ =>
+    | H : context[<! false ⇔ ?A !>] |- _ =>
         rewrite (f_iff_comm (<! false !>) A) in H; rewrite f_iff_false in H
-    | |- context[FIff ?A (FSimple AT_False)] =>
+    | |- context[<! ?A ⇔ false !>] =>
         rewrite f_iff_false
-    | |- context[FIff (FSimple AT_False) ?A] =>
+    | |- context[<! false ⇔ ?A !>] =>
         rewrite (f_iff_comm (<! false !>) A); rewrite f_iff_false
 
     (*  f_iff_and_absorb *)
-    | H : context[<! ?A <=> (?A ∧ ?B) !>] |- _ =>
+    | H : context[<! ?A ⇔ (?A ∧ ?B) !>] |- _ =>
         rewrite f_iff_and_absorb in H
-    | H : context[<! (?A ∧ ?B) <=> ?A !>] |- _ =>
+    | H : context[<! (?A ∧ ?B) ⇔ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
-        assert (<! (A ∧ B) <=> A !> ≡ <! (A <=> (A ∧ B)) !>) as Heq
+        assert (<! (A ∧ B) ⇔ A !> ≡ <! (A ⇔ (A ∧ B)) !>) as Heq
           by (rewrite f_iff_comm; reflexivity);
         rewrite Heq in H; rewrite f_iff_and_absorb in H; clear Heq
-    | H : context[<! (?B ∧ ?A) <=> ?A !>] |- _ =>
+    | H : context[<! (?B ∧ ?A) ⇔ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
-        assert (<! (B ∧ A) <=> A !> ≡ <! (A <=> (A ∧ B)) !>) as Heq
+        assert (<! (B ∧ A) ⇔ A !> ≡ <! (A ⇔ (A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_iff_comm; reflexivity);
         rewrite Heq in H; rewrite f_iff_and_absorb in H; clear Heq
-    | |- context[<! ?A <=> (?A ∧ ?B) !>] =>
+    | |- context[<! ?A ⇔ (?A ∧ ?B) !>] =>
         rewrite f_iff_and_absorb
-    | |- context[<! (?A ∧ ?B) <=> ?A !>] =>
+    | |- context[<! (?A ∧ ?B) ⇔ ?A !>] =>
         let Heq := fresh "Heq" in
-        assert (<! (A ∧ B) <=> A !> ≡ <! (A <=> (A ∧ B)) !>) as Heq
+        assert (<! (A ∧ B) ⇔ A !> ≡ <! (A ⇔ (A ∧ B)) !>) as Heq
           by (rewrite f_iff_comm; reflexivity);
         rewrite Heq; rewrite f_iff_and_absorb; clear Heq
-    | |- context[<! (?B ∧ ?A) <=> ?A !>] =>
+    | |- context[<! (?B ∧ ?A) ⇔ ?A !>] =>
         let Heq := fresh "Heq" in
-        assert (<! (B ∧ A) <=> A !> ≡ <! (A <=> (A ∧ B)) !>) as Heq
+        assert (<! (B ∧ A) ⇔ A !> ≡ <! (A ⇔ (A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_iff_comm; reflexivity);
         rewrite Heq; rewrite f_iff_and_absorb; clear Heq
 
     (* f_not_forall *)
-    | H : context[<! ¬ forall ?x, ?A !>] |- _ =>
+    | H : context[<! ¬ ∀ ?x, ?A !>] |- _ =>
         rewrite f_not_forall in H
-    | |- context[<! ¬ forall ?x, ?A !>] =>
+    | |- context[<! ¬ ∀ ?x, ?A !>] =>
         rewrite f_not_forall
 
     (* f_not_exists *)
-    | H : context[<! ¬ exists ?x, ?A !>] |- _ =>
+    | H : context[<! ¬ ∃ ?x, ?A !>] |- _ =>
         rewrite f_not_exists in H
-    | |- context[<! ¬ exists ?x, ?A !>] =>
+    | |- context[<! ¬ ∃ ?x, ?A !>] =>
         rewrite f_not_exists
 
     (*  f_iff_or_absorb *)
-    | H : context[<! ?A <=> (?A ∨ ?B) !>] |- _ =>
+    | H : context[<! ?A ⇔ (?A ∨ ?B) !>] |- _ =>
         rewrite f_iff_or_absorb in H
-    | H : context[<! (?A ∨ ?B) <=> ?A !>] |- _ =>
+    | H : context[<! (?A ∨ ?B) ⇔ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
-        assert (<! (A ∨ B) <=> A !> ≡ <! (A <=> (A ∨ B)) !>) as Heq
+        assert (<! (A ∨ B) ⇔ A !> ≡ <! (A ⇔ (A ∨ B)) !>) as Heq
           by (rewrite f_iff_comm; reflexivity);
         rewrite Heq in H; rewrite f_iff_or_absorb in H; clear Heq
-    | H : context[<! (?B ∨ ?A) <=> ?A !>] |- _ =>
+    | H : context[<! (?B ∨ ?A) ⇔ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
-        assert (<! (B ∨ A) <=> A !> ≡ <! (A <=> (A ∨ B)) !>) as Heq
+        assert (<! (B ∨ A) ⇔ A !> ≡ <! (A ⇔ (A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_iff_comm; reflexivity);
         rewrite Heq in H; rewrite f_iff_or_absorb in H; clear Heq
-    | |- context[<! ?A <=> (?A ∨ ?B) !>] =>
+    | |- context[<! ?A ⇔ (?A ∨ ?B) !>] =>
         rewrite f_iff_or_absorb
-    | |- context[<! (?A ∨ ?B) <=> ?A !>] =>
+    | |- context[<! (?A ∨ ?B) ⇔ ?A !>] =>
         let Heq := fresh "Heq" in
-        assert (<! (A ∨ B) <=> A !> ≡ <! (A <=> (A ∨ B)) !>) as Heq
+        assert (<! (A ∨ B) ⇔ A !> ≡ <! (A ⇔ (A ∨ B)) !>) as Heq
           by (rewrite f_iff_comm; reflexivity);
         rewrite Heq; rewrite f_iff_or_absorb; clear Heq
-    | |- context[<! (?B ∨ ?A) <=> ?A !>] =>
+    | |- context[<! (?B ∨ ?A) ⇔ ?A !>] =>
         let Heq := fresh "Heq" in
-        assert (<! (B ∨ A) <=> A !> ≡ <! (A <=> (A ∨ B)) !>) as Heq
+        assert (<! (B ∨ A) ⇔ A !> ≡ <! (A ⇔ (A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_iff_comm; reflexivity);
         rewrite Heq; rewrite f_iff_or_absorb; clear Heq
 
     (* f_impl_elim *)
-    | H : context[<! ?A ∧ (?A => ?B) !>] |- _ =>
+    | H : context[<! ?A ∧ (?A ⇒ ?B) !>] |- _ =>
         rewrite f_impl_elim in H
-    | H : context[<! (?A => ?B) ∧ ?A !>] |- _ =>
-        rewrite (f_and_comm (<! ?A => ?B !>) ?A) in H; rewrite f_impl_elim in H
-    | |- context[<! ?A ∧ (?A => ?B) !>] =>
+    | H : context[<! (?A ⇒ ?B) ∧ ?A !>] |- _ =>
+        rewrite (f_and_comm (<! ?A ⇒ ?B !>) ?A) in H; rewrite f_impl_elim in H
+    | |- context[<! ?A ∧ (?A ⇒ ?B) !>] =>
         rewrite f_impl_elim
-    | |- context[<! (?A => ?B) ∧ ?A !>] =>
-        rewrite (f_and_comm (<! ?A => ?B !>) ?A); rewrite f_impl_elim
+    | |- context[<! (?A ⇒ ?B) ∧ ?A !>] =>
+        rewrite (f_and_comm (<! ?A ⇒ ?B !>) ?A); rewrite f_impl_elim
 
     (* automatically prove A ≡ A and discharge ¬ A ≡ A *)
     | H : ¬ (<! ?A !> ≡ <! ?A !>) |- _ =>
@@ -424,9 +424,9 @@ Ltac f_simpl :=
         apply f_or_cancel_r
 
     (* f_impl_cancel_l and f_impl_cancel_r *)
-    | |- <! ?A => ?B !> ≡ <! ?A => ?C !> =>
+    | |- <! ?A ⇒ ?B !> ≡ <! ?A ⇒ ?C !> =>
         apply f_impl_cancel_l
-    | |- <! ?B => ?A !> ≡ <! ?C => ?A !> =>
+    | |- <! ?B ⇒ ?A !> ≡ <! ?C ⇒ ?A !> =>
         apply f_impl_cancel_r
 
     (* f_subst_cancel *)
@@ -456,12 +456,17 @@ Ltac f_simpl :=
         apply f_ent_or_cancel_r
 
     (* f_ent_impl_cancel_l and f_ent_impl_cancel_r *)
-    | |- <! ?A => ?B !> ⇛ <! ?A => ?C !> =>
+    | |- <! ?A ⇒ ?B !> ⇛ <! ?A ⇒ ?C !> =>
         apply f_ent_impl_cancel_l
-    | |- <! ?B => ?A !> ⇛ <! ?C => ?A !> =>
+    | |- <! ?B ⇒ ?A !> ⇛ <! ?C ⇒ ?A !> =>
         apply f_ent_impl_cancel_r
 
     (* f_ent_subst_cancel *)
     | |- <! ?A [ ?x \ ?t ]!> ⇛ <! ?B [ ?x \ ?t ] !> =>
         apply f_ent_subst_cancel
+
+    | |- context[<! ⌜?t = ?t⌝ !>] =>
+        rewrite f_eq_refl
+    | |- context[<! ⌜?t ≠ ?t⌝ !>] =>
+        rewrite f_neq_irrefl
   end.
