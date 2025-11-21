@@ -1,5 +1,5 @@
 From stdpp Require Import sets vector.
-From MRC Require Import Options.
+From MRC Require Import Prelude.
 
 Notation "x ∈? X" := (bool_decide (x ∈ X)) (at level 70) : stdpp_scope.
 Notation "x ∉? X" := (bool_decide (x ∉ X)) (at level 70) : stdpp_scope.
@@ -50,6 +50,16 @@ Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
+
+Class LengthEqLists {A} (l1 l2 : list A) :=
+  length_eq_lists : length l1 = length l2.
+
+Instance length_eq_lists_nil A : @LengthEqLists A [] [].
+Proof. reflexivity. Defined.
+
+Instance length_eq_lists_cons A {x1 x2 : A} {l1 l2 : list A}
+  `{LengthEqLists A l1 l2} : LengthEqLists (x1::l1) (x2::l2).
+Proof. unfold LengthEqLists in *. do 2 rewrite length_cons. lia. Qed.
 
 (* HACK: These are not currently used. I will keep them as reference.
    I should delete them at some point. *)

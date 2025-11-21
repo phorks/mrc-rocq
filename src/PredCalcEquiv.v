@@ -1,6 +1,6 @@
 From Equations Require Import Equations.
 From stdpp Require Import fin_maps.
-From MRC Require Import Options.
+From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.

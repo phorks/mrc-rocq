@@ -1,6 +1,6 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
 From stdpp Require Import base gmap.
-From MRC Require Import Options.
+From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.

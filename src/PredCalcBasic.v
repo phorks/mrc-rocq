@@ -2,7 +2,7 @@ From Stdlib Require Import Strings.String.
 From Stdlib Require Import Lia.
 From stdpp Require Import gmap vector.
 From Equations Require Import Equations.
-From MRC Require Import Options.
+From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
 From MRC Require Import Model.
 From MRC Require Import Tactics.
@@ -90,6 +90,18 @@ Section pred_calc_syntax.
   Definition FImpl A B := FOr (FNot A) B.
   Definition FIff A B := FAnd (FImpl A B) (FImpl B A).
   Definition FForall x A := FNot (FExists x (FNot A)).
+
+  Fixpoint FAndList (As : list formula) :=
+    match As with
+    | [] => FAtom AT_True
+    | A :: As => FAnd A (FAndList As)
+    end.
+
+  Fixpoint FOrList (As : list formula) :=
+    match As with
+    | [] => FAtom AT_False
+    | A :: As => FAnd A (FOrList As)
+    end.
 
   Fixpoint FExistsList (xs : list variable) (A : formula) :=
     match xs with
@@ -580,24 +592,28 @@ The following is not a limitation; however we enforce it to make proofs easier
   Qed.
 
   Record final_term := mkFinalTerm {
-    final_term_term : term;
-    final_term_final : ∀ x, x ∈ term_fvars final_term_term → var_is_initial x = false;
+    as_term : term;
+    final_term_final : ∀ x, x ∈ term_fvars as_term → var_is_initial x = false;
   }.
 
   Record final_formula := mkFinalFormula {
-    final_formula_formula : formula;
-    final_formula_final : ∀ x, x ∈ formula_fvars final_formula_formula →
+    as_formula : formula;
+    final_formula_final : ∀ x, x ∈ formula_fvars as_formula →
                                      var_is_initial x = false
   }.
 
-  Coercion final_formula_formula : final_formula >-> formula.
+  Coercion as_term : final_term >-> term.
+  Coercion as_formula : final_formula >-> formula.
+
+  Definition as_term_F `{FMap F} (x : F final_term) : F term :=
+    as_term <$> x.
+
+  Definition as_formula_F `{FMap F} (x : F final_formula) : F formula :=
+    as_formula <$> x.
 
 End pred_calc_syntax.
-
 Notation rank A := (formula_rank A + quantifier_rank A).
 
-Declare Scope refiney_scope.
-Delimit Scope refiney_scope with refiney.
 Open Scope refiney_scope.
 
 Declare Custom Entry term.
@@ -609,10 +625,11 @@ Notation "e" := e (in custom term at level 0, e constr at level 0) : refiney_sco
 Notation "$( e )" := e (in custom term at level 0, only parsing,
                           e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom term, e custom term at level 200) : refiney_scope.
-Notation "%% t" := (final_term_term t)
+Notation "₀ x" := (initial_var_of x) (in custom term at level 5).
+Notation "%% t" := (as_term t)
                      (in custom term at level 0, only parsing,
                          t constr at level 0) : refiney_scope.
-Notation "% x" := (final_var_var x)
+Notation "% x" := (as_var x)
                        (in custom term at level 0,
                            only parsing,
                            x constr at level 0) : refiney_scope.
@@ -668,14 +685,16 @@ Notation "$( e )" := e (in custom formula at level 0, only parsing,
                            e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom formula, e at level 200) : refiney_scope.
 Notation "⌜ r ⌝" := r (in custom formula, r custom term_relation) : refiney_scope.
-Notation "% A" := (final_formula_formula A)
+Notation "% A" := (as_formula A)
                     (in custom formula at level 0, only parsing,
                         A constr at level 0) : refiney_scope.
 Notation "'true'" := (FAtom AT_True) (in custom formula at level 0).
 Notation "'false'" := (FAtom AT_False) (in custom formula at level 0).
 Notation "¬ A" := (FNot A) (in custom formula at level 70, right associativity) : refiney_scope.
 Notation "A ∧ B" := (FAnd A B) (in custom formula at level 75, right associativity) : refiney_scope.
+Notation "∧* As" := (FAndList As) (in custom formula at level 75, right associativity) : refiney_scope.
 Notation "A ∨ B" := (FOr A B) (in custom formula at level 80, right associativity) : refiney_scope.
+Notation "∨* As" := (FOrList As) (in custom formula at level 75, right associativity) : refiney_scope.
 Notation "A ⇒ B" := (FImpl A B) (in custom formula at level 95, right associativity) : refiney_scope.
 Notation "A ⇔ B" := (FIff A B) (in custom formula at level 90, no associativity) : refiney_scope.
 Notation "∃ x .. y , A" := (FExists x .. (FExists y A) ..)

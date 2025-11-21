@@ -1,6 +1,7 @@
 -Q src MRC
-src/Options.v
+src/Prelude.v
 src/Stdppp.v
+src/SeqNotation.v
 src/Model.v
 src/Tactics.v
 src/PredCalcBasic.v

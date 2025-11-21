@@ -1,6 +1,6 @@
 From Stdlib Require Import Strings.String.
 From stdpp Require Import gmap.
-From MRC Require Import Options.
+From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Stdppp.
 
@@ -55,13 +55,18 @@ Record final_variable := mkFinalVar {
   final_var_sub : nat;
 }.
 
-Definition final_var_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
-Coercion final_var_var : final_variable >-> variable.
+Definition as_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
+Coercion as_var : final_variable >-> variable.
+Definition as_var_F `{FMap F} (x : F final_variable) : F variable :=
+  as_var <$> x.
+
+
 Definition initial_var_of (x : final_variable) := mkVar (var_name x) (var_sub x) true.
+Notation "₀ x" := (initial_var_of x) (at level 5, format "₀ x").
 
 Lemma initial_var_of_ne (x : final_variable) :
   initial_var_of x ≠ x.
-Proof. destruct x. unfold final_var_var, initial_var_of. done. Qed.
+Proof. destruct x. unfold as_var. done. Qed.
 
 (* ******************************************************************* *)
 (* fresh variables                                                     *)
