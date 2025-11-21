@@ -300,6 +300,7 @@ Section subst.
 (* Hint Rewrite subst_term_diag : core. *)
 (* Hint Rewrite subst_af_diag : core. *)
 
+  (* TODO: maybe remove the eq suffix? *)
   Lemma subst_term_non_free_eq t x t' :
     x ∉ term_fvars t →
     subst_term t x t' = t.

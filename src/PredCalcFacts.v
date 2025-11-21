@@ -9,6 +9,7 @@ From MRC Require Import PredCalcBasic PredCalcEquiv PredCalcSubst.
 Section facts.
   Context {M : model}.
 
+  Implicit Types x : variable.
   Implicit Types t : term (value M).
   Implicit Types af : @atomic_formula (value M).
   Implicit Types A B C : formula (value M).
@@ -166,9 +167,9 @@ Section facts.
     simp feval. rewrite feval_stable...
   Qed.
 
-  Lemma fequiv_subst_trans : ∀ A (x1 x2 x3 : variable),
+  Lemma fequiv_subst_trans : ∀ A x1 x2 t,
       x2 ∉ formula_fvars A →
-      <! A[x1 \ x2][x2 \ x3] !> ≡ <! A[x1 \ x3] !>.
+      <! A[x1 \ x2][x2 \ t] !> ≡ <! A[x1 \ t] !>.
   Proof with auto.
     intros.
     destruct (decide (x1 ∈ formula_fvars A)).
@@ -176,12 +177,10 @@ Section facts.
         rewrite fequiv_subst_non_free... }
     destruct (decide (x1 = x2)).
     1:{ subst. rewrite fequiv_subst_diag... }
-    destruct (decide (x2 = x3)).
-    1:{ subst. rewrite fequiv_subst_diag... }
-    intros σ. pose proof (teval_total σ x3) as [v3 Hv3].
-    rewrite (feval_subst v3)... rewrite (feval_subst v3).
+    intros σ. pose proof (teval_total σ t) as [v Hv].
+    rewrite (feval_subst v)... rewrite (feval_subst v).
     2:{ constructor. rewrite (lookup_total_insert σ)... }
-    rewrite (feval_subst v3)... rewrite (insert_commute σ)...
+    rewrite (feval_subst v)... rewrite (insert_commute σ)...
     rewrite (feval_delete_state_var_head x2)...
   Qed.
 

@@ -51,14 +51,14 @@ Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
-Class LengthEqLists {A} (l1 l2 : list A) :=
+Class LengthEqLists {A B} (l1 : list A) (l2 : list B) :=
   length_eq_lists : length l1 = length l2.
 
-Instance length_eq_lists_nil A : @LengthEqLists A [] [].
+Instance length_eq_lists_nil {A B} : @LengthEqLists A B [] [].
 Proof. reflexivity. Defined.
 
-Instance length_eq_lists_cons A {x1 x2 : A} {l1 l2 : list A}
-  `{LengthEqLists A l1 l2} : LengthEqLists (x1::l1) (x2::l2).
+Instance length_eq_lists_cons {A B} {x1 : A} {x2 : B} {l1 : list A} {l2 : list B}
+  `{LengthEqLists A B l1 l2} : LengthEqLists (x1::l1) (x2::l2).
 Proof. unfold LengthEqLists in *. do 2 rewrite length_cons. lia. Qed.
 
 (* HACK: These are not currently used. I will keep them as reference.

@@ -199,15 +199,15 @@ Section pred_calc_syntax.
   Qed.
 
   Inductive sum_quant_subst_skip_cond y A x :=
-  | SumQuantSubstSkipCond_False (H : x = y ∨ x ∉ formula_fvars A)
-  | SumQuantSubstSkipCond_True (H1 : x ≠ y) (H2: x ∈ formula_fvars A).
+  | SumQuantSubstSkipCond_True (H : x = y ∨ x ∉ formula_fvars A)
+  | SumQuantSubstSkipCond_False (H1 : x ≠ y) (H2: x ∈ formula_fvars A).
 
   Definition quant_subst_skip_cond y A x : sum_quant_subst_skip_cond y A x.
   Proof with auto.
     destruct (decide (x = y ∨ x ∉ formula_fvars A)).
-    - apply SumQuantSubstSkipCond_False...
+    - apply SumQuantSubstSkipCond_True...
     - apply Decidable.not_or in n as [H1 H2]. destruct (decide (x ∈ formula_fvars A)).
-      + apply SumQuantSubstSkipCond_True...
+      + apply SumQuantSubstSkipCond_False...
       + contradiction.
   Defined.
 
