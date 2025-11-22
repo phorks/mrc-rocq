@@ -1,4 +1,5 @@
 From Equations Require Import Equations.
+From Stdlib Require Import Lists.List. Import ListNotations.
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
@@ -577,7 +578,6 @@ Section simult_subst.
 
   Lemma ssubst_extract_2 A x1 t1 x2 t2 :
     x1 ≠ x2 →
-    x1 ∉ term_fvars t2 →
     x2 ∉ term_fvars t1 →
     A[[x1, x2 \ t1, t2]] ≡ A[x1 \ t1][x2 \ t2].
   Proof with auto.
@@ -591,10 +591,70 @@ Section simult_subst.
   Lemma ssubst_extract_2' A x1 t1 x2 t2 :
     x1 ≠ x2 →
     x1 ∉ term_fvars t2 →
-    x2 ∉ term_fvars t1 →
     A[[x1, x2 \ t1, t2]] ≡ A[x2 \ t2][x1 \ t1].
   Proof with auto.
-    intros. rewrite ssubst_extract_2... rewrite fequiv_subst_commute...
+    intros. rewrite ssubst_extract_outside with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
+    - rewrite ssubst_single with (A:=A) (x:=x2) (t:=t2)...
+    - apply not_elem_of_cons. split... set_solver.
+    - simpl. set_solver.
+    Unshelve. typeclasses eauto.
+  Qed.
+
+  Lemma ssubst_dup_keep_l A xs0 ts0 x t xs1 ts1 xs2 ts2
+      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
+    x ∉ xs1 →
+    A[[*xs0, x, *xs1, x, *xs2 \ *ts0, t, *ts1, t, *ts2]]  ≡ A[[*xs0, x, *xs1, *xs2 \ *ts0, t, *ts1, *ts2]].
+  Proof with auto.
+    intros. unfold to_var_term_map. repeat rewrite app_nil_r. f_equiv.
+    repeat rewrite zip_with_app... repeat rewrite list_to_map_app.
+    simpl.
+    rewrite (map_union_assoc (list_to_map (zip xs1 ts1))).
+    rewrite (map_union_comm (list_to_map (zip xs1 ts1))).
+    - rewrite (map_union_assoc (<[x:=t]> ∅)). rewrite (map_union_assoc (<[x:=t]> ∅)).
+      rewrite map_union_idemp. rewrite <- (map_union_assoc (<[x:=t]> ∅))...
+    - rewrite insert_empty. rewrite map_disjoint_singleton_r. apply lookup_list_to_map_zip_None...
+  Qed.
+
+  Lemma ssubst_dup_keep_r A xs0 ts0 x t xs1 ts1 xs2 ts2
+      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
+    x ∉ xs1 →
+    A[[*xs0, x, *xs1, x, *xs2 \ *ts0, t, *ts1, t, *ts2]]  ≡ A[[*xs0, *xs1, x, *xs2 \ *ts0, *ts1, t, *ts2]].
+  Proof with auto.
+    intros. unfold to_var_term_map. repeat rewrite app_nil_r. f_equiv.
+    repeat rewrite zip_with_app... repeat rewrite list_to_map_app.
+    simpl.
+    rewrite (map_union_assoc (list_to_map (zip xs1 ts1))).
+    rewrite (map_union_comm (list_to_map (zip xs1 ts1))).
+    - rewrite (map_union_assoc (<[x:=t]> ∅)). rewrite (map_union_assoc (<[x:=t]> ∅)).
+      rewrite map_union_idemp. rewrite <- (map_union_assoc (<[x:=t]> ∅))...
+    - rewrite insert_empty. rewrite map_disjoint_singleton_r. apply lookup_list_to_map_zip_None...
+  Qed.
+
+  Lemma ssubst_comm A xs0 ts0 x1 t1 xs1 ts1 x2 t2 xs2 ts2
+      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
+    x1 ≠ x2 →
+    x1 ∉ xs1 →
+    x2 ∉ xs1 →
+    A[[*xs0, x1, *xs1, x2, *xs2 \ *ts0, t1, *ts1, t2, *ts2]]  ≡ A[[*xs0, x2, *xs1, x1, *xs2 \ *ts0, t2, *ts1, t1, *ts2]].
+  Proof with auto.
+    intros. unfold to_var_term_map. repeat rewrite app_nil_r. f_equiv.
+    repeat rewrite zip_with_app... repeat rewrite list_to_map_app.
+    simpl.
+    rewrite (map_union_assoc (list_to_map (zip xs1 ts1))).
+    rewrite (map_union_comm (list_to_map (zip xs1 ts1))).
+    2:{ rewrite insert_empty. rewrite map_disjoint_singleton_r.
+        apply lookup_list_to_map_zip_None... }
+    rewrite (map_union_assoc (<[x1:=t1]> ∅)).
+    rewrite (map_union_assoc (<[x1:=t1]> ∅)).
+    rewrite (map_union_comm (<[x1:=t1]> ∅)).
+    2: { rewrite insert_empty. rewrite map_disjoint_singleton_l. rewrite insert_empty.
+         apply lookup_singleton_ne... }
+    rewrite <- (map_union_assoc (<[x2:=t2]> ∅)).
+    rewrite <- (map_union_assoc (<[x2:=t2]> ∅)).
+    rewrite (map_union_comm (<[x1:=t1]> ∅)).
+    2:{ rewrite insert_empty. rewrite map_disjoint_singleton_l.
+        apply lookup_list_to_map_zip_None... }
+    rewrite <- (map_union_assoc (list_to_map (zip xs1 ts1)))...
   Qed.
 
 End simult_subst.
