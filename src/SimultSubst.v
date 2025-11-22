@@ -657,4 +657,17 @@ Section simult_subst.
     rewrite <- (map_union_assoc (list_to_map (zip xs1 ts1)))...
   Qed.
 
+  Lemma ssubst_comm_consecutive A xs0 ts0 x1 t1 x2 t2 xs1 ts1
+      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} :
+    x1 ≠ x2 →
+    A[[*xs0, x1, x2, *xs1 \ *ts0, t1, t2, *ts1]]  ≡ A[[*xs0, x2, x1, *xs1 \ *ts0, t2, t1, *ts1]].
+  Proof with auto.
+    intros.
+    rewrite ssubst_comm with (xs0:=xs0) (ts0:=ts0) (xs1:=nil) (ts1:=nil) (xs2:=xs1) (ts2:=ts1)
+                           (x1:=x1) (t1:=t1) (x2:=x2) (t2:=t2)...
+    all: apply not_elem_of_nil.
+    Unshelve.
+    all: typeclasses eauto.
+  Qed.
+
 End simult_subst.
