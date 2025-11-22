@@ -51,16 +51,22 @@ Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
-Class LengthEqLists {A B} (l1 : list A) (l2 : list B) :=
-  length_eq_lists : length l1 = length l2.
+Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=
+  of_same_length : length l1 = length l2.
 
-Instance length_eq_lists_nil {A B} : @LengthEqLists A B [] [].
+Instance of_same_length_nil {A B} : @OfSameLength A B [] [].
 Proof. reflexivity. Defined.
 
-Instance length_eq_lists_cons {A B} {x1 : A} {x2 : B} {l1 : list A} {l2 : list B}
-  `{LengthEqLists A B l1 l2} : LengthEqLists (x1::l1) (x2::l2).
-Proof. unfold LengthEqLists in *. do 2 rewrite length_cons. lia. Qed.
+Instance of_same_length_cons {A B} {x1 : A} {x2 : B} {l1 : list A} {l2 : list B}
+  `{OfSameLength A B l1 l2} : OfSameLength (x1::l1) (x2::l2).
+Proof. unfold OfSameLength in *. do 2 rewrite length_cons. lia. Qed.
 
+Instance of_same_length_singleton {A B} {x1 : A} {x2 : B} : OfSameLength [x1] [x2].
+Proof. unfold OfSameLength in *. simpl. reflexivity. Qed.
+
+Instance of_same_length_app {A B} {l1 l1' : list A} {l2 l2' : list B}
+  `{OfSameLength A B l1 l2} `{OfSameLength A B l1' l2'} : OfSameLength (l1 ++ l1') (l2 ++ l2').
+Proof. unfold OfSameLength in *. do 2 rewrite length_app. lia. Qed.
 (* HACK: These are not currently used. I will keep them as reference.
    I should delete them at some point. *)
 (* Section sets. *)
