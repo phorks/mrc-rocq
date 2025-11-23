@@ -10,5 +10,6 @@ src/PredCalcEquiv.v
 src/PredCalcFacts.v
 src/PredCalcEquivLemmas.v
 src/PredCalcTactics.v
+src/SimultSubst.v
 src/PredCalc.v
 src/Prog.v

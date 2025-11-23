@@ -352,10 +352,9 @@ Section subst.
 (*       apply H0. *)
 (* Qed. *)
 
-
   Lemma fequiv_subst_non_free A x t :
     x ∉ formula_fvars A →
-    A[x \ t] ≡ A.
+    <! A[x \ t] !> ≡ A.
   Proof with auto.
     apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A ≡ B); intros.
     - rewrite subst_af_non_free_eq...
@@ -490,7 +489,7 @@ Section subst.
 
     Lemma fvars_subst_non_free A x t :
       x ∉ formula_fvars A →
-      formula_fvars (A[x \ t]) = formula_fvars A.
+      formula_fvars (<! A[x \ t] !>) = formula_fvars A.
     Proof with auto.
       apply subst_formula_ind with
         (P:=λ A B, x ∉ formula_fvars B → formula_fvars A = formula_fvars B); intros; simpl.
@@ -505,7 +504,7 @@ Section subst.
 
     Lemma fvars_subst_free : ∀ A x t,
         x ∈ formula_fvars A →
-        formula_fvars (A[x \ t]) = (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
+        formula_fvars (<! A[x \ t] !>) = (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
     Proof with auto.
       intros.
       generalize dependent t. generalize dependent x.
@@ -540,7 +539,7 @@ Section subst.
     Qed.
 
     Lemma fvars_subst_diag A x :
-      formula_fvars (A[x \ x]) = formula_fvars A.
+      formula_fvars (<! A[x \ x] !>) = formula_fvars A.
     Proof with auto.
       destruct (decide (x ∈ formula_fvars A)) eqn:H.
       - rewrite fvars_subst_free... rewrite union_comm_L. simpl.
@@ -548,7 +547,8 @@ Section subst.
       - apply fvars_subst_non_free...
     Qed.
 
-    Lemma fvars_subst_superset A x t : formula_fvars (A[x \ t]) ⊆ formula_fvars A ∪ term_fvars t.
+    Lemma fvars_subst_superset A x t :
+      formula_fvars (<! A[x \ t] !>) ⊆ formula_fvars A ∪ term_fvars t.
     Proof with auto.
       destruct (decide (x ∈ formula_fvars A)).
       - rewrite fvars_subst_free... apply union_mono_r. apply subseteq_difference_l...

@@ -133,13 +133,13 @@ Section pred_calc_syntax.
     match t with
     | TConst v => ∅
     | TVar y => {[y]}
-    | TApp sym args => ⋃ (map term_fvars args)
+    | TApp sym args => ⋃ (term_fvars <$> args)
     end.
 
   Definition af_fvars af : gset variable :=
     match af with
     | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
-    | AT_Pred _ args => ⋃ (map term_fvars args)
+    | AT_Pred _ args => ⋃ (term_fvars <$> args)
     | _ => ∅
     end.
 
@@ -718,7 +718,8 @@ Notation "∀* xs ● A" := (FForallList xs A)
                               (in custom formula at level 99, only parsing)
     :refiney_scope.
 
-Notation "A [ x \ t ]" := (subst_formula A x t)
+
+Notation "A [! x \ t !]" := (subst_formula A x t)
                             (at level 10, left associativity,
                               x at next level) : refiney_scope.
 
@@ -851,7 +852,7 @@ Section pred_calc_semantics.
     feval σ (FNot A) => ¬ feval σ A;
     feval σ (FAnd A B) => feval σ A ∧ feval σ B;
     feval σ (FOr A B) => feval σ A ∨ feval σ B;
-    feval σ (FExists x A) => ∃ v : V, feval σ (A[x \ TConst v]).
+    feval σ (FExists x A) => ∃ v : V, feval σ (<! A[x \ $(TConst v)] !>).
   Proof.
     all: try (unfold rank; simpl; fold Nat.add; lia).
     unfold rank. simpl. fold Nat.add. pose proof (subst_preserves_shape A x (TConst v)).
@@ -874,7 +875,7 @@ Section pred_calc_semantics.
   (* some useful lemmas                                                  *)
   (* ******************************************************************* *)
   Lemma feval_exists_equiv_if {σ1 σ2 x1 x2} {A1 A2 : formula}:
-    (∀ v, feval σ1 (A1 [x1 \ (TConst v)]) ↔ feval σ2 (A2 [x2 \ (TConst v)])) →
+    (∀ v, feval σ1 (<! A1 [x1 \ $(TConst v) ] !>) ↔ feval σ2 (<! A2 [x2 \ $(TConst v) ] !>)) →
     feval σ1 <! ∃ x1, A1 !> ↔ feval σ2 <! ∃ x2, A2 !>.
   Proof with auto.
     intros. simp feval. split; intros [v Hv]; exists v; apply H...

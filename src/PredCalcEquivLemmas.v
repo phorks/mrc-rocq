@@ -551,7 +551,7 @@ Section props.
 
   (* A.86 *)
   Lemma f_forall_elim t x A :
-    <! ∀ x, A !> ⇛ A[x \ t].
+    <! ∀ x, A !> ⇛ <! A[x \ t] !>.
   Proof with auto.
     intros σ. rewrite simpl_feval_fforall. intros. pose proof (teval_total σ t) as [v Hv].
     specialize (H v). rewrite (feval_subst v) in H... rewrite (feval_subst v)...
@@ -559,7 +559,7 @@ Section props.
 
   (* A.86 *)
   Lemma f_exists_intro t x A :
-    A[x \ t] ⇛ <! ∃ x, A !>.
+    <! A[x \ t] !> ⇛ <! ∃ x, A !>.
   Proof with auto.
     intros σ. simp feval. intros. pose proof (teval_total σ t) as [v Hv].
     exists v. rewrite (feval_subst v) in H... rewrite (feval_subst v)...
@@ -606,12 +606,12 @@ Section props.
   Proof. intros. rewrite H. reflexivity. Qed.
 
   Lemma f_exists_equiv A B y1 y2 :
-    (∀ t, A[y1 \ t] ≡ B[y2 \ t]) →
+    (∀ t, <! A[y1 \ t] !> ≡ <! B[y2 \ t] !>) →
     <! ∃ y1, A !> ≡ <! ∃ y2, B !>.
   Proof. intros Hequiv σ. apply feval_exists_equiv_if. naive_solver. Qed.
 
   Lemma f_forall_equiv A B y1 y2 :
-    (∀ t, A[y1 \ t] ≡ B[y2 \ t]) →
+    (∀ t, <! A[y1 \ t] !> ≡ <! B[y2 \ t] !>) →
     <! ∀ y1, A !> ≡ <! ∀ y2, B !>.
   Proof. intros Hequiv σ. do 2 rewrite simpl_feval_fforall. naive_solver. Qed.
 
@@ -647,14 +647,14 @@ Section props.
   Proof. intros H σ. do 2 rewrite simpl_feval_fimpl. naive_solver. Qed.
 
   Lemma f_exists_ent A B y1 y2 :
-    (∀ t, A[y1 \ t] ⇛ B[y2 \ t]) →
+    (∀ t, <! A[y1 \ t] !> ⇛ <! B[y2 \ t] !>) →
     <! ∃ y1, A !> ⇛ <! ∃ y2, B !>.
   Proof.
     intros Hequiv σ. simp feval. intros [v Hv]. exists v. naive_solver.
   Qed.
 
   Lemma f_forall_ent A B y1 y2 :
-    (∀ t, A[y1 \ t] ⇛ B[y2 \ t]) →
+    (∀ t, <! A[y1 \ t] !> ⇛ <! B[y2 \ t] !>) →
     <! ∀ y1, A !> ⇛ <! ∀ y2, B !>.
   Proof.
     intros Hequiv σ. do 2 rewrite simpl_feval_fforall. intros. naive_solver.

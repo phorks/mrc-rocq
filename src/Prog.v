@@ -17,39 +17,43 @@ Section prog.
   Local Notation formula := (formula (value M)).
   Local Notation final_formula := (final_formula (value M)).
 
-  Variant asgn_rhs_term :=
-    | OpenRhsTerm
-    | FinalRhsTerm (t : final_term).
+  Local Notation asgn_map := (gmap final_variable final_term).
 
   Inductive prog : Type :=
-  | PAsgn (asgns : list (final_variable * asgn_rhs_term))
+  | PAsgn (m : asgn_map)
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
 
-  Notation asgn_list := (list (final_variable * asgn_rhs_term)).
   Notation gcmd_list := (list (formula * prog)).
   Definition gcmd_comprehension (gs : list formula) (f : formula → prog) : gcmd_list :=
     map (λ A, (A, f A)) gs.
 
-  Fixpoint modified_final_vars p : list final_variable :=
+  Fixpoint modified_final_vars p : gset final_variable :=
     match p with
-    | PAsgn asgns => fst <$> asgns
-    | PSeq p1 p2 => modified_final_vars p1 ++ modified_final_vars p2
-    | PIf gcmds => mjoin ((modified_final_vars ∘ snd) <$> gcmds)
-    | PSpec w pre post => w
+    | PAsgn m => dom m
+    | PSeq p1 p2 => modified_final_vars p1 ∪ modified_final_vars p2
+    | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
+    | PSpec w pre post => list_to_set w
     | PVar x p => modified_final_vars p
     | PConst x p => modified_final_vars p
     end.
 
-  Definition modified_vars p : list variable := as_var_F (modified_final_vars p).
+  (* TODO: move it near to as_var_F *)
+  Definition as_var_set (vs : gset final_variable) : gset variable :=
+    set_map as_var vs.
+
+  Definition asgn_map_to_vt_map (m : asgn_map) : gmap variable term :=
+    list_to_map (prod_map as_var as_term <$> map_to_list m).
+
+  Definition modified_vars p : gset variable := as_var_set (modified_final_vars p).
   Notation "'Δ' p" := (modified_vars p) (at level 50).
 
   Fixpoint prog_fvars p : gset variable :=
     match p with
-    | PAsgn asgns => list_to_set (as_var_F (fst <$> asgns))
+    | PAsgn m => as_var_set (dom m)
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
     | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
@@ -72,25 +76,12 @@ Section prog.
   Fixpoint subst_initials A (w : list final_variable) : formula :=
     match w with
     | [] => A
-    | x :: xs => subst_initials (A[₀x \ x]) xs
+    | x :: xs => subst_initials (<! A[₀x \ x] !>) xs
     end.
-
-  Fixpoint split_asgn_list (asgns : asgn_list)
-      : (list final_variable * list (final_variable * final_term)) :=
-    match asgns with
-      | [] => ([], [])
-      | (x, OpenRhsTerm)::rest =>
-          let (opens, asgns) := split_asgn_list rest in
-          (x :: opens, asgns)
-      | (x, FinalRhsTerm t)::rest =>
-          let (opens, asgns) := split_asgn_list rest in
-          (opens, (x, t)::asgns)
-    end.
-
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
-    | PAsgn asgns => A[x \ e]
+    | PAsgn m => simult_subst A (asgn_map_to_vt_map m)
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
     | PSpec w pre post => <! pre ∧ $(subst_initials (<! ∀* $(as_var_F w), post ⇒ A !>) w) !>
@@ -164,7 +155,58 @@ Section prog.
   (* ******************************************************************* *)
   (* Definition abort := PSpec ([]) <! true !> <! false !>. *)
 
+  (* ******************************************************************* *)
+  (* open assignment                                                     *)
+  (* ******************************************************************* *)
+  Variant asgn_rhs_term :=
+    | OpenRhsTerm
+    | FinalRhsTerm (t : final_term).
+
+  Coercion FinalRhsTerm : final_term >-> asgn_rhs_term.
+
+  Record asgn_args := mkAsgnArgs {
+    asgn_args_open_vars : list final_variable;
+    asgn_args_map  : asgn_map
+  }.
+
+  (* TODO: move it *)
+  Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
+                               (H :OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
+  Proof. unfold OfSameLength in *. simpl in H. lia. Qed.
+
+  Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
+    `{H : OfSameLength _ _ lhs rhs} : asgn_args.
+  Proof.
+    generalize dependent rhs.
+    induction lhs as [|x lhs']; destruct rhs as [|t rhs']; intros.
+    - exact (mkAsgnArgs [] ∅).
+    - exact (mkAsgnArgs [] ∅). (* doesn't happen because of OfSameLength *)
+    - exact (mkAsgnArgs [] ∅). (* doesn't happen because of OfSameLength *)
+    - apply of_same_length_rest in H. apply IHlhs' in H as [opens map].
+      destruct t.
+      + exact (mkAsgnArgs (opens ++ [x]) map).
+      + exact (mkAsgnArgs opens (<[x:=t]> map)).
+  Defined.
+
 End prog.
+
+Notation "xs" := (xs) (in custom term_seq_notation at level 0,
+                       xs custom seq_elem)
+    : refiney_scope.
+Notation "∅" := ([]) (in custom term_mseq_notation at level 0)
+    : refiney_scope.
+
+Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at level 200)
+    : refiney_scope.
+Notation "?" := OpenRhsTerm (in custom term_seq_elem at level 0) : refiney_scope.
+Notation "* x" := x (in custom seq_elem at level 0, x constr at level 0)
+    : refiney_scope.
+Notation "*$( x )" := x (in custom seq_elem at level 5, x constr at level 200)
+    : refiney_scope.
+Notation "x , .. , y" := (app x .. (app y []) ..)
+                           (in custom seq_elem at level 10,
+                               x custom seq_elem at next level,
+                               y custom seq_elem at next level) : refiney_scope.
 
 Declare Custom Entry prog.
 Declare Custom Entry gcmd.

@@ -55,6 +55,20 @@ Record final_variable := mkFinalVar {
   final_var_sub : nat;
 }.
 
+Global Instance final_variable_eq_dec : EqDecision final_variable. Proof. solve_decision. Defined.
+Global Instance final_variable_countable : Countable final_variable.
+Proof.
+  refine (
+    {| encode v := encode (final_var_name v, final_var_sub v);
+       decode t :=
+         match decode t with
+         | Some (n, s) => Some (mkFinalVar n s)
+         | None => None
+         end
+    |}).
+  intros [n s]. simpl. rewrite decode_encode. reflexivity.
+Defined.
+
 Definition as_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
 Coercion as_var : final_variable >-> variable.
 Definition as_var_F `{FMap F} (x : F final_variable) : F variable :=

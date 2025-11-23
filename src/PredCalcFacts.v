@@ -16,7 +16,8 @@ Section facts.
   Implicit Types v : value M.
 
   Local Lemma fequiv_subst_and_diag A x :
-    <! A[x \ x] !> ≡ A ∧ ∀ σ t v, teval σ t v → feval (<[x:=v]> σ) A ↔ feval σ (A[x \ t]).
+    <! A[x \ x] !> ≡ A ∧
+    ∀ σ t v, teval σ t v → feval (<[x:=v]> σ) A ↔ feval σ <! A[x \ t] !>.
   Proof with auto.
     generalize dependent x. induction A; intros.
     - unfold subst_formula. simpl. rewrite subst_af_diag... split...
@@ -37,9 +38,9 @@ Section facts.
         - rewrite simpl_subst_exists_skip...
         - rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x x as y'.
           intros σ. apply feval_exists_equiv_if. intros.
-          pose proof (H':=H). forward (H (A[y\y'][x\x])). 1: { eapply shape_eq_trans... }
+          pose proof (H':=H). forward (H (A[!y\y'!][!x\x!])). 1: { eapply shape_eq_trans... }
           destruct (H y') as [_ ?]. rewrite <- (H0 σ (TConst v) v)... clear H H0.
-          pose proof (H:=H'). forward (H (A[y\y'])) by auto.
+          pose proof (H:=H'). forward (H (A[!y\y'!])) by auto.
           destruct (H x) as [? _]. etrans. { apply H0. }
           clear H H0. pose proof (H:=H'). forward (H A)... destruct (H y) as [_ ?].
           forward (H0 (<[y':=v]> σ) y' v). { apply TEval_Var. rewrite (lookup_total_insert σ)... }
@@ -59,9 +60,9 @@ Section facts.
              set_solver. }
         rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t as x'.
         apply feval_exists_equiv_if. intros.
-        pose proof (H':=H). forward (H (A[y\x'][x\t])). { eapply shape_eq_trans... }
+        pose proof (H':=H). forward (H (A[!y\x'!][!x\t!])). { eapply shape_eq_trans... }
         destruct (H x') as [_ ?]. rewrite <- (H1 σ (TConst v0) v0)... clear H1 H.
-        pose proof (H:=H'). forward (H (A[y\x'])). { eapply shape_eq_trans... }
+        pose proof (H:=H'). forward (H (A[!y\x'!])). { eapply shape_eq_trans... }
         destruct (H x) as [_ ?]. specialize (H1 (<[x':=v0]> σ) t v). forward H1.
         { apply teval_delete_state_var_head... }
         symmetry. etrans. { symmetry. exact H1. } symmetry. clear H1 H.
@@ -82,7 +83,7 @@ Section facts.
 
   Lemma feval_subst {σ A x} v t :
     teval σ t v →
-    feval σ (A[x \ t]) ↔ feval (<[x:=v]> σ) A .
+    feval σ (<! A[x \ t] !>) ↔ feval (<[x:=v]> σ) A .
   Proof with auto. symmetry. apply fequiv_subst_and_diag... Qed.
 
   Lemma fequiv_subst_diag A x :
@@ -242,10 +243,10 @@ Section facts.
   Qed.
 
   Lemma simpl_feval_fforall σ x A :
-    feval σ <! ∀ x, A !> ↔ ∀ v, feval σ (A [x \ (TConst v)]).
+    feval σ <! ∀ x, A !> ↔ ∀ v, feval σ <! A [x \ $(TConst v)] !>.
   Proof with auto.
     unfold FForall. simp feval. setoid_rewrite (simpl_subst_not). split; intros.
-    - destruct (feval_lem σ (A [x \ (TConst v)]))... exfalso. apply H. exists v. simp feval.
+    - destruct (feval_lem σ <! A [x \ $(TConst v)] !>)... exfalso. apply H. exists v. simp feval.
     - intros [v contra]. simp feval in contra...
   Qed.
 
