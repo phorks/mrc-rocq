@@ -59,6 +59,9 @@ Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
+Definition set_to_list {A} `{Countable A} `{EqDecision A} (s : gset A) : list A :=
+  set_fold (λ i x, i :: x) [] s.
+
 Lemma lookup_total_union_l' {K A M} `{FinMap K M} `{Inhabited A} (m1 m2 : M A) i x :
   m1 !! i = Some x →
   (m1 ∪ m2) !!! i = x.

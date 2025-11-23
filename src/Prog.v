@@ -11,6 +11,14 @@ From MRC Require Import PredCalc.
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
+Definition subst_initials {M} A (w : gset final_variable) : (formula (value M)) :=
+  simult_subst A (set_to_map (λ x, (₀x, (TVar x))) w).
+
+Notation "A [_₀\ w ]" := (subst_initials A w)
+                            (in custom formula at level 74, left associativity,
+                                A custom formula,
+                                w constr at level 200) : refiney_scope.
+
 Section prog.
   Context {M : model}.
   Local Notation term := (term (value M)).
@@ -24,9 +32,22 @@ Section prog.
   | PAsgn (m : asgn_map)
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
-  | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
+  | PSpec (w : gset final_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
+
+  Fixpoint PVarList (xs : list variable) (p : prog) :=
+    match xs with
+    | [] => p
+    | x :: xs => PVar x (PVarList xs p)
+    end.
+
+  Fixpoint PConstList (xs : list variable) (p : prog) :=
+    match xs with
+    | [] => p
+    | x :: xs => PConst x (PConstList xs p)
+    end.
+
 
   Notation gcmd_list := (list (formula * prog)).
   Definition gcmd_comprehension (gs : list formula) (f : formula → prog) : gcmd_list :=
@@ -37,7 +58,7 @@ Section prog.
     | PAsgn m => dom m
     | PSeq p1 p2 => modified_final_vars p1 ∪ modified_final_vars p2
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
-    | PSpec w pre post => list_to_set w
+    | PSpec w pre post => w
     | PVar x p => modified_final_vars p
     | PConst x p => modified_final_vars p
     end.
@@ -57,7 +78,7 @@ Section prog.
     | PAsgn m => as_var_set (dom m)
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
-    | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
+    | PSpec w pre post => as_var_set w ∪ formula_fvars pre ∪ formula_fvars post
     | PVar x p => prog_fvars p ∖ {[x]}
     | PConst x p => prog_fvars p ∖ {[x]}
   end.
@@ -74,18 +95,13 @@ Section prog.
     | (g, _)::cmds => <! (g ⇔ A) ∧ $(all_cmds cmds A) !>
     end.
 
-  Fixpoint subst_initials A (w : list final_variable) : formula :=
-    match w with
-    | [] => A
-    | x :: xs => subst_initials (<! A[₀x \ x] !>) xs
-    end.
-
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
     | PAsgn m => simult_subst A (asgn_map_to_vt_map m)
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
-    | PSpec w pre post => <! pre ∧ $(subst_initials (<! ∀* $(as_var_F w), post ⇒ A !>) w) !>
+    | PSpec w pre post =>
+        <! pre ∧ (∀* $(set_to_list (as_var_set w)), post ⇒ A)[_₀\ w] !>
     | PVar x p => <! ∀ x, $(wp p A) !>
     | PConst x p => <! ∃ x, $(wp p A) !>
     end.
@@ -155,11 +171,11 @@ Section prog.
   (* some extreme programs                                               *)
   (* ******************************************************************* *)
 
-  Definition abort := PSpec [] <!! false !!> <! true !>.
+  Definition abort := PSpec ∅ <!! false !!> <! true !>.
   Definition abort_w w := PSpec w <!! false !!> <! true !>.
   Definition choose_w w := PSpec w <!! true !!> <! true !>.
-  Definition skip := PSpec [] <!! true !!> <! true !>.
-  Definition magic := PSpec [] <!! true !!> <! false !>.
+  Definition skip := PSpec ∅ <!! true !!> <! true !>.
+  Definition magic := PSpec ∅ <!! true !!> <! false !>.
   Definition magic_w w := PSpec w <!! true !!> <! false !>.
 
   (* ******************************************************************* *)
@@ -168,8 +184,6 @@ Section prog.
   Variant asgn_rhs_term :=
     | OpenRhsTerm
     | FinalRhsTerm (t : final_term).
-
-  Coercion FinalRhsTerm : final_term >-> asgn_rhs_term.
 
   Record asgn_args := mkAsgnArgs {
     asgn_args_open_vars : list final_variable;
@@ -181,7 +195,7 @@ Section prog.
                                (H :OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
   Proof. unfold OfSameLength in *. simpl in H. lia. Qed.
 
-  Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
+  Local Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
     `{H : OfSameLength _ _ lhs rhs} : asgn_args.
   Proof.
     generalize dependent rhs.
@@ -195,25 +209,33 @@ Section prog.
       + exact (mkAsgnArgs opens (<[x:=t]> map)).
   Defined.
 
+  Definition PAsgnWithOpens (lhs : list final_variable) (rhs : list asgn_rhs_term)
+                            `{OfSameLength _ _ lhs rhs} : prog :=
+    let (opens, map) := split_asgn_list lhs rhs in
+    PVarList (as_var <$> remove_dups opens) (PAsgn map).
+
 End prog.
 
+Declare Custom Entry term_seq_notation.
+Declare Custom Entry term_seq_elem.
+
 Notation "xs" := (xs) (in custom term_seq_notation at level 0,
-                       xs custom seq_elem)
+                       xs custom term_seq_elem)
     : refiney_scope.
-Notation "∅" := ([]) (in custom term_mseq_notation at level 0)
+Notation "∅" := ([]) (in custom term_seq_notation at level 0)
     : refiney_scope.
 
-Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at level 200)
+Notation "x" := ([FinalRhsTerm (as_final_term x)]) (in custom term_seq_elem at level 0, x custom term at level 200)
     : refiney_scope.
-Notation "?" := OpenRhsTerm (in custom term_seq_elem at level 0) : refiney_scope.
-Notation "* x" := x (in custom seq_elem at level 0, x constr at level 0)
+Notation "?" := ([OpenRhsTerm]) (in custom term_seq_elem at level 0) : refiney_scope.
+Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "*$( x )" := x (in custom seq_elem at level 5, x constr at level 200)
+Notation "*$( x )" := x (in custom term_seq_elem at level 5, x constr at level 200)
     : refiney_scope.
 Notation "x , .. , y" := (app x .. (app y []) ..)
-                           (in custom seq_elem at level 10,
-                               x custom seq_elem at next level,
-                               y custom seq_elem at next level) : refiney_scope.
+                           (in custom term_seq_elem at level 10,
+                               x custom term_seq_elem at next level,
+                               y custom term_seq_elem at next level) : refiney_scope.
 
 Declare Custom Entry prog.
 Declare Custom Entry gcmd.
@@ -227,10 +249,11 @@ Notation "$( e )" := e (in custom prog at level 0, only parsing,
                            e constr at level 200)
     : refiney_scope.
 
-Notation "x := t" := (PAsgn x t)
+Notation "xs := ts" := (PAsgnWithOpens xs ts)
                        (in custom prog at level 95,
-                           x constr at level 0,
-                           t custom term at level 85, no associativity)
+                           xs custom seq_notation at level 94,
+                           ts custom term_seq_notation at level 94,
+                           no associativity)
     : refiney_scope.
 
 Notation "p ; q" := (PSeq p q)
@@ -262,42 +285,44 @@ Notation "'while' A ⟶ p 'end" :=
   (PWhile A p)
     (in custom prog at level 95,
         A custom formula, p custom prog, no associativity) : refiney_scope.
-(* Notation "⟨ x , .. , y ⟩ : [ p , q ]" := *)
-(*   (PSpec (cons x .. (cons y nil) ..) p q) *)
-(*     (in custom prog at level 130, no associativity, *)
-(*         x constr at level 0, y constr at level 0, *)
-(*         p custom formula at level 85, q custom formula at level 85)
-: refiney_scope. *)
+
 Notation "w : [ p , q ]" :=
-  (PSpec w p q)
+  (PSpec (list_to_set w) p q)
     (in custom prog at level 95, no associativity,
         w custom seq_notation at level 94,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
 
-(* Notation ": [ p , q ]" := *)
-(*   (PSpec ([]) p q) *)
-(*     (in custom prog at level 95, no associativity, *)
-(*         p custom formula at level 85, q custom formula at level 85)
-: refiney_scope. *)
+Notation ": [ p , q ]" :=
+  (PSpec ∅ p q)
+    (in custom prog at level 95, no associativity,
+        p custom formula at level 85, q custom formula at level 85)
+    : refiney_scope.
 
 Axiom M : model.
 Axiom p1 p2 : @prog M.
 Axiom pre : @final_formula (value M).
 Axiom post : @formula (value M).
-Axiom x y : final_variable.
+Axiom x y z : final_variable.
 Axiom xs ys : list final_variable.
 Definition pp := <{ $p1 ; $p2 }>.
 Definition pp2 := <{ ∅ : [<! pre !>, post] }>.
-Definition pp3 := <{ x := x }>.
-Print pp2.
+Definition pp3 := <{ x, y, z := y, x, ? }> : @prog M.
 
 Notation "'|[' 'var' x '⦁' y ']|' " :=
   (PVar x y)
     (in custom prog at level 95, no associativity,
         x constr at level 0, y custom prog) : refiney_scope.
 
+Notation "'|[' 'var*' xs '⦁' y ']|' " :=
+  (PVarList xs y)
+    (in custom prog at level 95 ) : refiney_scope.
+
 Notation "'|[' 'con' x '⦁' y ']|' " :=
   (PConst x y)
     (in custom prog at level 95, no associativity,
         x constr at level 0, y custom prog at next level) : refiney_scope.
+
+Notation "'|[' 'con*' xs '⦁' y ']|' " :=
+  (PVarList xs y)
+    (in custom prog at level 95 ) : refiney_scope.
