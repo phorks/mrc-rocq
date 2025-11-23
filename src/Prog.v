@@ -324,5 +324,5 @@ Notation "'|[' 'con' x '⦁' y ']|' " :=
         x constr at level 0, y custom prog at next level) : refiney_scope.
 
 Notation "'|[' 'con*' xs '⦁' y ']|' " :=
-  (PVarList xs y)
+  (PConstList xs y)
     (in custom prog at level 95 ) : refiney_scope.
