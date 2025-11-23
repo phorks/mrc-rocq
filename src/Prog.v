@@ -9,6 +9,7 @@ From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
 
 Open Scope stdpp_scope.
+Open Scope refiney_scope.
 
 Section prog.
   Context {M : model}.
@@ -153,7 +154,13 @@ Section prog.
   (* ******************************************************************* *)
   (* some extreme programs                                               *)
   (* ******************************************************************* *)
-  (* Definition abort := PSpec ([]) <! true !> <! false !>. *)
+
+  Definition abort := PSpec [] <!! false !!> <! true !>.
+  Definition abort_w w := PSpec w <!! false !!> <! true !>.
+  Definition choose_w w := PSpec w <!! true !!> <! true !>.
+  Definition skip := PSpec [] <!! true !!> <! true !>.
+  Definition magic := PSpec [] <!! true !!> <! false !>.
+  Definition magic_w w := PSpec w <!! true !!> <! false !>.
 
   (* ******************************************************************* *)
   (* open assignment                                                     *)
