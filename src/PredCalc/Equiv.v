@@ -4,7 +4,7 @@ From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalcBasic.
+From MRC Require Import PredCalc.Basic.
 
 Section equiv.
   Context {M : model}.

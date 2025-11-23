@@ -591,27 +591,8 @@ The following is not a limitation; however we enforce it to make proofs easier
       apply rank_eq_if_shape_eq in H. lia.
   Qed.
 
-  Record final_term := mkFinalTerm {
-    as_term : term;
-    final_term_final : ∀ x, x ∈ term_fvars as_term → var_is_initial x = false;
-  }.
-
-  Record final_formula := mkFinalFormula {
-    as_formula : formula;
-    final_formula_final : ∀ x, x ∈ formula_fvars as_formula →
-                                     var_is_initial x = false
-  }.
-
-  Coercion as_term : final_term >-> term.
-  Coercion as_formula : final_formula >-> formula.
-
-  Definition as_term_F `{FMap F} (x : F final_term) : F term :=
-    as_term <$> x.
-
-  Definition as_formula_F `{FMap F} (x : F final_formula) : F formula :=
-    as_formula <$> x.
-
 End pred_calc_syntax.
+
 Notation rank A := (formula_rank A + quantifier_rank A).
 
 Open Scope refiney_scope.
@@ -626,13 +607,6 @@ Notation "$( e )" := e (in custom term at level 0, only parsing,
                           e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom term, e custom term at level 200) : refiney_scope.
 Notation "₀ x" := (initial_var_of x) (in custom term at level 5).
-Notation "%% t" := (as_term t)
-                     (in custom term at level 0, only parsing,
-                         t constr at level 0) : refiney_scope.
-Notation "% x" := (as_var x)
-                       (in custom term at level 0,
-                           only parsing,
-                           x constr at level 0) : refiney_scope.
 Notation "t + u" := (TApp "+" (@cons term t (@cons term u nil)))
                       (in custom term at level 50,
                           t custom term,
@@ -685,9 +659,6 @@ Notation "$( e )" := e (in custom formula at level 0, only parsing,
                            e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom formula, e at level 200) : refiney_scope.
 Notation "⌜ r ⌝" := r (in custom formula, r custom term_relation) : refiney_scope.
-Notation "% A" := (as_formula A)
-                    (in custom formula at level 0, only parsing,
-                        A constr at level 0) : refiney_scope.
 Notation "'true'" := (FAtom AT_True) (in custom formula at level 0).
 Notation "'false'" := (FAtom AT_False) (in custom formula at level 0).
 Notation "¬ A" := (FNot A) (in custom formula at level 70, right associativity) : refiney_scope.
@@ -883,10 +854,8 @@ Section pred_calc_semantics.
 End pred_calc_semantics.
 
 Arguments term V : clear implicits.
-Arguments final_term V : clear implicits.
 Arguments atomic_formula : clear implicits.
 Arguments formula V : clear implicits.
-Arguments final_formula V : clear implicits.
 
 Hint Constructors teval : core.
 

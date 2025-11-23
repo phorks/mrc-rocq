@@ -5,12 +5,11 @@ From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
 From MRC Require Import SeqNotation.
 From MRC Require Import Model.
-From MRC Require Import PredCalcBasic.
-From MRC Require Import PredCalcEquiv.
-From MRC Require Import PredCalcSubst.
-From MRC Require Import PredCalcFacts.
+From MRC Require Import PredCalc.Basic.
+From MRC Require Import PredCalc.SyntacticFacts.
+From MRC Require Import PredCalc.Equiv.
+From MRC Require Import PredCalc.SemanticFacts.
 
-(* TODO: move to stdppp *)
 Section simult_subst.
   Context {M : model}.
 

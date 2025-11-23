@@ -4,8 +4,11 @@ From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
-From MRC Require Import PredCalcBasic PredCalcEquiv PredCalcSubst PredCalcFacts.
-From MRC Require Import PredCalcEquivLemmas.
+From MRC Require Import PredCalc.Basic.
+From MRC Require Import PredCalc.SyntacticFacts.
+From MRC Require Import PredCalc.Equiv.
+From MRC Require Import PredCalc.SemanticFacts.
+From MRC Require Import PredCalc.EquivLemmas.
 
 Ltac f_simpl :=
   repeat match goal with
