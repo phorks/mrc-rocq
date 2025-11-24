@@ -87,6 +87,17 @@ Section sequential_subst.
         apply eq_pi. solve_decision.
   Qed.
 
+  Definition AT_TermListEq ts1 ts2 `{OfSameLength _ _ ts1 ts2} : formula :=
+    of_same_length_rect (λ A, A) (λ rec t1 t2 B, <! ⌜t1 = t2⌝ ∧ $(rec B) !>) <! true !> ts1 ts2.
+
+  Lemma f_forall_list_one_point xs ts A `{OfSameLength _ _ xs ts} :
+      (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+      <! ∀* xs, $(AT_TermListEq (TVar <$> xs) ts) ⇒ A !> ≡ seq_subst A xs ts.
+  Proof with auto.
+    intros Hfree. unfold FForall. rewrite f_not_impl.
+    apply (f_exists_one_point x t(FNot A)) in Hfree. rewrite Hfree.
+    rewrite simpl_subst_not. rewrite f_not_stable...
+  Qed.
   (* Fixpoint seq_subst' A xs ts : formula := *)
   (*   match xs, ts with *)
   (*   | [], [] => A *)
