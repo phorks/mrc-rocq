@@ -287,7 +287,7 @@ Notation "'while' A ⟶ p 'end" :=
         A custom formula, p custom prog, no associativity) : refiney_scope.
 
 Notation "w : [ p , q ]" :=
-  (PSpec (list_to_set w) p q)
+  (PSpec (list_to_set w) (as_final_formula p) q)
     (in custom prog at level 95, no associativity,
         w custom seq_notation at level 94,
         p custom formula at level 85, q custom formula at level 85)
@@ -298,16 +298,6 @@ Notation ": [ p , q ]" :=
     (in custom prog at level 95, no associativity,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
-
-Axiom M : model.
-Axiom p1 p2 : @prog M.
-Axiom pre : @final_formula (value M).
-Axiom post : @formula (value M).
-Axiom x y z : final_variable.
-Axiom xs ys : list final_variable.
-Definition pp := <{ $p1 ; $p2 }>.
-Definition pp2 := <{ ∅ : [<! pre !>, post] }>.
-Definition pp3 := <{ x, y, z := y, x, ? }> : @prog M.
 
 Notation "'|[' 'var' x '⦁' y ']|' " :=
   (PVar x y)
@@ -326,3 +316,15 @@ Notation "'|[' 'con' x '⦁' y ']|' " :=
 Notation "'|[' 'con*' xs '⦁' y ']|' " :=
   (PConstList xs y)
     (in custom prog at level 95 ) : refiney_scope.
+
+(* Axiom M : model. *)
+(* Axiom p1 p2 : @prog M. *)
+(* Axiom pre : @final_formula (value M). *)
+(* Axiom post : @formula (value M). *)
+(* Axiom x y z : final_variable. *)
+(* Axiom xs ys : list final_variable. *)
+(* Definition pp := <{ $p1 ; $p2 }>. *)
+
+(* Definition pp2 := <{ ∅ : [<! pre !>, post] }>. *)
+(* Definition pp3 := <{ x, y, z := y, x, ? }> : @prog M. *)
+(* Definition pp4 := <{ x : [pre, post] }> : @prog M. *)

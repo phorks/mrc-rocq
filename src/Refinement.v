@@ -2,41 +2,62 @@ From Stdlib Require Import Lists.List. Import ListNotations.
 From Equations Require Import Equations.
 From stdpp Require Import base tactics listset.
 From MRC Require Import Prelude.
+From MRC Require Import SeqNotation.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
 From MRC Require Import Prog.
 
+Open Scope stdpp_scope.
+Open Scope refiney_scope.
+
 Section refinement.
   Context {M : model}.
   Local Notation prog := (@prog M).
+  Local Notation term := (term (value M)).
   Local Notation formula := (formula (value M)).
   Local Notation final_term := (final_term (value M)).
 
   Implicit Types A B C : formula.
-  Implicit Types pre : @final_formula (value M).
-  (* Implicit Types w : list variable. *)
+  Implicit Types pre post : formula.
+  Implicit Types w : list final_variable.
+  Implicit Types xs : list final_variable.
+  (* Implicit Types ts : list term. *)
 
-  Lemma r_strengthen_post pre post post' w :
+  Lemma r_strengthen_post w pre post post' `{FormulaFinal _ pre} :
     post' ⇛ post ->
-    <{ w : [pre, post] }> ⊑ <{ w : [pre, post'] }>.
+    <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
   Proof.
-    intros Hent A Hinit. simpl. f_simpl. apply f_forall_ent. intros.
-    f_simpl. assumption.
-  Qed.
+  Admitted.
+    (* intros Hent A Hinit. simpl. f_simpl. *)
+    (* f_equiv. *)
+    (* induction w. *)
+    (* - simpl. unfold as_var_set. rewrite fin_sets.set_map_empty. unfold set_to_list. *)
+    (*   rewrite fin_sets.set_fold_empty. simpl.  *)
+    (* f_simpl. apply f_forall_ent. intros. *)
+    (* f_simpl. assumption. *)
+  (* Qed. *)
 
-  Lemma r_weaken_pre pre pre' post w :
+  Lemma r_weaken_pre w pre pre' post `{FormulaFinal _ pre} `{FormulaFinal _ pre'} :
     pre ⇛ pre' ->
-    <{ w : [pre, post] }> ⊑ <{ w : [pre', post] }>.
+    <{ *w : [pre, post] }> ⊑ <{ *w : [pre', post] }>.
   Proof.
     intros Hent A Hinit. simpl. f_simpl. assumption.
   Qed.
 
-  Lemma r_assignment : forall pre post (x : final_variable) (t : final_term),
-      <! ⌜₀x = x⌝ ∧ pre !> ⇛ post[x \ t] ->
-      <{ x : [pre, post] }> ⊑ <{ x := t }>.
+  (* Lemma r_assignment w pre post xs t `{FormulaFinal _ pre} `{TermListFinal _ ts} : *)
+  (*     (* <! ⌜₀xs = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> -> *) *)
+  (*     <{ *w, *xs : [pre, post] }> ⊑ abort. *)
+  Lemma r_assignment w pre post xs ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
+      (* <! ⌜₀xs = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> -> *)
+    <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *ts }>.
   Proof with auto.
+    intros A Hfree. simpl.
+    assert (<! pre !> ≡ <! pre [_₀\list_to_set (w ++ xs)] !>).
+    { unfold subst_initials. admit. }
+    rewrite H1. simpl.
+    simpl. f_simpl.
     intros pre post x t H A Hfree. simpl.
     assert (<! %pre !> ≡ pre [₀ x \ x]).
     { rewrite fequiv_subst_non_free... pose proof (final_formula_final pre).
