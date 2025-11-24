@@ -92,30 +92,6 @@ Section pred_calc_syntax.
   Definition FIff A B := FAnd (FImpl A B) (FImpl B A).
   Definition FForall x A := FNot (FExists x (FNot A)).
 
-  Fixpoint FAndList (As : list formula) :=
-    match As with
-    | [] => FAtom AT_True
-    | A :: As => FAnd A (FAndList As)
-    end.
-
-  Fixpoint FOrList (As : list formula) :=
-    match As with
-    | [] => FAtom AT_False
-    | A :: As => FAnd A (FOrList As)
-    end.
-
-  Fixpoint FExistsList (xs : list variable) (A : formula) :=
-    match xs with
-    | [] => A
-    | x :: xs => FExists x (FExistsList xs A)
-    end.
-
-  Fixpoint FForallList (xs : list variable) (A : formula) :=
-    match xs with
-    | [] => A
-    | x :: xs => FForall x (FForallList xs A)
-    end.
-
   Fixpoint subst_term t x a : term :=
     match t with
     | TConst v => TConst v
@@ -664,31 +640,17 @@ Notation "'true'" := (FAtom AT_True) (in custom formula at level 0).
 Notation "'false'" := (FAtom AT_False) (in custom formula at level 0).
 Notation "¬ A" := (FNot A) (in custom formula at level 70, right associativity) : refiney_scope.
 Notation "A ∧ B" := (FAnd A B) (in custom formula at level 75, right associativity) : refiney_scope.
-Notation "∧* As" := (FAndList As) (in custom formula at level 75, right associativity) : refiney_scope.
 Notation "A ∨ B" := (FOr A B) (in custom formula at level 80, right associativity) : refiney_scope.
-Notation "∨* As" := (FOrList As) (in custom formula at level 75, right associativity) : refiney_scope.
 Notation "A ⇒ B" := (FImpl A B) (in custom formula at level 95, right associativity) : refiney_scope.
 Notation "A ⇔ B" := (FIff A B) (in custom formula at level 90, no associativity) : refiney_scope.
 Notation "∃ x .. y , A" := (FExists x .. (FExists y A) ..)
                                       (in custom formula at level 99, only parsing) : refiney_scope.
 Notation "∃ x .. y ● A" := (FExists x .. (FExists y A) ..)
                                  (in custom formula at level 99, only printing) : refiney_scope.
-Notation "∃* xs , A" := (FExistsList xs A)
-                          (in custom formula at level 99, only parsing)
-    : refiney_scope.
-Notation "∃* xs ● A" := (FExistsList xs A)
-                          (in custom formula at level 99, only printing)
-    : refiney_scope.
 Notation "∀ x .. y , A" := (FForall x .. (FForall y A) ..)
                                  (in custom formula at level 99, only parsing) : refiney_scope.
 Notation "∀ x .. y ● A" := (FForall x .. (FForall y A) ..)
                                  (in custom formula at level 99, only printing) : refiney_scope.
-Notation "∀* xs , A" := (FForallList xs A)
-                              (in custom formula at level 99, only parsing)
-    :refiney_scope.
-Notation "∀* xs ● A" := (FForallList xs A)
-                              (in custom formula at level 99, only parsing)
-    :refiney_scope.
 
 
 Notation "A [! x \ t !]" := (subst_formula A x t)

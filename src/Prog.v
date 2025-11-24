@@ -11,13 +11,6 @@ From MRC Require Import PredCalc.
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
-Definition subst_initials {M} A (w : gset final_variable) : (formula (value M)) :=
-  simult_subst A (set_to_map (λ x, (₀x, (TVar x))) w).
-
-Notation "A [_₀\ w ]" := (subst_initials A w)
-                            (in custom formula at level 74, left associativity,
-                                A custom formula,
-                                w constr at level 200) : refiney_scope.
 
 Section prog.
   Context {M : model}.

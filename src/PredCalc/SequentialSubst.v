@@ -11,7 +11,6 @@ From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
 
-(* TODO: move it *)
 Open Scope refiney_scope.
 
 Section sequential_subst.
@@ -132,13 +131,6 @@ Section sequential_subst.
   Qed.
 
   (** Sequential substitution **)
-  Definition seq_subst A xs ts `{OfSameLength _ _ xs ts} : formula :=
-    of_same_length_rect (λ A, A) (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
-
-  Local Notation "A [; xs \ ts ;]" := (seq_subst A xs ts)
-                              (in custom formula at level 74, left associativity,
-                                xs custom seq_notation,
-                                ts custom term_seq_notation) : refiney_scope.
 
   Lemma seq_subst_cons A x t xs ts
     {Hl1 : OfSameLength xs ts} {Hl2 : OfSameLength (x :: xs) (t :: ts)} :
@@ -291,9 +283,6 @@ Section sequential_subst.
 
 
   (** Expanding equality atomic formulas to list of  **)
-
-  Definition AT_TermListEq ts1 ts2 `{OfSameLength _ _ ts1 ts2} : formula :=
-    of_same_length_rect (λ A, A) (λ rec t1 t2 B, <! ⌜t1 = t2⌝ ∧ $(rec B) !>) <! true !> ts1 ts2.
 
   Lemma term_list_eq_cons t1 t2 ts1 ts2
     {H1 : OfSameLength ts1 ts2}
