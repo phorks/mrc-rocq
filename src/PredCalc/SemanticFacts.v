@@ -350,16 +350,10 @@ Section subst.
     <! A[x \ x] !> ≡ A.
   Proof with auto. apply fequiv_subst_and_diag. Qed.
 
-  Global Instance subst_proper : Proper ((≡@{formula}) ==> (=) ==> (=) ==> (≡)) subst_formula.
+  Global Instance subst_proper : Proper ((≡@{formula}) ==> (=) ==> (≡@{term}) ==> (≡)) subst_formula.
   Proof with auto.
-    intros A B H x ? <- t ? <- σ. pose proof (teval_total σ t) as [v Hv].
-    rewrite (feval_subst v)... rewrite (feval_subst v)...
-  Qed.
-
-  Global Instance subst_proper_in_term : Proper ((=) ==> (=) ==> (≡@{term}) ==> (≡)) subst_formula.
-  Proof with auto.
-    intros A ? <- x ? <- t1 t2 Hterm σ. pose proof (teval_total σ t1) as [v Hv].
-    apply Hterm in Hv as Hv'. rewrite (feval_subst v)... rewrite (feval_subst v)...
+    intros A B H x ? <- t t' Ht σ. pose proof (teval_total σ t) as [v Hv].
+    rewrite (feval_subst v)... rewrite (feval_subst v)... apply Ht...
   Qed.
 
   Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{@formula})) FExists.
@@ -372,9 +366,9 @@ Section subst.
     intros x ? <- A B H σ. unfold FForall. rewrite H...
   Qed.
 
-  Global Instance subst_proper_fent : Proper ((⇛@{M}) ==> (=) ==> (=) ==> (⇛)) subst_formula.
+  Global Instance subst_proper_fent : Proper ((⇛@{M}) ==> (=) ==> (≡@{term}) ==> (⇛)) subst_formula.
   Proof with auto.
-    intros A B Hent x ? <- t ? <- σ. pose proof (teval_total σ t) as [v Hv].
+    intros A B Hent x ? <- t t' <- σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
@@ -390,6 +384,35 @@ Section subst.
     apply f_ent_contrapositive in H. rewrite H. reflexivity.
   Qed.
 
+  Global Instance FExistsList_proper :
+    Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExistsList.
+  Proof with auto.
+    intros xs ? <- A B H. induction xs.
+    - simpl. rewrite H...
+    - simpl. rewrite IHxs...
+  Qed.
+
+  Global Instance FForallList_proper :
+    Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForallList.
+  Proof with auto.
+    intros xs ? <- A B H. induction xs.
+    - simpl. rewrite H...
+    - simpl. rewrite IHxs...
+  Qed.
+
+  Global Instance FExistsList_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FExistsList.
+  Proof with auto.
+    intros xs ? <- A B H. induction xs.
+    - simpl...
+    - simpl. rewrite IHxs. reflexivity.
+  Qed.
+
+  Global Instance FForallList_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FForallList.
+  Proof with auto.
+    intros xs ? <- A B H. induction xs.
+    - simpl...
+    - simpl. rewrite IHxs. reflexivity.
+  Qed.
   Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
     <! ∃ x, A !> ≡ <! ∃ x', A[x \ x'] !>.

@@ -167,22 +167,22 @@ Section props.
   Proof. prove_equiv. Qed.
 
   (* A.33 *)
-  Lemma f_impl_distr1 A B C :
+  Lemma f_impl_and_r A B C :
       <! C ⇒ (A ∧ B) !> ≡ <! (C ⇒ A) ∧ (C ⇒ B) !>.
   Proof. prove_equiv. Qed.
 
   (* A.34 *)
-  Lemma f_impl_distr2 A B C :
+  Lemma f_impl_or_l A B C :
     <! (A ∨ B) ⇒ C !> ≡ <! (A ⇒ C) ∧ (B ⇒ C) !>.
   Proof. prove_equiv. Qed.
 
   (* A.35 *)
-  Lemma f_impl_distr3 A B C :
+  Lemma f_impl_or_r A B C :
     <! C ⇒ (A ∨ B) !> ≡ <! (C ⇒ A) ∨ (C ⇒ B) !>.
   Proof. prove_equiv. Qed.
 
   (* A.36 *)
-  Lemma f_impl_distr4 A B C :
+  Lemma f_impl_and_l A B C :
     <! (A ∧ B) ⇒ C !> ≡ <! (A ⇒ C) ∨ (B ⇒ C) !>.
   Proof with auto.
     unfold FImpl. intros σ. simp feval. split; [| naive_solver].
@@ -432,7 +432,7 @@ Section props.
   Qed.
 
   (* A.74: fforall_unused *)
-  (* A.75: fequiv_forall_non_free_binder *)
+  (* A.75: fexists_unused *)
 
   (* A.76 *)
   Lemma f_forall_and_unused_l x A B :

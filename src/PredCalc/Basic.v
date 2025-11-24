@@ -6,6 +6,7 @@ From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
 From MRC Require Import Model.
 From MRC Require Import Tactics.
+From MRC Require Import SeqNotation.
 Open Scope bool_scope.
 
 Section pred_calc_syntax.
@@ -698,6 +699,26 @@ Notation "A [ x \ t ]" := (subst_formula A x t)
                             (in custom formula at level 74, left associativity,
                                 A custom formula,
                                 x constr at level 0, t custom formula) : refiney_scope.
+
+Declare Custom Entry term_seq_notation.
+Declare Custom Entry term_seq_elem.
+
+Notation "xs" := (xs) (in custom term_seq_notation at level 0,
+                       xs custom term_seq_elem)
+    : refiney_scope.
+Notation "∅" := ([]) (in custom term_seq_notation at level 0)
+    : refiney_scope.
+
+Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at level 200)
+    : refiney_scope.
+Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
+    : refiney_scope.
+Notation "*$( x )" := x (in custom term_seq_elem at level 5, x constr at level 200)
+    : refiney_scope.
+Notation "x , .. , y" := (app x .. (app y []) ..)
+                           (in custom term_seq_elem at level 10,
+                               x custom term_seq_elem at next level,
+                               y custom term_seq_elem at next level) : refiney_scope.
 
 Ltac fold_qrank_subst n A x t :=
   let R := fresh in

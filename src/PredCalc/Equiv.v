@@ -16,6 +16,24 @@ Section equiv.
 
   Global Instance tequiv : Equiv term := λ t1 t2, ∀ σ v, teval σ t1 v ↔ teval σ t2 v.
 
+  Global Instance tequiv_refl : Reflexive tequiv.
+  Proof with auto. intros ? ? ?... Qed.
+
+  Global Instance tequiv_sym : Symmetric tequiv.
+  Proof with auto. intros ? ? ? ? ?. symmetry... Qed.
+
+  Global Instance tequiv_trans : Transitive tequiv.
+  Proof with auto.
+    intros ? ? ? ? ? ? ?... split; intros.
+    - apply H0. apply H...
+    - apply H. apply H0...
+  Qed.
+
+  Global Instance tequiv_equiv : Equivalence tequiv.
+  Proof.
+    split; [exact tequiv_refl | exact tequiv_sym | exact tequiv_trans].
+  Qed.
+
   Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B.
   Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
 

@@ -84,6 +84,10 @@ Proof with auto.
   - destruct H as (?&?&->&?). simpl. lia.
 Qed.
 
+
+
+
+
 Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=
   of_same_length : length l1 = length l2.
 
@@ -108,6 +112,32 @@ Proof. unfold OfSameLength in *. rewrite length_fmap. assumption. Qed.
 Instance of_same_length_fmap_r {A B B'} {l1 : list A} {l2 : list B} {f2 : B → B'}
   `{OfSameLength A B l1 l2} : OfSameLength l1 (f2 <$> l2).
 Proof. unfold OfSameLength in *. rewrite length_fmap. assumption. Qed.
+
+Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
+                              (H : OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
+Proof. unfold OfSameLength in *. simpl in H. lia. Defined.
+
+Instance of_same_length_rev {A B} {l1 : list A} {l2 : list B}
+                              `{OfSameLength _ _ l1 l2} : OfSameLength (rev l1) (rev l2).
+Proof. unfold OfSameLength in *. do 2 rewrite length_rev. assumption. Defined.
+
+Definition of_same_length_rect {A B X Y} (f_nil : X → Y) (f_cons : (X → Y) → A → B → X → Y)
+  (x : X)
+  (l1 : list A) (l2 : list B)
+  `{OfSameLength _ _ l1 l2} : Y.
+Proof.
+  generalize dependent x. generalize dependent l2.
+  induction l1 as [|x1 l1' rec], l2 as [|x2 l2']; intros H.
+  - exact f_nil.
+  - inversion H.
+  - inversion H.
+  - apply of_same_length_rest in H. specialize (rec _ H). exact (f_cons rec x1 x2).
+Defined.
+
+
+
+
+
 
 Lemma dom_list_to_map_zip_L {K A} `{Countable K} (ks : list K) (xs : list A)
     `{OfSameLength K A ks xs} :
