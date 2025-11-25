@@ -29,26 +29,26 @@ Section syntactic.
 
   Fixpoint FAndList Bs :=
     match Bs with
-    | [] => FAtom AT_True
-    | A :: Bs => FAnd A (FAndList Bs)
+    | [] => <! true !>
+    | A :: Bs => <! A ∧ $(FAndList Bs) !>
     end.
 
   Fixpoint FOrList Bs :=
     match Bs with
-    | [] => FAtom AT_False
-    | A :: Bs => FAnd A (FOrList Bs)
+    | [] => <! false !>
+    | A :: Bs => <! A ∨ $(FOrList Bs) !>
     end.
 
   Fixpoint FExistsList xs A :=
     match xs with
     | [] => A
-    | x :: xs => FExists x (FExistsList xs A)
+    | x :: xs => <! ∃ x, $(FExistsList xs A) !>
     end.
 
   Fixpoint FForallList xs A :=
     match xs with
     | [] => A
-    | x :: xs => FForall x (FForallList xs A)
+    | x :: xs => <! ∀ x, $(FForallList xs A) !>
     end.
 
   Definition FEqList ts1 ts2 `{OfSameLength _ _ ts1 ts2} : formula :=
@@ -105,37 +105,6 @@ Section syntactic.
       apply elem_of_list_fmap in H as (x''&?&?).
       destruct (decide (₀x'' ∈ formula_fvars A)); set_solver.
   Qed.
-
-  (* TODO: move it *)
-  Definition var_with_is_initial x is_initial :=
-    mkVar (var_name x) (var_sub x) (is_initial).
-
-  Lemma var_with_is_initial_id x is_initial :
-    var_with_is_initial x is_initial = x ↔ var_is_initial x = is_initial.
-  Proof.
-    split; intros.
-    - rewrite <- H. simpl. reflexivity.
-    - cbv. rewrite <- H. destruct x. simpl. reflexivity.
-  Qed.
-
-  Definition to_final_var x :=
-    mkFinalVar (var_name x) (var_sub x).
-
-  Lemma to_final_var_as_var (x : final_variable) :
-    to_final_var (as_var x) = x.
-  Proof. cbv. destruct x. reflexivity. Qed.
-
-  Lemma as_var_to_final_var (x : variable) :
-    as_var (to_final_var x) = var_with_is_initial x false.
-  Proof. cbv. reflexivity. Qed.
-
-  Lemma initial_var_of_eq_var_with_is_initial (x : final_variable) :
-    initial_var_of (x) = var_with_is_initial (as_var x) true.
-  Proof. cbv. reflexivity. Qed.
-
-  Lemma var_is_initial_as_var (x : final_variable) :
-    var_is_initial (as_var x) = false.
-  Proof. reflexivity. Qed.
 
   Lemma not_elem_of_subst_initials_var_fvars_free A w x :
     (var_is_initial x = true ∨
@@ -203,7 +172,7 @@ Section syntactic.
              inversion H. f_equal...
         * assert (₀x ∉ subst_initials_var_fvars A w).
           { destruct (decide (₀x ∈ subst_initials_var_fvars A w))...
-             apply elem_of_subst_initials_var_fvars in e. set_solver.}
+             apply elem_of_subst_initials_var_fvars in e. set_solver. }
           rewrite fvars_subst_non_free; rewrite IH; clear IH; set_solver.
   Qed.
 
@@ -369,7 +338,7 @@ Section semantic.
         * apply IH with (ts2:=ts2)...
   Qed.
 
-  (* Equivalence of lists of formulas *)
+  (** Equivalence of lists of formulas **)
   Global Instance formula_list_equiv : Equiv (list formula) :=
     λ Bs1 Bs2, length Bs1 = length Bs2 ∧ Forall2 (≡@{formula}) Bs1 Bs2.
 

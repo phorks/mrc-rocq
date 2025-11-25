@@ -138,11 +138,10 @@ Section ent.
   Context {M : model}.
   Implicit Types A B C : formula (value M).
 
-  Global Instance fnot_proper_fent : Proper ((⇛) ==> (flip (⇛@{M}))) FNot.
+  Global Instance FNot_proper_fent : Proper ((⇛) ==> (flip (⇛@{M}))) FNot.
   Proof with auto.
     intros A B Hent σ. simp feval. intros H contra. apply H. apply Hent...
   Qed.
-
 
   Lemma f_ent_contrapositive A B :
     <! ¬ B !> ⇛ <! ¬ A !> ↔ <! A !> ⇛ <! B !>.

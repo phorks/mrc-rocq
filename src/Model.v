@@ -29,6 +29,8 @@ Definition var_with_sub x i :=
   mkVar (var_name x) (i) (var_is_initial x).
 Definition var_increase_sub x i :=
   var_with_sub x (var_sub x + i).
+Definition var_with_is_initial x is_initial :=
+  mkVar (var_name x) (var_sub x) (is_initial).
 
 Coercion raw_var : string >-> variable.
 (* Notation "x '₀'" := (final_var_i x). *)
@@ -36,12 +38,23 @@ Coercion raw_var : string >-> variable.
 Lemma var_with_sub_var_sub_id : forall x,
     var_with_sub x (var_sub x) = x.
 Proof. intros. unfold var_with_sub. destruct x. reflexivity. Qed.
+
 Lemma var_with_sub_idemp : forall x i j,
   var_with_sub (var_with_sub x j) i = var_with_sub x i.
 Proof. intros. unfold var_with_sub. reflexivity. Qed.
+
 Lemma var_sub_of_var_with_sub : forall x i,
     var_sub (var_with_sub x i) = i.
 Proof. reflexivity. Qed.
+
+Lemma var_with_is_initial_id x is_initial :
+  var_with_is_initial x is_initial = x ↔ var_is_initial x = is_initial.
+Proof.
+  split; intros.
+  - rewrite <- H. simpl. reflexivity.
+  - cbv. rewrite <- H. destruct x. simpl. reflexivity.
+Qed.
+
 
 Hint Rewrite var_with_sub_var_sub_id : core.
 Hint Rewrite var_with_sub_idemp : core.
@@ -82,6 +95,24 @@ Lemma initial_var_of_ne (x : final_variable) :
   initial_var_of x ≠ x.
 Proof. destruct x. unfold as_var. done. Qed.
 
+Definition to_final_var x :=
+  mkFinalVar (var_name x) (var_sub x).
+
+Lemma to_final_var_as_var (x : final_variable) :
+  to_final_var (as_var x) = x.
+Proof. cbv. destruct x. reflexivity. Qed.
+
+Lemma as_var_to_final_var (x : variable) :
+  as_var (to_final_var x) = var_with_is_initial x false.
+Proof. cbv. reflexivity. Qed.
+
+Lemma initial_var_of_eq_var_with_is_initial (x : final_variable) :
+  initial_var_of (x) = var_with_is_initial (as_var x) true.
+Proof. cbv. reflexivity. Qed.
+
+Lemma var_is_initial_as_var (x : final_variable) :
+  var_is_initial (as_var x) = false.
+Proof. reflexivity. Qed.
 (* ******************************************************************* *)
 (* fresh variables                                                     *)
 (* ******************************************************************* *)

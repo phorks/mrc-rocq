@@ -97,7 +97,7 @@ Proof. reflexivity. Defined.
 Instance of_same_length_id {A} {l : list A} : OfSameLength l l | 0.
 Proof. reflexivity. Qed.
 
-Instance of_same_length_cons {A B} {x1 : A} {x2 : B} {l1 : list A} {l2 : list B}
+Instance of_same_length_cons {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
   `{OfSameLength A B l1 l2} : OfSameLength (x1::l1) (x2::l2).
 Proof. unfold OfSameLength in *. do 2 rewrite length_cons. lia. Qed.
 
@@ -140,6 +140,35 @@ Proof.
   - inversion H.
   - apply of_same_length_rest in H. specialize (rec _ H). exact (f_cons rec x1 x2).
 Defined.
+
+Lemma of_same_length_nil_inv_l {N A} {l : list A} :
+  @OfSameLength N A [] l → l = [].
+Proof.
+  intros. unfold OfSameLength in H. symmetry in H. simpl in H. apply length_zero_iff_nil in H.
+  subst. reflexivity.
+Qed.
+
+Lemma of_same_length_nil_inv_r {N A} {l : list A} :
+  @OfSameLength A N l [] → l = [].
+Proof.
+  intros. unfold OfSameLength in H. simpl in H. apply length_zero_iff_nil in H.
+  subst. reflexivity.
+Qed.
+
+Lemma of_same_length_cons_inv_l {A B} {x1 : A} {l1 : list A} {l2 : list B} :
+  OfSameLength (x1 :: l1) l2 → ∃ x2 l2', l2 = x2 :: l2' ∧ length l2' = length l1.
+Proof.
+  intros. unfold OfSameLength in H. symmetry in H. simpl in H. 
+  apply length_nonzero_iff_cons in H. exact H.
+Qed.
+
+Lemma of_same_length_cons_inv_r {A B} {l1 : list A} {x2 : B} {l2 : list B} :
+  OfSameLength l1 (x2 :: l2) → ∃ x1 l1', l1 = x1 :: l1' ∧ length l1' = length l2.
+Proof.
+  intros. unfold OfSameLength in H. simpl in H. 
+  apply length_nonzero_iff_cons in H. exact H.
+Qed.
+
 
 
 
