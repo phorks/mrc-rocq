@@ -161,8 +161,8 @@ Section syntactic.
   Qed.
 
   Lemma fvars_subst_initials A w :
-    formula_fvars (subst_initials A w) = ((formula_fvars A ∪ subst_initials_var_fvars A w)
-                                            ∖ (list_to_set (initial_var_of <$> w))).
+    formula_fvars (subst_initials A w) = ((formula_fvars A ∖ (list_to_set (initial_var_of <$> w)))
+                                             ∪ subst_initials_var_fvars A w).
   Proof with auto.
     induction w as [|x w IH].
     - cbn. set_solver.
@@ -185,15 +185,20 @@ Section syntactic.
       destruct (decide (x ∈ w)).
       + rewrite fvars_subst_non_free.
         * rewrite IH. clear IH. destruct (decide (₀x ∈ formula_fvars A)).
-          -- enough (as_var x ∈ subst_initials_var_fvars A w).
-             { set_solver. }
+          -- enough (as_var x ∈ subst_initials_var_fvars A w) by set_solver.
              apply elem_of_subst_initials_var_fvars. set_solver.
           -- set_solver.
-        * rewrite IH. clear IH. set_solver.
+        * rewrite IH. clear IH.
+          enough (₀x ∉ subst_initials_var_fvars A w) by set_solver.
+          destruct (decide (₀x ∈ subst_initials_var_fvars A w))...
+          apply elem_of_subst_initials_var_fvars in e0. set_solver.
       + destruct (decide (₀x ∈ formula_fvars A)).
         * rewrite fvars_subst_free.
-          -- rewrite IH. clear IH. set_solver.
-          -- rewrite IH. clear IH. set_unfold. split... intros (x'&?&?).
+          -- rewrite IH. clear IH.
+             enough (₀x ∉ subst_initials_var_fvars A w) by set_solver.
+             destruct (decide (₀x ∈ subst_initials_var_fvars A w))...
+             apply elem_of_subst_initials_var_fvars in e0. set_solver.
+          -- rewrite IH. clear IH. set_unfold. left. split... intros (x'&?&?).
              enough (x = x') as -> by contradiction. destruct x. destruct x'.
              inversion H. f_equal...
         * assert (₀x ∉ subst_initials_var_fvars A w).
