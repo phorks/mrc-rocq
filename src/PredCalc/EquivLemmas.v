@@ -45,11 +45,11 @@ Section props.
       <! A ∨ (B ∨ C) !> ≡ <! (A ∨ B) ∨ C !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_and_absorb A B :
+  Lemma f_and_or_absorb A B :
     <! A ∧ (A ∨ B) !> ≡ A.
   Proof. prove_equiv. Qed.
 
-  Lemma f_or_absorb A B :
+  Lemma f_or_and_absorb A B :
     <! A ∨ (A ∧ B) !> ≡ A.
   Proof. prove_equiv. Qed.
 
@@ -103,12 +103,32 @@ Section props.
       <! ¬ (A ∨ B) !> ≡ <! ¬ A ∧ ¬ B !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_or_not_absorb A B :
+  Lemma f_or_and_absorb' A B :
       <! A ∨ (¬ A ∧ B) !> ≡ <! A ∨ B !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_and_not_absorb A B :
+  Lemma f_and_or_absorb' A B :
     <! A ∧ (¬ A ∨ B) !> ≡ <! A ∧ B !>.
+  Proof. prove_equiv. Qed.
+
+  Lemma f_and_redundant_l A B :
+    B ⇛ A →
+    <! A ∧ B !> ≡ B.
+  Proof. intros. prove_equiv. Qed.
+
+  Lemma f_and_redundant_r A B :
+    A ⇛ B →
+    <! A ∧ B !> ≡ A.
+  Proof. prove_equiv. Qed.
+
+  Lemma f_or_redundant_l A B :
+    A ⇛ B →
+    <! A ∨ B !> ≡ B.
+  Proof. prove_equiv. Qed.
+
+  Lemma f_or_redundant_r A B :
+    B ⇛ A →
+    <! A ∨ B !> ≡ A.
   Proof. prove_equiv. Qed.
 
   (* A.22 *)

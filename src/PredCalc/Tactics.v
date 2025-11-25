@@ -22,57 +22,57 @@ Ltac f_simpl :=
     | |- context[<! ?A ∨ ?A !>] =>
         rewrite f_or_idemp
 
-    (*  f_and_absorb *)
+    (*  f_and_or_absorb *)
     | H : context[<! ?A ∧ (?A ∨ ?B) !>] |- _ =>
-        rewrite f_and_absorb in H
+        rewrite f_and_or_absorb in H
     | H : context[<! (?A ∨ ?B) ∧ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (A ∨ B) ∧ A !> ≡ <! (A ∧ (A ∨ B)) !>) as Heq
           by (rewrite f_and_comm; reflexivity);
-        rewrite Heq in H; rewrite f_and_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_and_or_absorb in H; clear Heq
     | H : context[<! (?B ∨ ?A) ∧ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (B ∨ A) ∧ A !> ≡ <! (A ∧ (A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_and_comm; reflexivity);
-        rewrite Heq in H; rewrite f_and_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_and_or_absorb in H; clear Heq
     | |- context[<! ?A ∧ (?A ∨ ?B) !>] =>
-        rewrite f_and_absorb
+        rewrite f_and_or_absorb
     | |- context[<! (?A ∨ ?B) ∧ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (A ∨ B) ∧ A !> ≡ <! (A ∧ (A ∨ B)) !>) as Heq
           by (rewrite f_and_comm; reflexivity);
-        rewrite Heq; rewrite f_and_absorb; clear Heq
+        rewrite Heq; rewrite f_and_or_absorb; clear Heq
     | |- context[<! (?B ∨ ?A) ∧ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (B ∨ A) ∧ A !> ≡ <! (A ∧ (A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_and_comm; reflexivity);
-        rewrite Heq; rewrite f_and_absorb; clear Heq
+        rewrite Heq; rewrite f_and_or_absorb; clear Heq
 
-    (*  f_or_absorb *)
+    (*  f_or_and_absorb *)
     | H : context[<! ?A ∨ (?A ∧ ?B) !>] |- _ =>
-        rewrite f_or_absorb in H
+        rewrite f_or_and_absorb in H
     | H : context[<! (?A ∧ ?B) ∨ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (A ∧ B) ∨ A !> ≡ <! (A ∨ (A ∧ B)) !>) as Heq
           by (rewrite f_or_comm; reflexivity);
-        rewrite Heq in H; rewrite f_or_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_or_and_absorb in H; clear Heq
     | H : context[<! (?B ∧ ?A) ∨ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (B ∧ A) ∨ A !> ≡ <! (A ∨ (A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_or_comm; reflexivity);
-        rewrite Heq in H; rewrite f_or_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_or_and_absorb in H; clear Heq
     | |- context[<! ?A ∨ (?A ∧ ?B) !>] =>
-        rewrite f_or_absorb
+        rewrite f_or_and_absorb
     | |- context[<! (?A ∧ ?B) ∨ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (A ∧ B) ∨ A !> ≡ <! (A ∨ (A ∧ B)) !>) as Heq
           by (rewrite f_or_comm; reflexivity);
-        rewrite Heq; rewrite f_or_absorb; clear Heq
+        rewrite Heq; rewrite f_or_and_absorb; clear Heq
     | |- context[<! (?B ∧ ?A) ∨ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (B ∧ A) ∨ A !> ≡ <! (A ∨ (A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_or_comm; reflexivity);
-        rewrite Heq; rewrite f_or_absorb; clear Heq
+        rewrite Heq; rewrite f_or_and_absorb; clear Heq
 
     (* f_and_true *)
     | H : context[<! ?A ∧ true !>] |- _ =>
@@ -184,57 +184,57 @@ Ltac f_simpl :=
     (* | |- context[<! (?B ∨ ?C) ∧ ?A !>] => *)
     (*     rewrite (f_and_comm (?B ∨ ?C) ?A); rewrite f_or_and_distr *)
 
-    (*  f_and_not_absorb *)
+    (*  f_and_or_absorb' *)
     | H : context[<! ?A ∧ (¬ ?A ∨ ?B) !>] |- _ =>
-        rewrite f_and_not_absorb in H
+        rewrite f_and_or_absorb' in H
     | H : context[<! (¬ ?A ∨ ?B) ∧ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (¬ A ∨ B) ∧ A !> ≡ <! (A ∧ (¬ A ∨ B)) !>) as Heq
           by (rewrite f_and_comm; reflexivity);
-        rewrite Heq in H; rewrite f_and_not_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_and_or_absorb' in H; clear Heq
     | H : context[<! (?B ∨ ¬ ?A) ∧ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (B ∨ ¬ A) ∧ A !> ≡ <! (A ∧ (¬ A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_and_comm; reflexivity);
-        rewrite Heq in H; rewrite f_and_not_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_and_or_absorb' in H; clear Heq
     | |- context[<! ?A ∧ (¬ ?A ∨ ?B) !>] =>
-        rewrite f_and_not_absorb
+        rewrite f_and_or_absorb'
     | |- context[<! (¬ ?A ∨ ?B) ∧ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (¬ A ∨ B) ∧ A !> ≡ <! (A ∧ (¬ A ∨ B)) !>) as Heq
           by (rewrite f_and_comm; reflexivity);
-        rewrite Heq; rewrite f_and_not_absorb; clear Heq
+        rewrite Heq; rewrite f_and_or_absorb'; clear Heq
     | |- context[<! (?B ∨ ¬ ?A) ∧ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (B ∨ ¬ A) ∧ A !> ≡ <! (A ∧ (¬ A ∨ B)) !>) as Heq
           by (rewrite f_or_comm; rewrite f_and_comm; reflexivity);
-        rewrite Heq; rewrite f_and_not_absorb; clear Heq
+        rewrite Heq; rewrite f_and_or_absorb'; clear Heq
 
-    (*  f_or_not_absorb *)
+    (*  f_or_and_absorb' *)
     | H : context[<! ?A ∨ (¬ ?A ∧ ?B) !>] |- _ =>
-        rewrite f_or_not_absorb in H
+        rewrite f_or_and_absorb' in H
     | H : context[<! (¬ ?A ∧ ?B) ∨ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (¬ A ∧ B) ∨ A !> ≡ <! (A ∨ (¬ A ∧ B)) !>) as Heq
           by (rewrite f_or_comm; reflexivity);
-        rewrite Heq in H; rewrite f_or_not_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_or_and_absorb' in H; clear Heq
     | H : context[<! (?B ∧ ¬ ?A) ∨ ?A !>] |- _ =>
         let Heq := fresh "Heq" in
         assert (<! (B ∧ ¬ A) ∨ A !> ≡ <! (A ∨ (¬ A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_or_comm; reflexivity);
-        rewrite Heq in H; rewrite f_or_not_absorb in H; clear Heq
+        rewrite Heq in H; rewrite f_or_and_absorb' in H; clear Heq
     | |- context[<! ?A ∨ (¬ ?A ∧ ?B) !>] =>
-        rewrite f_or_not_absorb
+        rewrite f_or_and_absorb'
     | |- context[<! (¬ ?A ∧ ?B) ∨ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (¬ A ∧ B) ∨ A !> ≡ <! (A ∨ (¬ A ∧ B)) !>) as Heq
           by (rewrite f_or_comm; reflexivity);
-        rewrite Heq; rewrite f_or_not_absorb; clear Heq
+        rewrite Heq; rewrite f_or_and_absorb'; clear Heq
     | |- context[<! (?B ∧ ¬ ?A) ∨ ?A !>] =>
         let Heq := fresh "Heq" in
         assert (<! (B ∧ ¬ A) ∨ A !> ≡ <! (A ∨ (¬ A ∧ B)) !>) as Heq
           by (rewrite f_and_comm; rewrite f_or_comm; reflexivity);
-        rewrite Heq; rewrite f_or_not_absorb; clear Heq
+        rewrite Heq; rewrite f_or_and_absorb'; clear Heq
 
     (* f_implies_self *)
     | H : context[<! ?A ⇒ ?A !>] |- _ =>

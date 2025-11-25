@@ -366,19 +366,19 @@ Section subst.
     intros x ? <- A B H σ. unfold FForall. rewrite H...
   Qed.
 
-  Global Instance subst_proper_fent : Proper ((⇛@{M}) ==> (=) ==> (≡@{term}) ==> (⇛)) subst_formula.
+  Global Instance subst_proper_fent : Proper ((⇛ₗ@{M}) ==> (=) ==> (≡@{term}) ==> (⇛)) subst_formula.
   Proof with auto.
     intros A B Hent x ? <- t t' <- σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
-  Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FExists.
+  Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FExists.
   Proof with auto.
     intros x ? <- A B Hent σ H. simp feval. simp feval in H. destruct H as [v Hv].
     exists v. revert Hv. rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
-  Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FForall.
+  Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FForall.
   Proof with auto.
     intros x ? <- A B H. unfold FForall. apply f_ent_contrapositive.
     apply f_ent_contrapositive in H. rewrite H. reflexivity.

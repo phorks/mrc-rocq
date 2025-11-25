@@ -13,6 +13,21 @@ From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
 From MRC Require Import PredCalc.NAry.
 
+(* TODO: move them *)
+Notation "(¬)ₗ" := FNot (only parsing) : refiney_scope.
+Notation "(∧)ₗ" := FAnd (only parsing) : refiney_scope.
+Notation "( X ∧.)ₗ" := (FAnd X) (only parsing) : refiney_scope.
+Notation "(.∧ X )ₗ" := (λ Y, FAnd X Y) (only parsing) : refiney_scope.
+Notation "(∨)ₗ" := FAnd (only parsing) : refiney_scope.
+Notation "( X ∨.)ₗ" := (FOr X) (only parsing) : refiney_scope.
+Notation "(.∨ X )ₗ" := (λ Y, FOr X Y) (only parsing) : refiney_scope.
+Notation "(⇒)ₗ" := FImpl (only parsing) : refiney_scope.
+Notation "( X ⇒.)ₗ" := (FImpl X) (only parsing) : refiney_scope.
+Notation "(.⇒ X )ₗ" := (λ Y, FImpl X Y) (only parsing) : refiney_scope.
+Notation "(⇔)ₗ" := FIff (only parsing) : refiney_scope.
+Notation "( X ⇔.)ₗ" := (FIff X) (only parsing) : refiney_scope.
+Notation "(.⇔ X )ₗ" := (λ Y, FIff X Y) (only parsing) : refiney_scope.
+
 
 Section n_ary_lemmas.
   Context {M : model}.
@@ -31,324 +46,631 @@ Section n_ary_lemmas.
   Implicit Types Bs Cs Ds : list formula.
   Implicit Types vs : list value.
 
-  Lemma simpl_feval_and_list σ Bs :
-    feval σ <! ∧* Bs !> ↔ ∀ B, B ∈ Bs → feval σ B.
-  Proof with auto.
-    split.
-    - intros ? B' ?. induction Bs as [|B BS IH]; [set_solver|]. simpl in H. simp feval in H.
-      destruct H as []. apply elem_of_cons in H0 as [|].
-      + subst...
-      + apply IH...
-    - induction Bs as [|B BS IH]; [set_solver|]. simpl. simp feval. split.
-      + apply H. set_unfold. left...
-      + apply IH. intros B' ?. apply H. set_unfold. right...
+
+  Lemma f_eqlist_nil :
+    <! ⌜[] =* []⌝ !> ≡ₗ@{M} <! true !>.
+  Proof. unfold FEqList. reflexivity. Qed.
+
+  Lemma f_eqlist_cons t1 t2 ts1 ts2
+    {H1 : OfSameLength ts1 ts2}
+    {H2 : OfSameLength (t1 :: ts1) (t2 :: ts2)} :
+    <! ⌜$(t1 :: ts1) =* $(t2 :: ts2)⌝ !> ≡ <! ⌜t1 = t2⌝ ∧ ⌜ts1 =* ts2⌝ !>.
+  Proof. unfold FEqList. simpl. reflexivity. Qed.
+
+  Lemma f_andlist_elim_andlist' Bs' Bs :
+    Bs' ⊆+ Bs →
+    <! ∧* Bs !> ⇛ <! ∧* Bs' !>.
+  Proof.
+    intros. intros σ Hand. rewrite simpl_feval_andlist. intros.
+    rewrite simpl_feval_andlist in Hand. apply Hand. eapply elem_of_submseteq.
+    - apply H0.
+    - apply H.
   Qed.
 
-  Lemma simpl_feval_or_list σ Bs :
-    feval σ <! ∨* Bs !> ↔ ∃ B, B ∈ Bs ∧ feval σ B.
+  Lemma f_orlist_elim_andlist' Bs' Bs :
+    Bs' ⊆+ Bs →
+    <! ∨* Bs' !> ⇛ <! ∨* Bs !>.
   Proof with auto.
-    split; intros.
-    - induction Bs as [|B BS IH]; [set_solver|]. simpl in H. simp feval in H. destruct H as [|].
-      + exists B. set_solver.
-      + apply IH in H as [B' HB]. exists B'. set_solver.
-    - destruct H as (B'&?&?). induction Bs as [|B Bs IH]; [set_solver|]. simpl.
-      simp feval. apply elem_of_cons in H as [|].
-      + subst. left...
-      + right. apply IH...
+    intros. intros σ Hor. rewrite simpl_feval_orlist.
+    apply simpl_feval_orlist in Hor as (B&?&?). exists B. split...
+    eapply elem_of_submseteq.
+    - apply H0.
+    - apply H.
   Qed.
 
-  Lemma simpl_feval_exists_list σ xs A :
-    feval σ <! ∃* xs, A !> ↔
-    ∃ vs (H : OfSameLength xs vs),
-      feval σ (@seq_subst _ A xs (TConst <$> vs) of_same_length_fmap_r).
-  Proof with auto.
-    split; intros.
-    - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
-      + exists [], (of_same_length_nil). simpl...
-      + simp feval in H. destruct H as [v Hv]. rewrite feval_subst with (v:=v) in Hv...
-        apply IH in Hv as (vs&Hl&?). exists (v :: vs), of_same_length_cons.
-        simpl. rewrite feval_subst with (v:=v)...
-        eapply feval_proper; [reflexivity| | apply H]. apply seq_subst_proper... reflexivity.
-    - generalize dependent σ. induction xs as [|x xs' IH]; intros.
-      + destruct H as (vs&Hl&?). apply of_same_length_nil_inv_l in Hl as ?. subst. simpl in H...
-      + destruct H as (vs&Hl&?). apply of_same_length_cons_inv_l in Hl as ?.
-        destruct H0 as (v&vs'&?&?). subst. simpl. simp feval.
-        simpl in H. rewrite feval_subst with (v:=v) in H... exists v.
-        rewrite feval_subst with (v:=v)... apply IH. exists vs'.
-        apply of_same_length_rest in Hl as ?. exists H0.
-        eapply feval_proper; [reflexivity| | apply H]. apply seq_subst_proper... reflexivity.
-  Qed.
-
-
-  Lemma simpl_feval_forall_list σ xs A :
-    feval σ <! ∀* xs, A !> ↔
-    ∀ vs (H : OfSameLength xs vs),
-      feval σ (@seq_subst _ A xs (TConst <$> vs) of_same_length_fmap_r).
-  Proof with auto.
-    split; intros.
-    - generalize dependent σ. generalize dependent vs.
-      induction xs as [|x xs IH]; simpl in *; intros.
-      + apply of_same_length_nil_inv_l in H0 as ?. subst. simpl in H...
-      + apply of_same_length_cons_inv_l in H0 as ?.
-        destruct H1 as (v&vs'&?&?). subst. simpl. rewrite feval_subst with (v:=v)...
-        rewrite simpl_feval_fforall in H. specialize (H v).
-        rewrite feval_subst with (v:=v) in H...
-        apply (IH vs' (@of_same_length_rest _ _ _ _ _ _ H0)) in H.
-        eapply feval_proper; [reflexivity| | apply H]. apply seq_subst_proper... reflexivity.
-    - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
-      + specialize (H [] of_same_length_nil). simpl in H...
-      + rewrite simpl_feval_fforall. intros. rewrite feval_subst with (v:=v)...
-        (* TODO: maybe rename fforall in [simpl_feval_fforall] to forall? *)
-        apply IH. intros. specialize (H (v::vs) (of_same_length_cons)). simpl in H.
-        rewrite feval_subst with (v:=v) in H...
-        eapply feval_proper; [reflexivity| | apply H]. apply seq_subst_proper... reflexivity.
-  Qed.
-
-  Lemma f_and_list_elim B Bs :
+  Lemma f_andlist_elim' B Bs :
     B ∈ Bs →
     <! ∧* Bs !> ⇛ B.
   Proof with auto.
-    intros. intros σ Hand. rewrite simpl_feval_and_list in Hand. apply Hand...
+    intros. intros σ Hand. rewrite simpl_feval_andlist in Hand. apply Hand...
   Qed.
 
-  Lemma f_or_list_intro B Bs :
+  Lemma f_orlist_intro' B Bs :
     B ∈ Bs →
     B ⇛ <! ∨* Bs !>.
   Proof with auto.
-    intros. intros σ HB. apply simpl_feval_or_list. exists B. split...
+    intros. intros σ HB. apply simpl_feval_orlist. exists B. split...
   Qed.
 
-  Lemma f_and_absorb A B :
-    <! A ∧ (A ∨ B) !> ≡ A.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_elim B Bs B' :
+    B ⇛ B' →
+    B ∈ Bs →
+    <! ∧* Bs !> ⇛ B'.
+  Proof with auto.
+    intros. trans B.
+    - apply f_andlist_elim'...
+    - rewrite H. reflexivity.
+  Qed.
 
-  Lemma f_or_absorb A B :
-    <! A ∨ (A ∧ B) !> ≡ A.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_intro B Bs B' :
+    B' ⇛ B →
+    B ∈ Bs →
+    B' ⇛ <! ∨* Bs !>.
+  Proof with auto.
+    intros. trans B.
+    - rewrite H. reflexivity.
+    - apply f_orlist_intro'...
+  Qed.
 
-  Lemma f_and_or_distr A B C :
-    <! A ∧ (B ∨ C) !> ≡ <! (A ∧ B) ∨ (A ∧ C) !>.
-  Proof. prove_equiv. Qed.
+  (* TODO: move these *)
+  Lemma f_and_elim_l A B :
+    <! A ∧ B !> ⇛ A.
+  Proof with auto. intros σ. simp feval. intros [? _]... Qed.
 
-  Lemma f_or_and_distr A B C :
-    <! A ∨ (B ∧ C) !> ≡ <! (A ∨ B) ∧ (A ∨ C) !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_elim_r A B :
+    <! A ∧ B !> ⇛ B.
+  Proof with auto. intros σ. simp feval. intros [_ ?]... Qed.
 
-  Lemma f_and_true A :
-    <! A ∧ true !> ≡ A.
-  Proof. prove_equiv. Qed.
+  Lemma f_or_intro_l A B :
+    A ⇛ <! A ∨ B !>.
+  Proof with auto. intros σ. simp feval. intros... Qed.
 
-  Lemma f_or_true A :
-    <! A ∨ true !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_or_intro_r A B :
+    B ⇛ <! A ∨ B !>.
+  Proof with auto. intros σ. simp feval. intros... Qed.
 
-  Lemma f_and_false A :
-    <! A ∧ false !> ≡ <! false !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_andlist_distr_l A Bs :
+    length Bs ≠ 0 →
+    <! A ∧ (∧* Bs) !> ≡ <! ∧* $((A∧.)ₗ <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - intros. contradiction.
+    - intros. rewrite <- f_and_assoc. destruct (decide (length Bs = 0)).
+      + apply length_zero_iff_nil in e. subst. simpl...
+      + rewrite f_and_assoc. rewrite <- (f_and_redundant_r (<! A ∧ B !>) A).
+        2: { apply f_and_elim_l. }
+        rewrite <- f_and_assoc. rewrite IH... rewrite f_and_assoc. f_equiv.
+        reflexivity.
+  Qed.
 
-  Lemma f_or_false A :
-    <! A ∨ false !> ≡ <! A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_andlist_distr_r A Bs :
+    length Bs ≠ 0 →
+    <! (∧* Bs) ∧ A !> ≡ <! ∧* $((.∧A)ₗ <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - intros. contradiction.
+    - intros. rewrite <- f_and_assoc. destruct (decide (length Bs = 0)).
+      + apply length_zero_iff_nil in e. subst. simpl. rewrite (f_and_comm _ A).
+        repeat rewrite f_and_true. apply f_and_comm.
+      + rewrite (f_and_comm _ A). rewrite f_and_assoc.
+        rewrite <- (f_and_redundant_r (<! B ∧ A !>) A).
+        2: { apply f_and_elim_r. }
+        rewrite <- f_and_assoc. rewrite (f_and_comm A). rewrite IH...
+        f_equiv.
+        * apply f_and_comm.
+        * reflexivity.
+  Qed.
 
-  Lemma f_not_true : <! ¬ true !> ≡@{formula} <! false !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_or_orlist_distr_l A Bs :
+    length Bs ≠ 0 →
+    <! A ∨ (∨* Bs) !> ≡ <! ∨* $((A∨.)ₗ <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - intros. contradiction.
+    - intros. rewrite <- f_or_assoc. destruct (decide (length Bs = 0)).
+      + apply length_zero_iff_nil in e. subst. simpl...
+      + rewrite f_or_assoc. rewrite <- (f_or_redundant_r (<! A ∨ B !>) A).
+        2: { apply f_or_intro_l. }
+        rewrite <- f_or_assoc. rewrite IH... rewrite f_or_assoc. f_equiv.
+        reflexivity.
+  Qed.
 
-  Lemma f_not_false : <! ¬ false !> ≡@{formula} <! true !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_or_orlist_distr_r A Bs :
+    length Bs ≠ 0 →
+    <! (∨* Bs) ∨ A !> ≡ <! ∨* $((.∨A)ₗ <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - intros. contradiction.
+    - intros. rewrite <- f_or_assoc. destruct (decide (length Bs = 0)).
+      + apply length_zero_iff_nil in e. subst. simpl. rewrite (f_or_comm _ A).
+        repeat rewrite f_or_false. apply f_or_comm.
+      + rewrite (f_or_comm _ A). rewrite f_or_assoc.
+        rewrite <- (f_or_redundant_r (<! B ∨ A !>) A).
+        2: { apply f_or_intro_r. }
+        rewrite <- f_or_assoc. rewrite (f_or_comm A). rewrite IH...
+        f_equiv.
+        * apply f_or_comm.
+        * reflexivity.
+  Qed.
 
-  Lemma f_and_not_self A :
-    <! A ∧ ¬ A !> ≡ <! false !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_andlist_comm A Bs :
+    <! A ∧ ∧* Bs !> ≡ <! (∧* Bs) ∧ A !>.
+  Proof with auto.
+    intros. destruct Bs as [| B Bs].
+    - simpl. rewrite f_and_comm...
+    - simpl. rewrite f_and_comm. reflexivity.
+  Qed.
 
-  Lemma f_excluded_middle A :
-      <! A ∨ ¬ A !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_or_orlist_comm A Bs :
+    <! A ∨ ∨* Bs !> ≡ <! (∨* Bs) ∨ A !>.
+  Proof with auto.
+    intros. destruct Bs as [| B Bs].
+    - simpl. rewrite f_or_comm...
+    - simpl. rewrite f_or_comm. reflexivity.
+  Qed.
 
-  Lemma f_not_stable A :
-    <! ¬ ¬ A !> ≡ <! A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_app Bs Cs :
+    <! ∧* $(Bs ++ Cs) !> ≡ <! (∧* Bs) ∧ (∧* Cs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; intros.
+    - simpl. rewrite f_and_comm. rewrite f_and_true...
+    - simpl. rewrite IH. rewrite f_and_assoc...
+  Qed.
 
-  Lemma f_not_and A B :
-    <! ¬ (A ∧ B) !> ≡ <! ¬ A ∨ ¬ B !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_app Bs Cs :
+    <! ∨* $(Bs ++ Cs) !> ≡ <! (∨* Bs) ∨ (∨* Cs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; intros.
+    - simpl. rewrite f_or_comm. rewrite f_or_false...
+    - simpl. rewrite IH. rewrite f_or_assoc...
+  Qed.
 
-  Lemma f_not_or A B :
-      <! ¬ (A ∨ B) !> ≡ <! ¬ A ∧ ¬ B !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_comm Bs Bs' :
+    Bs ≡ₚ Bs' →
+    <! ∧* Bs !> ≡ <! ∧* Bs' !>.
+  Proof with auto.
+    intros. generalize dependent Bs'. induction Bs as [|B Bs IH]; intros.
+    - apply Permutation_nil_l in H. subst...
+    - apply Permutation_cons_inv_l in H as (Bs'0&Bs'1&?&?). simpl. subst Bs'.
+      rewrite f_andlist_app. simpl. rewrite f_and_assoc. rewrite (f_and_comm _ B).
+      rewrite <- f_and_assoc. rewrite <- f_andlist_app. rewrite IH.
+      + reflexivity.
+      + assumption.
+  Qed.
 
-  Lemma f_or_not_absorb A B :
-      <! A ∨ (¬ A ∧ B) !> ≡ <! A ∨ B !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_comm Bs Bs' :
+    Bs ≡ₚ Bs' →
+    <! ∨* Bs !> ≡ <! ∨* Bs' !>.
+  Proof with auto.
+    intros. generalize dependent Bs'. induction Bs as [|B Bs IH]; intros.
+    - apply Permutation_nil_l in H. subst...
+    - apply Permutation_cons_inv_l in H as (Bs'0&Bs'1&?&?). simpl. subst Bs'.
+      rewrite f_orlist_app. simpl. rewrite f_or_assoc. rewrite (f_or_comm _ B).
+      rewrite <- f_or_assoc. rewrite <- f_orlist_app. rewrite IH.
+      + reflexivity.
+      + assumption.
+  Qed.
 
-  Lemma f_and_not_absorb A B :
-    <! A ∧ (¬ A ∨ B) !> ≡ <! A ∧ B !>.
-  Proof. prove_equiv. Qed.
+  (* HACK: it might more sense to make formula_list_equiv also respect permutations *)
+  Lemma f_andlist_equiv_comm Bs Bs' Cs :
+    formula_list_equiv Bs Bs' →
+    Bs ≡ₚ Cs →
+    <! ∧* Cs !> ≡ <! ∧* Bs' !>.
+  Proof with auto.
+    intros. rewrite (f_andlist_comm Cs Bs).
+    - rewrite H...
+    - symmetry. assumption.
+  Qed.
 
-  (* A.22 *)
-  Lemma f_imp_equiv_or A B :
-    <! A ⇒ B !> ≡ <! ¬ A ∨ B !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_equiv_comm Bs Bs' Cs :
+    formula_list_equiv Bs Bs' →
+    Bs ≡ₚ Cs →
+    <! ∨* Cs !> ≡ <! ∨* Bs' !>.
+  Proof with auto.
+    intros. rewrite (f_orlist_comm Cs Bs).
+    - rewrite H...
+    - symmetry. assumption.
+  Qed.
 
-  (* A.23 *)
-  Lemma f_implies_self A :
-    <! A ⇒ A !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  (** Dup lemmas for n-ary and/or, corresponding to idemp lemmas of normal and/or **)
+  Lemma f_andlist_dup_keep_l Bs0 B1 Bs2 B2 Bs3 :
+    B1 ≡ B2 →
+    <! ∧* $(Bs0 ++ [B1] ++ Bs2 ++ [B2] ++ Bs3) !> ≡ <! ∧* $(Bs0 ++ [B1] ++ Bs2 ++ Bs3) !>.
+  Proof with auto.
+    intros. repeat rewrite f_andlist_app. simpl. repeat rewrite f_and_true.
+    rewrite f_and_assoc. rewrite (f_and_comm _ B1). rewrite (f_and_assoc <! ∧* Bs2!> _).
+    rewrite (f_and_comm _ B2). rewrite <- f_and_assoc. do 2 rewrite (f_and_assoc <! ∧* Bs0 !>).
+    rewrite (f_and_comm _ B2). rewrite (f_and_assoc <! ∧* Bs0 !>). rewrite (f_and_comm _ B1).
+    repeat rewrite <- f_and_assoc. rewrite f_and_assoc. rewrite <- H. rewrite f_and_idemp...
+  Qed.
 
-  (* A.24 *)
-  Lemma f_impl_as_not_and A B :
-    <! A ⇒ B !> ≡ <! ¬ (A ∧ ¬ B) !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_dup_keep_r Bs0 B1 Bs2 B2 Bs3 :
+    B1 ≡ B2 →
+    <! ∧* $(Bs0 ++ [B1] ++ Bs2 ++ [B2] ++ Bs3) !> ≡ <! ∧* $(Bs0 ++ Bs2 ++ [B2] ++ Bs3) !>.
+  Proof with auto.
+    intros. repeat rewrite f_andlist_app. simpl. repeat rewrite f_and_true.
+    rewrite f_and_assoc. rewrite (f_and_comm _ B1). rewrite (f_and_assoc <! ∧* Bs2!> _).
+    rewrite (f_and_comm _ B2). rewrite <- f_and_assoc. do 2 rewrite (f_and_assoc <! ∧* Bs0 !>).
+    rewrite (f_and_comm _ B2). repeat rewrite <- f_and_assoc. rewrite f_and_assoc.
+    rewrite H. rewrite f_and_idemp...
+  Qed.
 
-  (* A.25 *)
-  Lemma f_not_impl A B :
-      <! ¬ (A ⇒ B) !> ≡ <! A ∧ ¬ B !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_dup_head B1 B2 Bs :
+    B1 ≡ B2 →
+    <! ∧* $(B1 :: B2 :: Bs) !> ≡ <! ∧* $(B2 :: Bs) !>.
+  Proof with auto.
+    intros. replace (B1 :: B2 :: Bs) with ([] ++ [B1] ++ [] ++ [B2] ++ Bs) by reflexivity.
+    rewrite (f_andlist_dup_keep_r [] B1 [] B2 Bs)...
+  Qed.
 
-  (* A.26 *)
-  Lemma f_contrapositive A B :
-      <! A ⇒ B !> ≡ <! ¬ B ⇒ ¬ A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_andlist_dup_tail B1 B2 Bs :
+    B1 ≡ B2 →
+    <! ∧* $(Bs ++ [B1] ++ [B2]) !> ≡ <! ∧* $(Bs ++ [B2]) !>.
+  Proof with auto.
+    intros. replace (Bs ++ [B1] ++ [B2]) with (Bs ++ [B1] ++ [] ++ [B2] ++ []) by reflexivity.
+    rewrite (f_andlist_dup_keep_r Bs B1 [] B2 [])...
+  Qed.
 
-  (* A.27 *)
-  Lemma f_implies_true A :
-    <! A ⇒ true !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_dup_keep_l Bs0 B1 Bs2 B2 Bs3 :
+    B1 ≡ B2 →
+    <! ∨* $(Bs0 ++ [B1] ++ Bs2 ++ [B2] ++ Bs3) !> ≡ <! ∨* $(Bs0 ++ [B1] ++ Bs2 ++ Bs3) !>.
+  Proof with auto.
+    intros. repeat rewrite f_orlist_app. simpl. repeat rewrite f_or_false.
+    rewrite f_or_assoc. rewrite (f_or_comm _ B1). rewrite (f_or_assoc <! ∨* Bs2!> _).
+    rewrite (f_or_comm _ B2). rewrite <- f_or_assoc. do 2 rewrite (f_or_assoc <! ∨* Bs0 !>).
+    rewrite (f_or_comm _ B2). rewrite (f_or_assoc <! ∨* Bs0 !>). rewrite (f_or_comm _ B1).
+    repeat rewrite <- f_or_assoc. rewrite f_or_assoc. rewrite <- H. rewrite f_or_idemp...
+  Qed.
 
-  (* A.28 *)
-  Lemma f_true_implies A :
-      <! true ⇒ A !> ≡ <! A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_dup_keep_r Bs0 B1 Bs2 B2 Bs3 :
+    B1 ≡ B2 →
+    <! ∨* $(Bs0 ++ [B1] ++ Bs2 ++ [B2] ++ Bs3) !> ≡ <! ∨* $(Bs0 ++ Bs2 ++ [B2] ++ Bs3) !>.
+  Proof with auto.
+    intros. repeat rewrite f_orlist_app. simpl. repeat rewrite f_or_false.
+    rewrite f_or_assoc. rewrite (f_or_comm _ B1). rewrite (f_or_assoc <! ∨* Bs2!> _).
+    rewrite (f_or_comm _ B2). rewrite <- f_or_assoc. do 2 rewrite (f_or_assoc <! ∨* Bs0 !>).
+    rewrite (f_or_comm _ B2). repeat rewrite <- f_or_assoc. rewrite f_or_assoc.
+    rewrite H. rewrite f_or_idemp...
+  Qed.
 
-  (* A.29 *)
-  Lemma f_implies_false A :
-    <! A ⇒ false !> ≡ <! ¬ A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_dup_head B1 B2 Bs :
+    B1 ≡ B2 →
+    <! ∨* $(B1 :: B2 :: Bs) !> ≡ <! ∨* $(B2 :: Bs) !>.
+  Proof with auto.
+    intros. replace (B1 :: B2 :: Bs) with ([] ++ [B1] ++ [] ++ [B2] ++ Bs) by reflexivity.
+    rewrite (f_orlist_dup_keep_r [] B1 [] B2 Bs)...
+  Qed.
 
-  (* A.30 *)
-  Lemma f_false_implies A :
-      <! false ⇒ A !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_orlist_dup_tail B1 B2 Bs :
+    B1 ≡ B2 →
+    <! ∨* $(Bs ++ [B1] ++ [B2]) !> ≡ <! ∨* $(Bs ++ [B2]) !>.
+  Proof with auto.
+    intros. replace (Bs ++ [B1] ++ [B2]) with (Bs ++ [B1] ++ [] ++ [B2] ++ []) by reflexivity.
+    rewrite (f_orlist_dup_keep_r Bs B1 [] B2 [])...
+  Qed.
 
-  (* A.31 *)
-  Lemma f_implies_not_self A :
-      <! A ⇒ ¬ A !> ≡ <! ¬ A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_andlist_redundant_l B Bs B' :
+    B ⇛ B' →
+    B ∈ Bs →
+    <! B' ∧ (∧* Bs) !> ≡ <! ∧* Bs !>.
+  Proof with auto.
+    intros. apply f_and_redundant_l. apply f_andlist_elim with (B:=B)...
+  Qed.
 
-  (* A.32 *)
-  Lemma f_not_implies_self A :
-      <! ¬ A ⇒ A !> ≡ <! A !>.
-  Proof. prove_equiv. Qed.
+  Lemma f_and_andlist_redundant_r B Bs B' :
+    B ⇛ B' →
+    B ∈ Bs →
+    <! (∧* Bs) ∧ B' !> ≡ <! ∧* Bs !>.
+  Proof with auto.
+    intros. apply f_and_redundant_r. apply f_andlist_elim with (B:=B)...
+  Qed.
+
+  Lemma f_and_andlist_redundant_l' B Bs :
+    B ∈ Bs →
+    <! B ∧ (∧* Bs) !> ≡ <! ∧* Bs !>.
+  Proof with auto.
+    intros. apply f_and_andlist_redundant_l with (B:=B)... reflexivity.
+  Qed.
+
+  Lemma f_and_andlist_redundant_r' B Bs :
+    B ∈ Bs →
+    <! (∧* Bs) ∧ B !> ≡ <! ∧* Bs !>.
+  Proof with auto.
+    intros. apply f_and_andlist_redundant_r with (B:=B)... reflexivity.
+  Qed.
+
+  Lemma f_or_orlist_redundant_l B Bs B' :
+    B' ⇛ B →
+    B ∈ Bs →
+    <! B' ∨ (∨* Bs) !> ≡ <! ∨* Bs !>.
+  Proof with auto.
+    intros. apply f_or_redundant_l. apply f_orlist_intro with (B:=B)...
+  Qed.
+
+  Lemma f_or_orlist_redundant_r B Bs B' :
+    B' ⇛ B →
+    B ∈ Bs →
+    <! (∨* Bs) ∨ B' !> ≡ <! ∨* Bs !>.
+  Proof with auto.
+    intros. apply f_or_redundant_r. apply f_orlist_intro with (B:=B)...
+  Qed.
+
+  Lemma f_or_orlist_redundant_l' B Bs :
+    B ∈ Bs →
+    <! B ∨ (∨* Bs) !> ≡ <! ∨* Bs !>.
+  Proof with auto.
+    intros. apply f_or_orlist_redundant_l with (B:=B)... reflexivity.
+  Qed.
+
+  Lemma f_or_orlist_redundant_r' B Bs :
+    B ∈ Bs →
+    <! (∨* Bs) ∨ B !> ≡ <! ∨* Bs !>.
+  Proof with auto.
+    intros. apply f_or_orlist_redundant_r with (B:=B)... reflexivity.
+  Qed.
+
+  Lemma f_and_andlist_andlist Bs Cs `{OfSameLength _ _ Bs Cs} :
+    <! (∧* Bs) ∧ (∧* Cs) !> ≡ <! ∧* $(zip_with FAnd Bs Cs) !>.
+  Proof with auto.
+    generalize dependent Cs. induction Bs as [|B Bs IH]; intros.
+    - apply of_same_length_nil_inv_l in H. subst. simpl. rewrite f_and_idemp...
+    - apply of_same_length_cons_inv_l in H as (C&Cs'&->&?). rename Cs' into Cs.
+      simpl. rewrite f_and_assoc at 1. rewrite (f_and_comm _ C). rewrite (f_and_assoc C).
+      rewrite (f_and_comm C). repeat rewrite <- f_and_assoc. do 2 f_equiv.
+      apply IH. unfold OfSameLength...
+  Qed.
+
+  Lemma f_or_orlist_andlist Bs Cs `{OfSameLength _ _ Bs Cs} :
+    <! (∨* Bs) ∨ (∨* Cs) !> ≡ <! ∨* $(zip_with FOr Bs Cs) !>.
+  Proof with auto.
+    generalize dependent Cs. induction Bs as [|B Bs IH]; intros.
+    - apply of_same_length_nil_inv_l in H. subst. simpl. rewrite f_or_idemp...
+    - apply of_same_length_cons_inv_l in H as (C&Cs'&->&?). rename Cs' into Cs.
+      simpl. rewrite f_or_assoc at 1. rewrite (f_or_comm _ C). rewrite (f_or_assoc C).
+      rewrite (f_or_comm C). repeat rewrite <- f_or_assoc. do 2 f_equiv.
+      apply IH. unfold OfSameLength...
+  Qed.
+
+
+  (* TODO: [f_and_or_absorb] and the rest of equiv lemmas are not ported  *)
+
+  Lemma f_andlist_or_absorb A Bs :
+    <! A ∧ ∧* $(FOr A <$> Bs) !> ≡ A.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_and_true.
+    - rewrite f_and_assoc. rewrite f_and_or_absorb. rewrite IH...
+  Qed.
+
+  Lemma f_orlist_and_absorb A Bs :
+    <! A ∨ ∨* $(FAnd A <$> Bs) !> ≡ A.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_or_false.
+    - rewrite f_or_assoc. rewrite f_or_and_absorb. rewrite IH...
+  Qed.
+
+  Lemma f_or_andlist_distr A Bs :
+    <! A ∨ (∧* Bs) !> ≡ <! ∧* $(FOr A <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_or_true.
+    - rewrite f_or_and_distr. rewrite IH. f_equiv...
+  Qed.
+
+  Lemma f_and_orlist_distr A Bs :
+    <! A ∧ (∨* Bs) !> ≡ <! ∨* $(FAnd A <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_and_false.
+    - rewrite f_and_or_distr. rewrite IH. f_equiv...
+  Qed.
+
+
+  Lemma f_not_andlist Bs :
+    <! ¬ (∧* Bs) !> ≡ <! ∨* $(FNot <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_not_true.
+    - rewrite f_not_and. f_equiv...
+  Qed.
+
+  Lemma f_not_orlist Bs :
+    <! ¬ (∨* Bs) !> ≡ <! ∧* $(FNot <$> Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl.
+    - apply f_not_false.
+    - rewrite f_not_or. f_equiv...
+  Qed.
+
+  Lemma f_or_andlist_absorb' A Bs :
+    <! A ∨ (∧* $(FAnd (FNot A) <$> Bs)) !> ≡ <! A ∨ (∧* Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl...
+    rewrite f_or_and_distr. rewrite f_or_and_absorb'.
+    rewrite IH. rewrite f_or_and_distr. f_equiv...
+  Qed.
+
+  Lemma f_and_orlist_absorb' A Bs :
+    <! A ∧ (∨* $(FOr (FNot A) <$> Bs)) !> ≡ <! A ∧ (∨* Bs) !>.
+  Proof with auto.
+    induction Bs as [|B Bs IH]; simpl...
+    rewrite f_and_or_distr. rewrite f_and_or_absorb'.
+    rewrite IH. rewrite f_and_or_distr. f_equiv...
+  Qed.
 
   (* A.33 *)
-  Lemma f_impl_and_r A B C :
-      <! C ⇒ (A ∧ B) !> ≡ <! (C ⇒ A) ∧ (C ⇒ B) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_impl_and_r A B C : *)
+  (*     <! C ⇒ (A ∧ B) !> ≡ <! (C ⇒ A) ∧ (C ⇒ B) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.34 *)
-  Lemma f_impl_or_l A B C :
-    <! (A ∨ B) ⇒ C !> ≡ <! (A ⇒ C) ∧ (B ⇒ C) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_impl_or_l A B C : *)
+  (*   <! (A ∨ B) ⇒ C !> ≡ <! (A ⇒ C) ∧ (B ⇒ C) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.35 *)
-  Lemma f_impl_or_r A B C :
-    <! C ⇒ (A ∨ B) !> ≡ <! (C ⇒ A) ∨ (C ⇒ B) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_impl_or_r A B C : *)
+  (*   <! C ⇒ (A ∨ B) !> ≡ <! (C ⇒ A) ∨ (C ⇒ B) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.36 *)
-  Lemma f_impl_and_l A B C :
-    <! (A ∧ B) ⇒ C !> ≡ <! (A ⇒ C) ∨ (B ⇒ C) !>.
-  Proof with auto.
-    unfold FImpl. intros σ. simp feval. split; [| naive_solver].
-    intros [|]... apply Decidable.not_and in H as [|]... apply feval_dec.
-  Qed.
+  (* Lemma f_impl_and_l A B C : *)
+  (*   <! (A ∧ B) ⇒ C !> ≡ <! (A ⇒ C) ∨ (B ⇒ C) !>. *)
+  (* Proof with auto. *)
+  (*   unfold FImpl. intros σ. simp feval. split; [| naive_solver]. *)
+  (*   intros [|]... apply Decidable.not_and in H as [|]... apply feval_dec. *)
+  (* Qed. *)
 
   (* A.37 *)
-  Lemma f_impl_curry A B C :
-    <! A ⇒ (B ⇒ C) !> ≡ <! (A ∧ B) ⇒ C !>.
-  Proof with auto.
-    unfold FImpl. intros σ. simp feval. split; [naive_solver |].
-    intros [|]... apply Decidable.not_and in H as [|]... apply feval_dec.
-  Qed.
+  (* Lemma f_impl_curry A B C : *)
+  (*   <! A ⇒ (B ⇒ C) !> ≡ <! (A ∧ B) ⇒ C !>. *)
+  (* Proof with auto. *)
+  (*   unfold FImpl. intros σ. simp feval. split; [naive_solver |]. *)
+  (*   intros [|]... apply Decidable.not_and in H as [|]... apply feval_dec. *)
+  (* Qed. *)
 
   (* A.38 *)
-  Lemma f_cases_as_or A B C :
-    <! (A ⇒ B) ∧ (¬A ⇒ C) !> ≡ <! (A ∧ B) ∨ (¬A ∧ C) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_cases_as_or A B C : *)
+  (*   <! (A ⇒ B) ∧ (¬A ⇒ C) !> ≡ <! (A ∧ B) ∨ (¬A ∧ C) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.39 *)
-  Lemma f_iff_as_and A B C :
-    <! A ⇔ B !> ≡ <! (A ⇒ B) ∧ (B ⇒ A) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_as_and A B C : *)
+  (*   <! A ⇔ B !> ≡ <! (A ⇒ B) ∧ (B ⇒ A) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.40 *)
-  Lemma f_iff_as_or A B :
-    <! A ⇔ B !> ≡ <! (A ∧ B) ∨ ¬(A ∨ B) !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_as_or A B : *)
+  (*   <! A ⇔ B !> ≡ <! (A ∧ B) ∨ ¬(A ∨ B) !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.41 *)
-  Lemma f_iff_negate A B :
-    <! A ⇔ B !> ≡ <! ¬A ⇔ ¬B !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_negate A B : *)
+  (*   <! A ⇔ B !> ≡ <! ¬A ⇔ ¬B !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.42 *)
-  Lemma f_iff_self A :
-    <! A ⇔ A !> ≡ <! true !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_self A : *)
+  (*   <! A ⇔ A !> ≡ <! true !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.43 *)
-  Lemma f_iff_not_self A :
-    <! A ⇔ ¬ A !> ≡ <! false !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_not_self A : *)
+  (*   <! A ⇔ ¬ A !> ≡ <! false !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.44 *)
-  Lemma f_iff_true A :
-    <! A ⇔ true !> ≡ <! A !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_true A : *)
+  (*   <! A ⇔ true !> ≡ <! A !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.45 *)
-  Lemma f_iff_false A :
-    <! A ⇔ false !> ≡ <! ¬ A !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_false A : *)
+  (*   <! A ⇔ false !> ≡ <! ¬ A !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.46 *)
-  Lemma f_iff_and_absorb A B :
-    <! A ⇔ (A ∧ B) !> ≡ <! A ⇒ B !>.
-  Proof. prove_equiv. Qed.
+  (* Lemma f_iff_and_absorb A B : *)
+  (*   <! A ⇔ (A ∧ B) !> ≡ <! A ⇒ B !>. *)
+  (* Proof. prove_equiv. Qed. *)
 
   (* A.47 *)
-  Lemma f_iff_or_absorb A B :
-    <! A ⇔ (A ∨ B) !> ≡ <! B ⇒ A !>.
-  Proof with auto.
-    intros σ. unfold FIff, FImpl. simp feval. split.
-    - intros []. destruct_or! H; naive_solver.
-    - intros [|]; [|naive_solver]. split.
-      + pose proof (feval_lem σ A). destruct H0 as [|]...
-      + pose proof (feval_lem σ A) as [|]; naive_solver.
-  Qed.
+  (* Lemma f_iff_or_absorb A B : *)
+  (*   <! A ⇔ (A ∨ B) !> ≡ <! B ⇒ A !>. *)
+  (* Proof with auto. *)
+  (*   intros σ. unfold FIff, FImpl. simp feval. split. *)
+  (*   - intros []. destruct_or! H; naive_solver. *)
+  (*   - intros [|]; [|naive_solver]. split. *)
+  (*     + pose proof (feval_lem σ A). destruct H0 as [|]... *)
+  (*     + pose proof (feval_lem σ A) as [|]; naive_solver. *)
+  (* Qed. *)
 
   (* A.48 *)
-  Lemma f_or_iff A B C :
-    <! A ∨ (B ⇔ C) !> ≡ <! (A ∨ B) ⇔ (A ∨ C) !>.
+  (* Lemma f_or_iff A B C : *)
+  (*   <! A ∨ (B ⇔ C) !> ≡ <! (A ∨ B) ⇔ (A ∨ C) !>. *)
+  (* Proof with auto. *)
+  (*   intros σ. unfold FIff, FImpl. simp feval. split; [|naive_solver]. *)
+  (*   intros [|[]]; [naive_solver|]. split; destruct (feval_lem σ A); naive_solver. *)
+  (* Qed. *)
+
+  (* A.61 *)
+  Lemma f_not_foralllist xs A :
+    <! ¬ ∀* xs, A !> ≡ <! ∃* xs, ¬ A !>.
   Proof with auto.
-    intros σ. unfold FIff, FImpl. simp feval. split; [|naive_solver].
-    intros [|[]]; [naive_solver|]. split; destruct (feval_lem σ A); naive_solver.
+    induction xs as [|x xs IH]; simpl... rewrite f_not_forall. rewrite IH...
   Qed.
 
-  (* A.49 *)
-  Lemma f_iff_comm A B :
-    <! A ⇔ B !> ≡ <! B ⇔ A !>.
-  Proof. prove_equiv. Qed.
+  (* A.62 *)
+  Lemma f_not_existslist xs A :
+    <! ¬ ∃* xs, A !> ≡ <! ∀* xs, ¬ A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl... rewrite f_not_exists. rewrite IH...
+  Qed.
 
-  (* A.50 *)
-  Lemma f_iff_assoc A B C :
-      <! A ⇔ (B ⇔ C) !> ≡ <! (A ⇔ B) ⇔ C !>.
-  Proof.
-    unfold FIff, FImpl. rewrite f_not_and.
-    repeat rewrite f_not_and. repeat rewrite f_not_or. repeat rewrite f_not_stable.
-    intros σ. simp feval. split; naive_solver.
+  Lemma f_foralllist_as_existslist xs A :
+    <! ∀* xs, A !> ≡ <! ¬ ∃* xs, ¬ A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl...
+    - rewrite f_not_stable...
+    - intros σ. unfold FForall. rewrite IH... rewrite f_not_stable...
+  Qed.
+
+  (* A.76 *)
+  Lemma f_existslist_and_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∃* xs, A ∧ B !> ≡ <! A ∧ (∃* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.78 *)
+  Lemma f_foralllist_impl_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∀* xs, A ⇒ B !> ≡ <! A ⇒ (∀* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_l|];
+      set_solver.
   Qed.
 
   (* A.56 *)
+  Lemma f_existslist_one_point xs ts A `{OfSameLength _ _ xs ts} :
+    NoDup xs →
+    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    <! ∃* xs, ⌜$(TVar <$> xs) =* ts⌝ ∧ A !> ≡ <! A[; *xs \ *ts ;] !>.
+  Proof with auto.
+    intros Hnodup Hfree. generalize dependent ts.
+    induction xs as [|x xs' IH]; simpl in *; intros.
+    - inversion H. assert (H':=H). apply of_same_length_nil_inv_l in H' as ->.
+      simpl. unfold FEqList. simpl. rewrite f_and_comm. apply f_and_true.
+    - inversion H. assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&?&?).
+      subst ts. rename ts' into ts. simpl. rewrite f_eqlist_cons.
+      apply NoDup_cons in Hnodup as []. rewrite <- f_and_assoc.
+      rewrite f_existslist_and_unused_l by set_solver. rewrite IH by set_solver.
+      rewrite f_exists_one_point by set_solver. f_equiv. f_equiv. apply eq_pi.
+      solve_decision.
+      Unshelve. unfold OfSameLength. symmetry. apply H2.
+  Qed.
+
+  Lemma f_foralllist_one_point xs ts A `{OfSameLength _ _ xs ts} :
+    NoDup xs →
+    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    <! ∀* xs, ⌜$(TVar <$> xs) =* ts⌝ ⇒ A !> ≡ <! A[; *xs \ *ts ;] !>.
+  Proof with auto.
+    intros. rewrite f_foralllist_as_existslist. rewrite f_not_impl.
+    rewrite f_existslist_one_point.
+    - Unset Printing Notations.
+    intros Hnodup Hfree. generalize dependent ts.
+    induction xs as [|x xs' IH]; simpl in *; intros.
+    - inversion H. assert (H':=H). apply of_same_length_nil_inv_l in H' as ->.
+      simpl. unfold FEqList. simpl. rewrite f_true_implies...
+    - inversion H. assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&?&?).
+      subst ts. rename ts' into ts. simpl. rewrite f_eqlist_cons.
+      apply NoDup_cons in Hnodup as []. rewrite <- IH by set_solver.
+      rewrite <- f_impl_curry. rewrite f_forall_list_impl_unused_l by set_solver.
+      rewrite f_forall_one_point by set_solver. f_equiv...
+  Qed.
   Lemma f_exists_one_point x t A :
       x ∉ term_fvars t →
       <! ∃ x, ⌜x = t⌝ ∧ A !> ≡ <! A[x \ t] !>.
@@ -388,15 +710,6 @@ Section n_ary_lemmas.
     <! ∀ x x, A !> ≡ <! ∀ x, A !>.
   Proof with auto. unfold FForall. rewrite f_not_stable. rewrite f_exists_idemp... Qed.
 
-  (* A.61 *)
-  Lemma f_not_forall x A :
-    <! ¬ ∀ x, A !> ≡ <! ∃ x, ¬ A !>.
-  Proof. unfold FForall. rewrite f_not_stable. auto. Qed.
-
-  (* A.62 *)
-  Lemma f_not_exists x A :
-    <! ¬ ∃ x, A !> ≡ <! ∀ x, ¬ A !>.
-  Proof. unfold FForall. rewrite f_not_stable. auto. Qed.
 
   (* A.64 *)
   Lemma f_exists_comm x y A :
