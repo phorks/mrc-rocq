@@ -94,6 +94,9 @@ Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=
 Instance of_same_length_nil {A B} : @OfSameLength A B [] [].
 Proof. reflexivity. Defined.
 
+Instance of_same_length_id {A} {l : list A} : OfSameLength l l | 0.
+Proof. reflexivity. Qed.
+
 Instance of_same_length_cons {A B} {x1 : A} {x2 : B} {l1 : list A} {l2 : list B}
   `{OfSameLength A B l1 l2} : OfSameLength (x1::l1) (x2::l2).
 Proof. unfold OfSameLength in *. do 2 rewrite length_cons. lia. Qed.
@@ -112,6 +115,10 @@ Proof. unfold OfSameLength in *. rewrite length_fmap. assumption. Qed.
 Instance of_same_length_fmap_r {A B B'} {l1 : list A} {l2 : list B} {f2 : B → B'}
   `{OfSameLength A B l1 l2} : OfSameLength l1 (f2 <$> l2).
 Proof. unfold OfSameLength in *. rewrite length_fmap. assumption. Qed.
+
+Instance of_same_length_fmap {A A' B B'} {l1 : list A} {l2 : list B} (f1 : A → A') {f2 : B → B'}
+  `{OfSameLength A B l1 l2} : OfSameLength (f1 <$> l1) (f2 <$> l2).
+Proof. unfold OfSameLength in *. do 2 rewrite length_fmap. assumption. Qed.
 
 Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
                               (H : OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.

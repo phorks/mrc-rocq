@@ -720,18 +720,18 @@ Section pred_calc_semantics.
   | TEval_Const : ∀ v, teval σ (TConst v) v
   | TEval_Var : ∀ x v, σ !!! x = v → teval σ (TVar x) v
   | TEval_App : ∀ f args vargs fval,
-      teval_args σ args vargs →
+      teval_list σ args vargs →
       fn_eval f vargs fval →
       teval σ (TApp f args) (fval)
-  with teval_args (σ : state) : list term → list V → Prop :=
-  | TEvalArgs_Nil : teval_args σ [] []
+  with teval_list (σ : state) : list term → list V → Prop :=
+  | TEvalArgs_Nil : teval_list σ [] []
   | TEvalArgs_Cons : ∀ t ts v vs,
       teval σ t v →
-      teval_args σ ts vs →
-      teval_args σ (t::ts) (v::vs).
+      teval_list σ ts vs →
+      teval_list σ (t::ts) (v::vs).
 
   Scheme teval_ind_mut := Induction for teval Sort Prop
-      with teval_args_ind_mut := Induction for teval_args Sort Prop.
+      with teval_list_ind_mut := Induction for teval_list Sort Prop.
 
   Lemma teval_det {σ} t v₁ v₂ :
     teval σ t v₁ → teval σ t v₂ → v₁ = v₂.
@@ -739,7 +739,7 @@ Section pred_calc_semantics.
     intros H1 H2. generalize dependent v₂.
     generalize dependent v₁. generalize dependent t.
     apply (teval_ind_mut σ (λ t v₁ _, forall v₂, teval σ t v₂ → v₁ = v₂)
-             (λ args vargs₁ _, forall vargs₂, teval_args σ args vargs₂ → vargs₁ = vargs₂)).
+             (λ args vargs₁ _, forall vargs₂, teval_list σ args vargs₂ → vargs₁ = vargs₂)).
     - intros. inversion H...
     - intros. inversion H; subst...
     - intros. inversion H0; subst. inversion H5; subst; inversion f0; subst...
@@ -760,7 +760,7 @@ Section pred_calc_semantics.
     induction t.
     - exists v. constructor.
     - exists (σ !!! x). constructor...
-    - assert (∃ vargs, teval_args σ args vargs) as [vargs Hvargs].
+    - assert (∃ vargs, teval_list σ args vargs) as [vargs Hvargs].
       { induction args.
         + exists []. constructor.
         + forward IHargs. { intros. apply H. right... }
@@ -776,8 +776,8 @@ Section pred_calc_semantics.
         * apply FnEvalBottom...
   Qed.
 
-  Lemma teval_args_det {σ} args vargs1 vargs2 :
-    teval_args σ args vargs1 → teval_args σ args vargs2 →
+  Lemma teval_list_det {σ} args vargs1 vargs2 :
+    teval_list σ args vargs1 → teval_list σ args vargs2 →
     vargs1 = vargs2.
   Proof with auto.
     generalize dependent vargs2. generalize dependent vargs1.
@@ -798,7 +798,7 @@ Section pred_calc_semantics.
     | AT_True => True
     | AT_False => False
     | AT_Eq t1 t2 => ∃ v, teval σ t1 v ∧ teval σ t2 v
-    | AT_Pred symbol args => ∃ vargs, teval_args σ args vargs ∧ peval symbol vargs
+    | AT_Pred symbol args => ∃ vargs, teval_list σ args vargs ∧ peval symbol vargs
   end.
 
   Equations? feval (σ : state) (A : formula) : Prop by wf (rank A) lt :=

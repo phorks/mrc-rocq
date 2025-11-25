@@ -87,29 +87,35 @@ Section equiv.
     intros σ ? <- A B H. split; intros; apply H...
   Qed.
 
-  Global Instance fnot_proper : Proper ((≡@{formula}) ==> (≡@{formula})) FNot.
+  Global Instance ATEq_proper : Proper ((≡@{term}) ==> (≡@{term}) ==> (≡@{formula})) AT_Eq.
+  Proof with auto.
+    intros t1 t1' H1 t2 t2' H2 σ. simp feval. simpl. split; intros (v&?&?); exists v;
+      (split; [apply H1 | apply H2])...
+  Qed.
+
+  Global Instance FNot_proper : Proper ((≡@{formula}) ==> (≡@{formula})) FNot.
   Proof with auto.
     intros A B Hequiv σ. simp feval. split; intros H contra; apply H; apply Hequiv...
   Qed.
 
-  Global Instance fand_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FAnd.
+  Global Instance FAnd_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FAnd.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
     split; intros [? ?]; (split; [apply Heq1 | apply Heq2])...
   Qed.
 
-  Global Instance for_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FOr.
+  Global Instance FOr_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FOr.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
     split; (intros [|]; [left; apply Heq1 | right; apply Heq2])...
   Qed.
 
-  Global Instance fimpl_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FImpl.
+  Global Instance FImpl_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FImpl.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
 
-  Global Instance fiff_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FIff.
+  Global Instance FIff_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FIff.
   Proof with auto.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
@@ -153,19 +159,19 @@ Section ent.
     unfold flip. rewrite f_ent_contrapositive...
   Qed.
 
-  Global Instance fand_proper_ent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FAnd.
+  Global Instance FAnd_proper_fent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FAnd.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
     intros [? ?]; split; [apply Hent1 | apply Hent2]...
   Qed.
 
-  Global Instance for_proper_ent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FOr.
+  Global Instance FOr_proper_fent : Proper ((⇛) ==> (⇛) ==> (⇛@{M})) FOr.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
     intros [|]; [left; apply Hent1 | right; apply Hent2]...
   Qed.
 
-  Global Instance fimpl_proper_ent : Proper ((⇚) ==> (⇛@{M}) ==> (⇛)) FImpl.
+  Global Instance FImpl_proper_fent : Proper ((⇚) ==> (⇛@{M}) ==> (⇛)) FImpl.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2. unfold FImpl. rewrite f_ent_reverse_direction in Hent1.
     rewrite Hent1. rewrite Hent2. reflexivity.

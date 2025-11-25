@@ -47,7 +47,7 @@ Section subst.
       apply (teval_ind_mut _
                 (λ t v _, teval σ t v → x ∉ term_fvars t → teval (delete x σ) t v)
                 (λ args vargs _, forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
-                                teval_args σ args vargs → teval_args (delete x σ) args vargs)).
+                                teval_list σ args vargs → teval_list (delete x σ) args vargs)).
       + intros. constructor.
       + intros x' v H H' Hfree. constructor. simpl in Hfree.
         destruct (decide (x' = x)); subst; simpl.
@@ -68,7 +68,7 @@ Section subst.
       apply (teval_ind_mut _
                 (λ t v _, teval (delete x σ) t v → x ∉ term_fvars t → teval σ t v)
                 (λ args vargs _, forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
-                                teval_args (delete x σ) args vargs → teval_args σ args vargs)).
+                                teval_list (delete x σ) args vargs → teval_list σ args vargs)).
       + intros. constructor.
       + intros x' v H H' Hfree. constructor. simpl in Hfree.
         destruct (decide (x' = x)); subst; simpl.
@@ -87,10 +87,10 @@ Section subst.
         * apply IHargs...
   Qed.
 
-  Lemma teval_args_delete_state_var {σ args vargs} x :
+  Lemma teval_list_delete_state_var {σ args vargs} x :
     forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
-    teval_args σ args vargs ↔
-      @teval_args M (delete x σ) args vargs.
+    teval_list σ args vargs ↔
+      @teval_list M (delete x σ) args vargs.
   Proof with auto.
     intros Hfree. split.
     - induction 1.
@@ -98,13 +98,13 @@ Section subst.
       + simpl in Hfree. apply andb_prop_elim in Hfree as [? ?]. apply bool_decide_unpack in H1.
         constructor.
         * apply teval_delete_state_var...
-        * apply IHteval_args...
+        * apply IHteval_list...
     - induction 1.
       + constructor.
       + simpl in Hfree. apply andb_prop_elim in Hfree as [? ?]. apply bool_decide_unpack in H1.
         constructor.
         * apply teval_delete_state_var in H...
-        * apply IHteval_args...
+        * apply IHteval_list...
   Qed.
 
   Lemma afeval_delete_state_var {σ af} x :
@@ -118,11 +118,11 @@ Section subst.
       + split; apply teval_delete_state_var...
       + apply teval_delete_state_var in H1, H2...
     - simpl in Hfree. split; intros (vargs&?&?); exists vargs.
-      + split... apply teval_args_delete_state_var...
+      + split... apply teval_list_delete_state_var...
         clear H0 H vargs H symbol. induction args... simpl in *.
         apply not_elem_of_union in Hfree as [? ?].
         apply andb_prop_intro. split...
-      + split... apply teval_args_delete_state_var in H...
+      + split... apply teval_list_delete_state_var in H...
         clear H0 H1 vargs H symbol. induction args... simpl in *.
         apply not_elem_of_union in Hfree as [? ?].
         apply andb_prop_intro. split...
@@ -159,13 +159,13 @@ Section subst.
     - rewrite (delete_insert_delete σ). rewrite <- teval_delete_state_var...
   Qed.
 
-  Lemma teval_args_delete_state_var_head x σ v args vargs :
+  Lemma teval_list_delete_state_var_head x σ v args vargs :
     forallb (λ arg, bool_decide (x ∉ term_fvars arg)) args →
-    teval_args (<[x:=v]>σ) args vargs ↔ teval_args σ args vargs.
+    teval_list (<[x:=v]>σ) args vargs ↔ teval_list σ args vargs.
   Proof with auto.
     intros. etrans.
-    - apply teval_args_delete_state_var. exact H.
-    - rewrite (delete_insert_delete σ). rewrite <- teval_args_delete_state_var...
+    - apply teval_list_delete_state_var. exact H.
+    - rewrite (delete_insert_delete σ). rewrite <- teval_list_delete_state_var...
   Qed.
 
   Lemma afeval_delete_state_var_head {σ af v} x :
@@ -192,7 +192,7 @@ Section subst.
     - intros H'. generalize dependent t'. generalize dependent v.
       assert (Hind:=teval_ind_mut (<[x:=v']>σ)
         (λ t v _, ∀ t', teval σ t' v' → teval σ (subst_term t x t') v)
-        (λ args vargs _, ∀ t', teval σ t' v' → teval_args σ (map (λ arg, subst_term arg x t') args) vargs)).
+        (λ args vargs _, ∀ t', teval σ t' v' → teval_list σ (map (λ arg, subst_term arg x t') args) vargs)).
       simpl in Hind. apply Hind; clear Hind.
       + constructor.
       + rename x into x'. intros x v H t' Heval. destruct (decide (x = x')).
@@ -210,7 +210,7 @@ Section subst.
         (λ t v _, ∀ t', teval σ t' v' → ∀ tpre, t = subst_term tpre x t' → teval (<[x:=v']>σ) tpre v)
         (λ args vargs _, ∀ t', teval σ t' v' → ∀ args',
               args = (map (λ arg, subst_term arg x t') args') →
-              teval_args (<[x:=v']>σ) args' vargs)).
+              teval_list (<[x:=v']>σ) args' vargs)).
       generalize dependent Heqtpre. generalize dependent t. generalize dependent H.
       generalize dependent t'. generalize dependent H'. generalize dependent v.
       generalize dependent tpre. simpl in Hind. apply Hind; clear Hind.
@@ -231,7 +231,7 @@ Section subst.
                - constructor. rewrite (lookup_total_insert σ)... }
           inversion f0; subst; rewrite H1 in H5; [| discriminate].
           inversion H5; subst fdef0. clear H5.
-          pose proof (Heq := teval_args_det _ _ _ H4 t). subst.
+          pose proof (Heq := teval_list_det _ _ _ H4 t). subst.
           pose proof (Heq := fdef_det _ H3 H7). subst.
           constructor. rewrite (lookup_total_insert σ)...
         * inversion H1. subst. apply TEval_App with vargs... apply H with t'...
@@ -242,10 +242,10 @@ Section subst.
         * apply H0 with t'...
   Qed.
 
-  Lemma teval_args_subst {σ x t v args vargs} :
+  Lemma teval_list_subst {σ x t v args vargs} :
     teval σ t v →
-    teval_args (<[x:=v]>σ) args vargs ↔
-      teval_args σ (map (λ arg : term, subst_term arg x t) args) vargs.
+    teval_list (<[x:=v]>σ) args vargs ↔
+      teval_list σ (map (λ arg : term, subst_term arg x t) args) vargs.
   Proof with auto.
     intros Ht. split.
     - induction 1.
@@ -269,10 +269,10 @@ Section subst.
     intros Ht. split.
     - destruct af; simpl; inversion 1; subst...
       + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
-      + destruct H0 as []. apply (teval_args_subst Ht) in H0. eauto.
+      + destruct H0 as []. apply (teval_list_subst Ht) in H0. eauto.
     - destruct af; simpl; inversion 1; subst...
       + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
-      + destruct H0 as []. apply (teval_args_subst Ht) in H0. eauto.
+      + destruct H0 as []. apply (teval_list_subst Ht) in H0. eauto.
   Qed.
 
   Local Lemma fequiv_subst_and_diag A x :
@@ -384,35 +384,6 @@ Section subst.
     apply f_ent_contrapositive in H. rewrite H. reflexivity.
   Qed.
 
-  Global Instance FExistsList_proper :
-    Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExistsList.
-  Proof with auto.
-    intros xs ? <- A B H. induction xs.
-    - simpl. rewrite H...
-    - simpl. rewrite IHxs...
-  Qed.
-
-  Global Instance FForallList_proper :
-    Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForallList.
-  Proof with auto.
-    intros xs ? <- A B H. induction xs.
-    - simpl. rewrite H...
-    - simpl. rewrite IHxs...
-  Qed.
-
-  Global Instance FExistsList_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FExistsList.
-  Proof with auto.
-    intros xs ? <- A B H. induction xs.
-    - simpl...
-    - simpl. rewrite IHxs. reflexivity.
-  Qed.
-
-  Global Instance FForallList_proper_fent : Proper ((=) ==> (⇛) ==> (⇛@{M})) FForallList.
-  Proof with auto.
-    intros xs ? <- A B H. induction xs.
-    - simpl...
-    - simpl. rewrite IHxs. reflexivity.
-  Qed.
   Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
     <! ∃ x, A !> ≡ <! ∃ x', A[x \ x'] !>.

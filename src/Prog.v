@@ -25,7 +25,7 @@ Section prog.
   | PAsgn (m : asgn_map)
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
-  | PSpec (w : gset final_variable) (pre : final_formula) (post : formula)
+  | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
 
@@ -51,7 +51,7 @@ Section prog.
     | PAsgn m => dom m
     | PSeq p1 p2 => modified_final_vars p1 ∪ modified_final_vars p2
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
-    | PSpec w pre post => w
+    | PSpec w pre post => list_to_set w
     | PVar x p => modified_final_vars p
     | PConst x p => modified_final_vars p
     end.
@@ -71,7 +71,7 @@ Section prog.
     | PAsgn m => as_var_set (dom m)
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
-    | PSpec w pre post => as_var_set w ∪ formula_fvars pre ∪ formula_fvars post
+    | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
     | PVar x p => prog_fvars p ∖ {[x]}
     | PConst x p => prog_fvars p ∖ {[x]}
   end.
