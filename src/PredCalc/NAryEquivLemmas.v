@@ -28,6 +28,70 @@ Notation "(⇔)ₗ" := FIff (only parsing) : refiney_scope.
 Notation "( X ⇔.)ₗ" := (FIff X) (only parsing) : refiney_scope.
 Notation "(.⇔ X )ₗ" := (λ Y, FIff X Y) (only parsing) : refiney_scope.
 
+
+
+Instance list_pair_indexed_elem_of {A B} : ElemOf (nat * (A * B)) (list A * list B) :=
+  λ p1 p2, p2.1 !! p1.1 = Some p1.2.1 ∧ p2.2 !! p1.1 = Some p1.2.2.
+
+Instance list_pair_elem_of {A} {B} : ElemOf (A * B) (list A * list B) :=
+  λ p1 p2, ∃ i, (i, p1) ∈ p2.
+
+Lemma elem_of_list_pair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+  (x, y) ∈ (xs, ys) ↔ ∃ i, xs !! i = Some x ∧ ys !! i = Some y.
+Proof. reflexivity. Qed.
+
+Lemma not_elem_of_list_pair_inv {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+  (x, y) ∉ (xs, ys) → ¬ ∃ i, xs !! i = Some x ∧ ys !! i = Some y.
+Proof. rewrite elem_of_list_pair. auto. Qed.
+
+Lemma not_elem_of_list_pair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+  (∀ i, xs !! i ≠ Some x ∨ ys !! i ≠ Some y) → (x, y) ∉ (xs, ys).
+Proof.
+  intros. intros contra. apply elem_of_list_pair in contra as (i&?&?).
+  destruct (H i) as []; contradiction.
+Qed.
+
+Lemma elem_of_list_pair_indexed {A B} (i : nat) (x : A) (y : B) (xs : list A) (ys : list B) :
+  (i, (x, y)) ∈ (xs, ys) ↔ xs !! i = Some x ∧ ys !! i = Some y.
+Proof. reflexivity. Qed.
+
+Lemma elem_of_zip_with_same_length {A B C} (c : C) (xs : list A) (ys : list B) (f : A → B → C)
+    `{OfSameLength _ _ xs ys} :
+  c ∈ zip_with f xs ys ↔ ∃ i x y, xs !! i = Some x ∧ ys !! i = Some y ∧ c = f x y.
+Proof with auto.
+  split; intros.
+  - generalize dependent ys. induction xs as [| x xs IH]; simpl; intros.
+    + apply of_same_length_nil_inv_l in H as ->. apply elem_of_nil in H0 as [].
+    + assert (Hl:=H). apply of_same_length_cons_inv_l in H as (y&ys'&->&?).
+      rename ys' into ys. apply of_same_length_rest in Hl. apply elem_of_cons in H0 as [].
+      * exists 0, x, y. split_and!...
+      * apply (IH _ Hl) in H0 as (i&x'&y'&?&?&?). exists (S i), x', y'. simpl.
+        split_and!...
+  - destruct H0 as (i&x&y&?&?&?). apply elem_of_list_split_length in H0 as (xs0&xs1&->&?).
+    apply elem_of_list_split_length in H1 as (ys0&ys1&->&?). subst i. rewrite zip_with_app...
+    apply elem_of_app. right. simpl. apply elem_of_cons. left...
+Qed.
+
+Lemma list_lookup_None {A} (l : list A) i :
+  l !! i = None ↔ length l ≤ i.
+Proof with auto.
+  generalize dependent i. induction l; intros.
+  - rewrite lookup_nil. simpl. split... lia.
+  - rewrite lookup_cons. destruct i.
+    + simpl. split; intros; [discriminate | lia].
+    + simpl. rewrite IHl. split; lia.
+Qed.
+
+Lemma elem_of_list_pair_indexed_hd {A B} x0 y0 x y (xs : list A) (ys : list B) :
+  (0, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (x0 = x ∧ y0 = y).
+Proof. rewrite elem_of_list_pair_indexed. simpl. split; naive_solver. Qed.
+
+Lemma elem_of_list_pair_indexed_tl {A B} i x0 y0 x y (xs : list A) (ys : list B) :
+  (S i, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (i, (x0, y0)) ∈ (xs, ys).
+Proof.
+  do 2 rewrite elem_of_list_pair_indexed. simpl. naive_solver.
+Qed.
+
 Section n_ary_lemmas.
   Context {M : model}.
 
@@ -407,6 +471,26 @@ Section n_ary_lemmas.
     intros. apply f_or_orlist_redundant_r with (B:=B)... reflexivity.
   Qed.
 
+  (* FEq comm *)
+
+  Lemma f_eqlist_redundant_l t1 t2 ts1 ts2 `{OfSameLength _ _ ts1 ts2} :
+    (t1, t2) ∈ (ts1, ts2) →
+    <! ⌜t1 = t2⌝ ∧ ⌜ts1 =* ts2⌝ !> ≡ <! ⌜ts1 =* ts2⌝ !>.
+  Proof with auto.
+    intros. apply elem_of_list_pair in H0 as (i&?&?). unfold FEqList.
+    rewrite f_and_andlist_redundant_l'... apply elem_of_zip_with_same_length...
+    exists i, t1, t2. split_and!...
+  Qed.
+
+  Lemma f_eqlist_redundant_r t1 t2 ts1 ts2 `{OfSameLength _ _ ts1 ts2} :
+    (t1, t2) ∈ (ts1, ts2) →
+    <! ⌜ts1 =* ts2⌝ ∧  ⌜t1 = t2⌝ !> ≡ <! ⌜ts1 =* ts2⌝ !>.
+  Proof with auto.
+    intros. apply elem_of_list_pair in H0 as (i&?&?). unfold FEqList.
+    rewrite f_and_andlist_redundant_r'... apply elem_of_zip_with_same_length...
+    exists i, t1, t2. split_and!...
+  Qed.
+
   Lemma f_and_andlist_andlist Bs Cs `{OfSameLength _ _ Bs Cs} :
     <! (∧* Bs) ∧ (∧* Cs) !> ≡ <! ∧* $(zip_with FAnd Bs Cs) !>.
   Proof with auto.
@@ -632,27 +716,167 @@ Section n_ary_lemmas.
       set_solver.
   Qed.
 
+  (* TODO: Move these somewhere *)
+  Definition seqsubst_lists_unique xs ts :=
+    ∀ i j x t1 t2, i ≠ j → (i, (x, t1)) ∈ (xs, ts) → (j, (x, t2)) ∈ (xs, ts) → t1 = t2.
+
+  Lemma NoDup_seqsubst_lists_unique xs ts :
+    NoDup xs →
+    seqsubst_lists_unique xs ts.
+  Proof with auto.
+    intros H i j ? ? ? ? ? ?. exfalso. apply H0. rewrite elem_of_list_pair_indexed in H1.
+    rewrite elem_of_list_pair_indexed in H2. destruct H1 as [? _]. destruct H2 as [? _].
+    eapply NoDup_lookup with (l:=xs) (x:=x)...
+  Qed.
+
+  Lemma seqsubst_lists_unique_cons_inv x t xs ts :
+    seqsubst_lists_unique (x :: xs) (t :: ts) → seqsubst_lists_unique xs ts.
+  Proof with auto.
+    intros. intros i j x0 t1 t2 ? ? ?. unfold seqsubst_lists_unique in H.
+    apply (H (S i) (S j) x0); [lia| |]; apply elem_of_list_pair_indexed_tl...
+  Qed.
+
+  (* Lemma fequiv_subst_non_free A x t : *)
+  (*   x ∉ formula_fvars A → *)
+  (*   <! A[x \ t] !> ≡ A. *)
+  (* Proof with auto. *)
+  (*   apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A ≡ B); intros. *)
+  (*   - rewrite subst_af_non_free... *)
+  (*   - f_equiv... *)
+  (*   - simpl in H1. apply not_elem_of_union in H1 as [? ?]. *)
+  (*     f_equiv; [apply H|apply H0]... *)
+  (*   - simpl in H1. apply not_elem_of_union in H1 as [? ?]. *)
+  (*     f_equiv; [apply H|apply H0]... *)
+  (*   - reflexivity. *)
+  (*   - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2. *)
+  (*     destruct H2; subst; contradiction. *)
+  (* Qed. *)
+
+  (* A.64 *)
+  Lemma f_exists_existslist_comm x xs A :
+    <! ∃ x, ∃* xs, A !> ≡ <! ∃* xs, ∃ x, A !>.
+  Proof with auto.
+    induction xs as [|x' xs IH]; simpl... rewrite f_exists_comm. rewrite IH...
+  Qed.
+
+  (* A.64 *)
+  Lemma f_existslist_comm xs1 xs2 A :
+    <! ∃* xs1, ∃* xs2, A !> ≡ <! ∃* xs2, ∃* xs1, A !>.
+  Proof with auto.
+    induction xs1 as [|x1 xs1 IH]; simpl... rewrite IH. rewrite f_exists_existslist_comm...
+  Qed.
+
+  (* A.63 *)
+  Lemma f_forall_foralllist_comm x xs A :
+    <! ∀ x, ∀* xs, A !> ≡ <! ∀* xs, ∀ x, A !>.
+  Proof with auto.
+    induction xs as [|x' xs IH]; simpl... rewrite f_forall_comm. rewrite IH...
+  Qed.
+
+  (* A.63 *)
+  Lemma f_foralllist_comm xs1 xs2 A :
+    <! ∀* xs1, ∀* xs2, A !> ≡ <! ∀* xs2, ∀* xs1, A !>.
+  Proof with auto.
+    induction xs1 as [|x1 xs1 IH]; simpl... rewrite IH. rewrite f_forall_foralllist_comm...
+  Qed.
+
+  (* A.60 *)
+  Lemma f_exists_existslist_idemp x xs A :
+    x ∈ xs →
+    <! ∃ x, ∃* xs, A !> ≡ <! ∃* xs, A !>.
+  Proof with auto.
+    intros. induction xs as [|x' xs IH].
+    - apply elem_of_nil in H as [].
+    - simpl. set_unfold. destruct H.
+      + subst. rewrite f_exists_idemp...
+      + rewrite f_exists_comm. rewrite IH...
+  Qed.
+
+  (* A.60 *)
+  Lemma f_existslist_exists_idemp x xs A :
+    x ∈ xs →
+    <! ∃* xs, ∃ x, A !> ≡ <! ∃* xs, A !>.
+  Proof with auto.
+    rewrite <- f_exists_existslist_comm. apply f_exists_existslist_idemp.
+  Qed.
+
+  (* A.60 *)
+  Lemma f_existslist_idemp xs A :
+    <! ∃* xs, ∃* xs, A !> ≡ <! ∃* xs, A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl... rewrite f_exists_existslist_comm.
+    rewrite f_exists_idemp. rewrite <- f_exists_existslist_comm. rewrite IH...
+  Qed.
+
+  (* A.60 *)
+  Lemma f_forall_foralllist_idemp x xs A :
+    x ∈ xs →
+    <! ∀ x, ∀* xs, A !> ≡ <! ∀* xs, A !>.
+  Proof with auto.
+    intros. induction xs as [|x' xs IH].
+    - apply elem_of_nil in H as [].
+    - simpl. set_unfold. destruct H.
+      + subst. rewrite f_forall_idemp...
+      + rewrite f_forall_comm. rewrite IH...
+  Qed.
+
+  (* A.60 *)
+  Lemma f_foralllist_forall_idemp x xs A :
+    x ∈ xs →
+    <! ∀* xs, ∀ x, A !> ≡ <! ∀* xs, A !>.
+  Proof with auto.
+    rewrite <- f_forall_foralllist_comm. apply f_forall_foralllist_idemp.
+  Qed.
+
+  (* A.60 *)
+  Lemma f_foralllist_idemp xs A :
+    <! ∀* xs, ∀* xs, A !> ≡ <! ∀* xs, A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl... rewrite f_forall_foralllist_comm.
+    rewrite f_forall_idemp. rewrite <- f_forall_foralllist_comm. rewrite IH...
+  Qed.
+
   (* A.56 *)
   Lemma f_existslist_one_point xs ts A `{OfSameLength _ _ xs ts} :
-    NoDup xs →
+    seqsubst_lists_unique xs ts →
     (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
     <! ∃* xs, ⌜@*xs =* ts⌝ ∧ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.
-    intros Hnodup Hfree. generalize dependent ts.
-    induction xs as [|x xs' IH]; simpl in *; intros.
+    intros Hunique Hfree. generalize dependent ts.
+    induction xs as [|x xs IH]; simpl in *; intros.
     - inversion H. assert (H':=H). apply of_same_length_nil_inv_l in H' as ->.
       simpl. unfold FEqList. simpl. rewrite f_and_comm. apply f_and_true.
     - inversion H. assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&?&?).
       subst ts. rename ts' into ts. simpl. rewrite f_eqlist_cons.
-      apply NoDup_cons in Hnodup as []. rewrite <- f_and_assoc.
-      rewrite f_existslist_and_unused_l by set_solver. rewrite IH by set_solver.
-      rewrite f_exists_one_point by set_solver. f_equiv. f_equiv. apply eq_pi.
-      solve_decision.
-      Unshelve. unfold OfSameLength. symmetry. apply H2.
+      apply seqsubst_lists_unique_cons_inv in Hunique as Hunique'.
+      destruct (decide (x ∈ xs)).
+      + assert (e':=e). apply elem_of_list_lookup_1 in e' as [i Hi].
+        rewrite f_eqlist_redundant_l.
+        2:{ apply elem_of_list_pair. exists i. split...
+            - apply list_lookup_fmap_Some. exists x...
+            - assert (∃ t', ts !! i = Some t') as (t'&?).
+              { apply elem_of_list_split_length in Hi as (xs0&xs1&->&?).
+                simpl in H1. inversion H1. destruct (ts !! i) eqn:E.
+                + exists t0. subst...
+                + exfalso. apply list_lookup_None in E. rewrite length_app in H4.
+                  rewrite <- H0 in H4. simpl in H4. lia. }
+              specialize (Hunique 0 (S i) x t t').
+              enough (t = t') by (subst t'; apply H0).
+              apply Hunique.
+              + lia.
+              + apply elem_of_list_pair_indexed_hd. split...
+              + apply elem_of_list_pair_indexed_tl. apply elem_of_list_pair_indexed.
+                split... }
+        rewrite f_exists_existslist_idemp... rewrite fequiv_subst_non_free.
+        * apply IH; [| set_solver]...
+        * intros contra.
+          apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver.
+      + rewrite <- f_and_assoc. rewrite f_existslist_and_unused_l by set_solver.
+        rewrite IH by set_solver. rewrite f_exists_one_point by set_solver...
   Qed.
 
   Lemma f_foralllist_one_point xs ts A `{OfSameLength _ _ xs ts} :
-    NoDup xs →
+    seqsubst_lists_unique xs ts →
     (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
     <! ∀* xs, ⌜@*xs =* ts⌝ ⇒ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.

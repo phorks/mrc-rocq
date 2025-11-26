@@ -80,13 +80,26 @@ Section syntactic.
     formula_fvars (seqsubst A xs ts) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
   Proof.
     generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl.
-    - unfold OfSameLength in Hl. assert (Hl':=Hl). symmetry in Hl'. simpl in Hl'.
-      apply length_zero_iff_nil in Hl'. subst. simpl. set_solver.
-    - unfold OfSameLength in Hl. assert (Hl':=Hl). symmetry in Hl'. simpl in Hl'.
-      apply length_nonzero_iff_cons in Hl' as (t&ts'&->&?). rename ts' into ts.
-      simpl.
-      pose proof (fvars_subst_superset <! $(@seqsubst A xs ts (of_same_length_rest Hl)) !> x t).
+    - assert (Hl':=Hl). apply of_same_length_nil_inv_l in Hl' as ->. set_solver.
+    - assert (Hl':=Hl). apply of_same_length_cons_inv_l in Hl' as (t&ts'&->&?).
+      rename ts' into ts. simpl.
+      pose proof (fvars_subst_superset (@seqsubst A xs ts (of_same_length_rest Hl)) x t).
       set_solver.
+  Qed.
+
+  Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{OfSameLength _ _ xs ts} :
+    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    formula_fvars (seqsubst A xs ts) ⊆ (formula_fvars A ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl H.
+    - assert (Hl':=Hl). apply of_same_length_nil_inv_l in Hl' as ->. set_solver.
+    - assert (Hl':=Hl). apply of_same_length_cons_inv_l in Hl' as (t&ts'&->&?).
+      rename ts' into ts. simpl.
+      destruct (decide (x ∈ formula_fvars (@seqsubst A xs ts (of_same_length_rest Hl)))).
+      + rewrite fvars_subst_free... specialize (IH ts (of_same_length_rest Hl)).
+        forward IH by set_solver. set_solver.
+      + rewrite fvars_subst_non_free... specialize (IH ts (of_same_length_rest Hl)).
+        forward IH by set_solver. set_solver.
   Qed.
 
   Definition subst_initials_var_fvars A (w : list final_variable) : gset variable :=
