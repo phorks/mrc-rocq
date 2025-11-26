@@ -194,10 +194,17 @@ End final_elements.
 Notation "%% t" := (as_term t)
                      (in custom term at level 0, only parsing,
                          t constr at level 0) : refiney_scope.
-Notation "% x" := (as_var x)
+(* Notation "% x" := (as_var x) *)
+(*                        (in custom term at level 0, *)
+(*                            only parsing, *)
+(*                            x constr at level 0) : refiney_scope. *)
+Notation "% xs" := (as_var <$> xs)
                        (in custom term at level 0,
-                           only parsing,
-                           x constr at level 0) : refiney_scope.
+                           xs constr at level 0) : refiney_scope.
+
+Notation "%₀ xs" := (initial_var_of <$> xs)
+                       (in custom term at level 0,
+                           xs constr at level 0) : refiney_scope.
 
 Notation "% A" := (as_formula A)
                     (in custom formula at level 0, only parsing,

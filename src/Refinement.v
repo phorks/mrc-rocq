@@ -12,12 +12,16 @@ From MRC Require Import Prog.
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
+(* TODO: move it *)
+#[global] Hint Unfold universal_relation : core.
+
 Section refinement.
   Context {M : model}.
+  Local Notation value := (value M).
   Local Notation prog := (@prog M).
-  Local Notation term := (term (value M)).
-  Local Notation formula := (formula (value M)).
-  Local Notation final_term := (final_term (value M)).
+  Local Notation term := (term value).
+  Local Notation formula := (formula value).
+  Local Notation final_term := (final_term value).
 
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.
@@ -25,19 +29,13 @@ Section refinement.
   Implicit Types xs : list final_variable.
   (* Implicit Types ts : list term. *)
 
+
   Lemma r_strengthen_post w pre post post' `{FormulaFinal _ pre} :
     post' ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
-  Proof.
-  Admitted.
-    (* intros Hent A Hinit. simpl. f_simpl. *)
-    (* f_equiv. *)
-    (* induction w. *)
-    (* - simpl. unfold as_var_set. rewrite fin_sets.set_map_empty. unfold set_to_list. *)
-    (*   rewrite fin_sets.set_fold_empty. simpl.  *)
-    (* f_simpl. apply f_forall_ent. intros. *)
-    (* f_simpl. assumption. *)
-  (* Qed. *)
+  Proof with auto.
+    intros Hent A Hinit. simpl. f_simpl. rewrite <- Hent. reflexivity.
+  Qed.
 
   Lemma r_weaken_pre w pre pre' post `{FormulaFinal _ pre} `{FormulaFinal _ pre'} :
     pre ⇛ pre' ->
@@ -49,19 +47,43 @@ Section refinement.
   (* Lemma r_assignment w pre post xs t `{FormulaFinal _ pre} `{TermListFinal _ ts} : *)
   (*     (* <! ⌜₀xs = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> -> *) *)
   (*     <{ *w, *xs : [pre, post] }> ⊑ abort. *)
-  Lemma r_assignment w pre post xs ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
-      (* <! ⌜₀xs = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> -> *)
-    <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *ts }>.
+  (* Unset Printing Notations. *)
+  (* Set Printing Implicit. *)
+Notation "' xs" := (TVar ∘ as_var <$> xs : list term)
+                       (in custom term at level 0,
+                           xs constr at level 0) : refiney_scope.
+Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term)
+                       (in custom term at level 0,
+                           xs constr at level 0) : refiney_scope.
+  Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
+    <! ⌜'₀w =* 'w⌝ ∧ ⌜'₀xs =* 'xs⌝ ∧ pre !> ⇛ <! post[; *$(as_var <$> xs) \ *$(as_term <$> ts) ;] !> ->
+    <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *$(FinalRhsTerm <$> ts)  }>.
   Proof with auto.
-    intros A Hfree. simpl.
+    intros proviso A Hfree. simpl.
+    assert (<! pre !> ≡ <! pre [_₀\w ++ xs ++ nil] !>).
+    { admit. }
+    rewrite H1.
+    unfold subst_initials. rewrite <- simpl_seqsubst_and.
+    remember ((<! pre ∧ $(FForallList (as_var <$> w ++ xs ++ []) <! post ⇒ A !>) !>)) as C.
+    set ( initial_var_of <$> w ++ xs) as X.
+    set ( (@TVar value) ∘ as_var <$> w ++ xs) as Y.
+    (* pose proof (@f_foralllist_one_point _ X Y C). *)
+    pose proof (@f_foralllist_one_point M).
+    (* subst X. subst Y. *)
+    Unset Printing Notations.
+    Set Printing Implicit.
+
+    rewrite <- f_foralllist_one_point with (xs:=X) (ts:=Y) (A:=C).
+    rewrite <- f_foralllist_one_point.
+    intros H A Hfree. simpl.
     assert (<! pre !> ≡ <! pre [_₀\list_to_set (w ++ xs)] !>).
     { unfold subst_initials. admit. }
     rewrite H1. simpl.
     simpl. f_simpl.
-    intros pre post x t H A Hfree. simpl.
-    assert (<! %pre !> ≡ pre [₀ x \ x]).
-    { rewrite fequiv_subst_non_free... pose proof (final_formula_final pre).
-      destruct (decide (₀x ∈ formula_fvars pre))... apply H0 in e. simpl in e. discriminate. }
+    (* intros pre post x t H A Hfree. simpl. *)
+    (* assert (<! %pre !> ≡ pre [₀ x \ x]). *)
+    (* { rewrite fequiv_subst_non_free... pose proof (final_formula_final pre). *)
+    (*   destruct (decide (₀x ∈ formula_fvars pre))... apply H0 in e. simpl in e. discriminate. } *)
     rewrite H0. clear H0.
     rewrite <- simpl_subst_and.
     rewrite <- (f_forall_one_point).

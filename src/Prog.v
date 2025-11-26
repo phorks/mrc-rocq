@@ -94,7 +94,7 @@ Section prog.
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
     | PSpec w pre post =>
-        <! pre ∧ (∀* $(set_to_list (as_var_set w)), post ⇒ A)[_₀\ w] !>
+        <! pre ∧ (∀* $(as_var <$> w), post ⇒ A)[_₀\ w] !>
     | PVar x p => <! ∀ x, $(wp p A) !>
     | PConst x p => <! ∃ x, $(wp p A) !>
     end.
@@ -164,11 +164,11 @@ Section prog.
   (* some extreme programs                                               *)
   (* ******************************************************************* *)
 
-  Definition abort := PSpec ∅ <!! false !!> <! true !>.
+  Definition abort := PSpec [] <!! false !!> <! true !>.
   Definition abort_w w := PSpec w <!! false !!> <! true !>.
   Definition choose_w w := PSpec w <!! true !!> <! true !>.
-  Definition skip := PSpec ∅ <!! true !!> <! true !>.
-  Definition magic := PSpec ∅ <!! true !!> <! false !>.
+  Definition skip := PSpec [] <!! true !!> <! true !>.
+  Definition magic := PSpec [] <!! true !!> <! false !>.
   Definition magic_w w := PSpec w <!! true !!> <! false !>.
 
   (* ******************************************************************* *)
@@ -209,26 +209,26 @@ Section prog.
 
 End prog.
 
-Declare Custom Entry term_seq_notation.
-Declare Custom Entry term_seq_elem.
+Declare Custom Entry asgn_rhs_seq.
+Declare Custom Entry asgn_rhs_elem.
 
-Notation "xs" := (xs) (in custom term_seq_notation at level 0,
-                       xs custom term_seq_elem)
+Notation "xs" := (xs) (in custom asgn_rhs_seq at level 0,
+                       xs custom asgn_rhs_elem)
     : refiney_scope.
-Notation "∅" := ([]) (in custom term_seq_notation at level 0)
+Notation "∅" := ([]) (in custom asgn_rhs_seq at level 0)
     : refiney_scope.
 
-Notation "x" := ([FinalRhsTerm (as_final_term x)]) (in custom term_seq_elem at level 0, x custom term at level 200)
+Notation "x" := ([FinalRhsTerm (as_final_term x)]) (in custom asgn_rhs_elem at level 0, x custom term at level 200)
     : refiney_scope.
-Notation "?" := ([OpenRhsTerm]) (in custom term_seq_elem at level 0) : refiney_scope.
-Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
+Notation "?" := ([OpenRhsTerm]) (in custom asgn_rhs_elem at level 0) : refiney_scope.
+Notation "* x" := x (in custom asgn_rhs_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "*$( x )" := x (in custom term_seq_elem at level 5, x constr at level 200)
+Notation "*$( x )" := x (in custom asgn_rhs_elem at level 5, x constr at level 200)
     : refiney_scope.
 Notation "x , .. , y" := (app x .. (app y []) ..)
-                           (in custom term_seq_elem at level 10,
-                               x custom term_seq_elem at next level,
-                               y custom term_seq_elem at next level) : refiney_scope.
+                           (in custom asgn_rhs_elem at level 10,
+                               x custom asgn_rhs_elem at next level,
+                               y custom asgn_rhs_elem at next level) : refiney_scope.
 
 Declare Custom Entry prog.
 Declare Custom Entry gcmd.
@@ -245,7 +245,7 @@ Notation "$( e )" := e (in custom prog at level 0, only parsing,
 Notation "xs := ts" := (PAsgnWithOpens xs ts)
                        (in custom prog at level 95,
                            xs custom seq_notation at level 94,
-                           ts custom term_seq_notation at level 94,
+                           ts custom asgn_rhs_seq at level 94,
                            no associativity)
     : refiney_scope.
 
@@ -280,14 +280,14 @@ Notation "'while' A ⟶ p 'end" :=
         A custom formula, p custom prog, no associativity) : refiney_scope.
 
 Notation "w : [ p , q ]" :=
-  (PSpec (list_to_set w) (as_final_formula p) q)
+  (PSpec w (as_final_formula p) q)
     (in custom prog at level 95, no associativity,
         w custom seq_notation at level 94,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
 
 Notation ": [ p , q ]" :=
-  (PSpec ∅ p q)
+  (PSpec [] p q)
     (in custom prog at level 95, no associativity,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.

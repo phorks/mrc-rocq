@@ -116,7 +116,7 @@ Instance of_same_length_fmap_r {A B B'} {l1 : list A} {l2 : list B} {f2 : B → 
   `{OfSameLength A B l1 l2} : OfSameLength l1 (f2 <$> l2).
 Proof. unfold OfSameLength in *. rewrite length_fmap. assumption. Qed.
 
-Instance of_same_length_fmap {A A' B B'} {l1 : list A} {l2 : list B} (f1 : A → A') {f2 : B → B'}
+Instance of_same_length_fmap {A A' B B'} {l1 : list A} {l2 : list B} {f1 : A → A'} {f2 : B → B'}
   `{OfSameLength A B l1 l2} : OfSameLength (f1 <$> l1) (f2 <$> l2).
 Proof. unfold OfSameLength in *. do 2 rewrite length_fmap. assumption. Qed.
 
@@ -222,6 +222,11 @@ Proof with auto.
       rewrite lookup_insert_ne in H1... destruct (IHn H1) as (i&?&?).
       exists (S i). simpl. split...
 Qed.
+
+Definition universal_relation {A} (_ _ : A) := True.
+
+Instance universal_relation_equivalence {A} : Equivalence (@universal_relation A).
+Proof. split; hnf; naive_solver. Qed.
 
 (* HACK: These are not currently used. I will keep them as reference.
    I should delete them at some point. *)

@@ -18,8 +18,7 @@ Section subst.
   Implicit Types A B C : formula.
   Implicit Types v : value M.
 
-  (* TODO: maybe remove the eq suffix? *)
-
+  (* TODO: maybe remove fequiv prefix or replace it with just f? *)
   Lemma fequiv_subst_non_free A x t :
     x ∉ formula_fvars A →
     <! A[x \ t] !> ≡ A.

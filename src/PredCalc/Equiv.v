@@ -127,15 +127,15 @@ Section equiv.
 
 End equiv.
 
-Infix "≡ₗ@{ M }" := (@fequiv M)
-  (at level 70, only parsing, no associativity) : stdpp_scope.
-Notation "(≡ₗ@{ M } )" := (@fequiv M) (only parsing).
-Infix "⇛" := fent (at level 70, no associativity).
-Notation "(⇛)" := fent (only parsing).
-Notation "(⇛ₗ@{ M } )" := (@fent M) (only parsing).
-Infix "⇚" := (flip fent) (at level 70, no associativity).
-Notation "(⇚)" := (flip fent) (only parsing).
-Notation "(⇚ₗ@{ M } )" := (flip (@fent M)) (only parsing).
+Infix "≡ₗ@{ M }" := (@equiv (formula M) _) (at level 70, only parsing, no associativity)
+    : refiney_scope.
+Notation "(≡ₗ@{ M } )" := ((≡@{formula M})) (only parsing) : refiney_scope.
+Infix "⇛" := fent (at level 70, no associativity) : refiney_scope.
+Notation "(⇛)" := fent (only parsing) : refiney_scope.
+Notation "(⇛ₗ@{ M } )" := (@fent M) (only parsing) : refiney_scope.
+Infix "⇚" := (flip fent) (at level 70, no associativity) : refiney_scope.
+Notation "(⇚)" := (flip fent) (only parsing) : refiney_scope.
+Notation "(⇚ₗ@{ M } )" := (flip (@fent M)) (only parsing) : refiney_scope.
 
 Section ent.
   Context {M : model}.
@@ -147,7 +147,17 @@ Section ent.
     unfold flip...
   Qed.
 
-  Global Instance FNot_proper_fent : Proper ((⇛) ==> (flip (⇛ₗ@{M}))) FNot.
+  Lemma fequiv_fent A B :
+    A ≡ B ↔ A ⇛ B ∧ B ⇛ A.
+  Proof.
+    split.
+    - intros H. rewrite H. split; reflexivity.
+    - intros []. split.
+      + apply H.
+      + apply H0.
+  Qed.
+
+  Global Instance FNot_proper_fent : Proper ((⇛ₗ@{M}) --> (⇛)) FNot.
   Proof with auto.
     intros A B Hent σ. simp feval. intros H contra. apply H. apply Hent...
   Qed.
@@ -167,19 +177,19 @@ Section ent.
     unfold flip. rewrite f_ent_contrapositive...
   Qed.
 
-  Global Instance FAnd_proper_fent : Proper ((⇛) ==> (⇛) ==> (⇛ₗ@{M})) FAnd.
+  Global Instance FAnd_proper_fent : Proper ((⇛ₗ@{M}) ==> (⇛) ==> (⇛)) FAnd.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
     intros [? ?]; split; [apply Hent1 | apply Hent2]...
   Qed.
 
-  Global Instance FOr_proper_fent : Proper ((⇛) ==> (⇛) ==> (⇛ₗ@{M})) FOr.
+  Global Instance FOr_proper_fent : Proper ((⇛ₗ@{M}) ==> (⇛) ==> (⇛)) FOr.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
     intros [|]; [left; apply Hent1 | right; apply Hent2]...
   Qed.
 
-  Global Instance FImpl_proper_fent : Proper ((⇚) ==> (⇛ₗ@{M}) ==> (⇛)) FImpl.
+  Global Instance FImpl_proper_fent : Proper ((⇛ₗ@{M}) --> (⇛) ==> (⇛)) FImpl.
   Proof with auto.
     intros A1 A2 Hent1 B1 B2 Hent2. unfold FImpl. rewrite f_ent_reverse_direction in Hent1.
     rewrite Hent1. rewrite Hent2. reflexivity.
