@@ -41,11 +41,7 @@ Notation "* x" := x (in custom seq_elem at level 0, x constr at level 0)
     : refiney_scope.
 Notation "*$( x )" := x (in custom seq_elem at level 5, x constr at level 200)
     : refiney_scope.
-Notation "x , .. , y" := (app x .. (app y nil) ..)
-                           (in custom seq_elem at level 10,
-                               x custom seq_elem at next level,
-                               y custom seq_elem at next level) : refiney_scope.
-
+Infix "," := app (in custom seq_elem at level 10, right associativity) : refiney_scope.
 (* Open Scope refiney_scope. *)
 (* Notation "'seq' s" := s (at level 10, s custom seq_notation). *)
 

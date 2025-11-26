@@ -44,11 +44,7 @@ Section refinement.
     intros Hent A Hinit. simpl. f_simpl. assumption.
   Qed.
 
-  (* Lemma r_assignment w pre post xs t `{FormulaFinal _ pre} `{TermListFinal _ ts} : *)
-  (*     (* <! ⌜₀xs = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> -> *) *)
-  (*     <{ *w, *xs : [pre, post] }> ⊑ abort. *)
-  (* Unset Printing Notations. *)
-  (* Set Printing Implicit. *)
+  (* TODO: move it *)
 Notation "' xs" := (TVar ∘ as_var <$> xs : list term)
                        (in custom term at level 0,
                            xs constr at level 0) : refiney_scope.
@@ -60,10 +56,11 @@ Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term)
     <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *$(FinalRhsTerm <$> ts)  }>.
   Proof with auto.
     intros proviso A Hfree. simpl.
-    assert (<! pre !> ≡ <! pre [_₀\w ++ xs ++ nil] !>).
+    assert (<! pre !> ≡ <! pre [_₀\w ++ xs] !>).
     { admit. }
     rewrite H1.
     unfold subst_initials. rewrite <- simpl_seqsubst_and.
+    rewrite <- f_foralllist_one_point.
     remember ((<! pre ∧ $(FForallList (as_var <$> w ++ xs ++ []) <! post ⇒ A !>) !>)) as C.
     set ( initial_var_of <$> w ++ xs) as X.
     set ( (@TVar value) ∘ as_var <$> w ++ xs) as Y.

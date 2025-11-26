@@ -467,18 +467,14 @@ Section simult_subst.
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[x \ t][[*xs \ *ts]] !>.
   Proof with auto.
     intros. unfold to_var_term_map. simpl. rewrite (simult_subst_extract_inside A x t).
-    - rewrite delete_insert... apply lookup_list_to_map_zip_None.
-      + unfold OfSameLength. do 2 rewrite length_app. simpl. rewrite H...
-      + apply not_elem_of_app. split... apply not_elem_of_nil.
+    - rewrite delete_insert... apply lookup_list_to_map_zip_None...
     - rewrite lookup_insert...
     - rewrite dom_delete_L. rewrite dom_insert_L.
       rewrite difference_union_distr_l_L. rewrite difference_diag_L.
-      rewrite union_empty_l_L. rewrite dom_list_to_map_zip_L.
-      + rewrite list_to_set_app_L. simpl. rewrite union_empty_r_L.
-        replace (list_to_set xs ∖ {[x]}) with (list_to_set xs : gset variable)...
-        apply set_eq. intros y. rewrite elem_of_difference. rewrite elem_of_list_to_set.
-        rewrite not_elem_of_singleton. naive_solver.
-      + unfold OfSameLength. do 2 rewrite length_app. simpl...
+      rewrite union_empty_l_L. rewrite dom_list_to_map_zip_L...
+      replace (list_to_set xs ∖ {[x]}) with (list_to_set xs : gset variable)...
+      apply set_eq. intros y. rewrite elem_of_difference. rewrite elem_of_list_to_set.
+      rewrite not_elem_of_singleton. naive_solver.
   Qed.
 
   Lemma ssubst_extract_outside A x t xs ts `{OfSameLength _ _ xs ts} :
@@ -507,7 +503,6 @@ Section simult_subst.
     - rewrite ssubst_single with (A:=<! A[x1\t1] !>) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - rewrite list_to_set_cons. rewrite list_to_set_nil. set_solver.
-    Unshelve. typeclasses eauto.
   Qed.
 
   Lemma ssubst_extract_2' A x1 t1 x2 t2 :
@@ -519,7 +514,6 @@ Section simult_subst.
     - rewrite ssubst_single with (A:=A) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - simpl. set_solver.
-    Unshelve. typeclasses eauto.
   Qed.
 
   Lemma ssubst_dup_keep_l A xs0 ts0 x t xs1 ts1 xs2 ts2

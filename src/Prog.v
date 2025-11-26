@@ -225,10 +225,7 @@ Notation "* x" := x (in custom asgn_rhs_elem at level 0, x constr at level 0)
     : refiney_scope.
 Notation "*$( x )" := x (in custom asgn_rhs_elem at level 5, x constr at level 200)
     : refiney_scope.
-Notation "x , .. , y" := (app x .. (app y []) ..)
-                           (in custom asgn_rhs_elem at level 10,
-                               x custom asgn_rhs_elem at next level,
-                               y custom asgn_rhs_elem at next level) : refiney_scope.
+Infix "," := app (in custom asgn_rhs_elem at level 10, right associativity) : refiney_scope.
 
 Declare Custom Entry prog.
 Declare Custom Entry gcmd.

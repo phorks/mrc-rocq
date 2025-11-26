@@ -677,10 +677,7 @@ Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
     : refiney_scope.
 Notation "*$( x )" := x (in custom term_seq_elem at level 5, x constr at level 200)
     : refiney_scope.
-Notation "x , .. , y" := (app x .. (app y []) ..)
-                           (in custom term_seq_elem at level 10,
-                               x custom term_seq_elem at next level,
-                               y custom term_seq_elem at next level) : refiney_scope.
+Infix "," := app (in custom term_seq_elem at level 10, right associativity) : refiney_scope.
 
 Ltac fold_qrank_subst n A x t :=
   let R := fresh in
