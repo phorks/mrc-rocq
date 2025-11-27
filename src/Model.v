@@ -91,8 +91,14 @@ Definition as_var_F `{FMap F} (x : F final_variable) : F variable :=
 Definition initial_var_of (x : final_variable) := mkVar (var_name x) (var_sub x) true.
 Notation "₀ x" := (initial_var_of x) (at level 5, format "₀ x").
 
-Lemma initial_var_of_ne (x : final_variable) :
-  initial_var_of x ≠ x.
+Instance initial_var_of_inj : Inj (=) (=) initial_var_of.
+Proof.
+  intros x1 x2 Heq. unfold initial_var_of in Heq. destruct x1, x2.
+  simpl in *. inversion Heq. rewrite <- H0. rewrite <- H1. reflexivity.
+Qed.
+
+Lemma initial_var_of_ne (x y : final_variable) :
+  initial_var_of x ≠ y.
 Proof. destruct x. unfold as_var. done. Qed.
 
 Definition to_final_var x :=

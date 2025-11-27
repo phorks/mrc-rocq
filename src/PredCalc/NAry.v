@@ -55,7 +55,7 @@ Section syntactic.
     FAndList (zip_with (λ t1 t2, <! ⌜t1 = t2⌝ !>) ts1 ts2).
 
   Definition seqsubst A xs ts `{OfSameLength _ _ xs ts} : formula :=
-    of_same_length_rect (λ A, A) (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
+    of_same_length_rect id (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
 
   Definition subst_initials A (w : list final_variable) : formula :=
     seqsubst A (initial_var_of <$> w) (TVar ∘ as_var <$> w).
@@ -234,6 +234,36 @@ Section syntactic.
       rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_iff...
   Qed.
 
+  Lemma simpl_subst_initials_not A (xs : list final_variable) :
+    subst_initials <! ¬ A !> xs = <! ¬ $(subst_initials A xs) !>.
+  Proof with auto.
+    unfold subst_initials. apply simpl_seqsubst_not.
+  Qed.
+
+  Lemma simpl_subst_initials_and A B (xs : list final_variable) :
+    subst_initials <! A ∧ B !> xs = <! $(subst_initials A xs) ∧ $(subst_initials B xs) !>.
+  Proof with auto.
+    unfold subst_initials. apply simpl_seqsubst_and.
+  Qed.
+
+  Lemma simpl_subst_initials_or A B (xs : list final_variable) :
+    subst_initials <! A ∨ B !> xs = <! $(subst_initials A xs) ∨ $(subst_initials B xs) !>.
+  Proof with auto.
+    unfold subst_initials. apply simpl_seqsubst_or.
+  Qed.
+
+  Lemma simpl_subst_initials_impl A B (xs : list final_variable) :
+    subst_initials <! A ⇒ B !> xs = <! $(subst_initials A xs) ⇒ $(subst_initials B xs) !>.
+  Proof with auto.
+    unfold subst_initials. apply simpl_seqsubst_impl.
+  Qed.
+
+  Lemma simpl_subst_initials_iff A B (xs : list final_variable) :
+    subst_initials <! A ⇔ B !> xs = <! $(subst_initials A xs) ⇔ $(subst_initials B xs) !>.
+  Proof with auto.
+    unfold subst_initials. apply simpl_seqsubst_iff.
+  Qed.
+
 End syntactic.
 
 Notation "ts =* us" := (FEqList ts us)
@@ -261,7 +291,7 @@ Notation "∀* xs , A" := (FForallList xs A)
                               (in custom formula at level 99, only parsing)
     :refiney_scope.
 Notation "∀* xs ● A" := (FForallList xs A)
-                              (in custom formula at level 99, only parsing)
+                              (in custom formula at level 99, only printing)
     :refiney_scope.
 
 Notation "A [; xs \ ts ;]" := (seqsubst A xs ts)

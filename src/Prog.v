@@ -2,6 +2,7 @@ From Stdlib Require Import Lists.List. Import ListNotations.
 From Stdlib Require Import Strings.String.
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
+From MRC Require Import Stdppp.
 From MRC Require Import SeqNotation.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -19,10 +20,8 @@ Section prog.
   Local Notation formula := (formula (value M)).
   Local Notation final_formula := (final_formula (value M)).
 
-  Local Notation asgn_map := (gmap final_variable final_term).
-
   Inductive prog : Type :=
-  | PAsgn (m : asgn_map)
+  | PAsgn (xs : list final_variable) (ts: list final_term) `{OfSameLength _ _ xs ts}
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (formula * prog))
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
@@ -48,7 +47,7 @@ Section prog.
 
   Fixpoint modified_final_vars p : gset final_variable :=
     match p with
-    | PAsgn m => dom m
+    | PAsgn xs ts => list_to_set xs
     | PSeq p1 p2 => modified_final_vars p1 ∪ modified_final_vars p2
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
     | PSpec w pre post => list_to_set w
@@ -60,15 +59,12 @@ Section prog.
   Definition as_var_set (vs : gset final_variable) : gset variable :=
     set_map as_var vs.
 
-  Definition asgn_map_to_vt_map (m : asgn_map) : gmap variable term :=
-    list_to_map (prod_map as_var as_term <$> map_to_list m).
-
   Definition modified_vars p : gset variable := as_var_set (modified_final_vars p).
   Notation "'Δ' p" := (modified_vars p) (at level 50).
 
   Fixpoint prog_fvars p : gset variable :=
     match p with
-    | PAsgn m => as_var_set (dom m)
+    | PAsgn xs ts => (list_to_set (as_var <$> xs)) ∪ ⋃ (term_fvars ∘ as_term <$> ts)
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
     | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
@@ -90,7 +86,7 @@ Section prog.
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
-    | PAsgn m => simult_subst A (asgn_map_to_vt_map m)
+    | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
     | PSpec w pre post =>
@@ -104,7 +100,7 @@ Section prog.
   (* ******************************************************************* *)
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
     ∀ A : final_formula,
-      (∀ x, x ∈ formula_fvars A → var_is_initial x = false) ->
+      (formula_final A) →
       wp p1 A ⇛ (wp p2 A).
 
   Global Instance pequiv : Equiv prog := λ p1 p2, p1 ⊑ p2 ∧ p2 ⊑ p1.
@@ -153,7 +149,7 @@ Section prog.
     - apply p_rec_unfold_l.
   Qed.
 
-  Axiom rec_ind : ∀ F P, F P ≡ P → PRec F ⊑ P.
+  Axiom p_rec_ind : ∀ F P, F P ≡ P → PRec F ⊑ P.
 
   (* while g => p    =    re P ⦁ if g then p; P fi er *)
   Definition PWhile (gcmds : gcmd_list) :=
@@ -180,33 +176,59 @@ Section prog.
 
   Record asgn_args := mkAsgnArgs {
     asgn_args_open_vars : list final_variable;
-    asgn_args_map  : asgn_map
+    asgn_xs : list final_variable;
+    asgn_ts : list final_term;
+    asgn_of_same_length : OfSameLength asgn_xs asgn_ts;
   }.
 
-  (* TODO: move it *)
-  Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
-                               (H :OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
-  Proof. unfold OfSameLength in *. simpl in H. lia. Qed.
+  (* Local Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term) *)
+  (*   `{H : OfSameLength _ _ lhs rhs} : asgn_args. *)
+  (* Proof. *)
 
-  Local Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
-    `{H : OfSameLength _ _ lhs rhs} : asgn_args.
+  Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
+    `{H : OfSameLength _ _ lhs rhs} : asgn_args :=
+    of_same_length_rect
+      id
+        (λ rec x t args,
+          let (opens, xs, ts, _) := (rec args : asgn_args) in
+          match t with
+          | OpenRhsTerm => (mkAsgnArgs (opens ++ [x]) xs ts _)
+          | FinalRhsTerm t => (mkAsgnArgs opens (x::xs) (t::ts) _)
+          end)
+        (mkAsgnArgs [] [] [] _)
+        lhs rhs.
+
+  Lemma split_asgn_list_no_opens xs ts `{OfSameLength _ _ xs ts} :
+    split_asgn_list xs (FinalRhsTerm <$> ts) = mkAsgnArgs [] xs ts _.
   Proof.
-    generalize dependent rhs.
-    induction lhs as [|x lhs']; destruct rhs as [|t rhs']; intros.
-    - exact (mkAsgnArgs [] ∅).
-    - exact (mkAsgnArgs [] ∅). (* doesn't happen because of OfSameLength *)
-    - exact (mkAsgnArgs [] ∅). (* doesn't happen because of OfSameLength *)
-    - apply of_same_length_rest in H. apply IHlhs' in H as [opens map].
-      destruct t.
-      + exact (mkAsgnArgs (opens ++ [x]) map).
-      + exact (mkAsgnArgs opens (<[x:=t]> map)).
-  Defined.
+    generalize dependent ts. induction xs as [|x xs IH]; simpl; intros.
+    - assert (H':=H). apply of_same_length_nil_inv_l in H' as ->. simpl...
+      unfold split_asgn_list. simpl. f_equal. apply eq_pi. solve_decision.
+    - assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&->&?).
+      rename ts' into ts. unfold split_asgn_list in IH. simpl.
+      unfold split_asgn_list. simpl.
+      apply of_same_length_rest in H as H'.
+      (* PI shenanigans *)
+      assert ((@of_same_length_rest final_variable asgn_rhs_term x xs (FinalRhsTerm t)
+                 (list_fmap final_term asgn_rhs_term FinalRhsTerm ts)
+                 (@of_same_length_fmap_r final_variable final_term asgn_rhs_term
+                    (x :: xs) (t :: ts) FinalRhsTerm H)) =
+                (@of_same_length_fmap_r final_variable final_term asgn_rhs_term xs
+                   ts FinalRhsTerm H') ) as ->.
+      { apply eq_pi. solve_decision. }
+      rewrite IH. f_equal. apply eq_pi. solve_decision.
+  Qed.
 
   Definition PAsgnWithOpens (lhs : list final_variable) (rhs : list asgn_rhs_term)
                             `{OfSameLength _ _ lhs rhs} : prog :=
-    let (opens, map) := split_asgn_list lhs rhs in
-    PVarList (as_var <$> remove_dups opens) (PAsgn map).
+    let (opens, xs, ts, _) := split_asgn_list lhs rhs in
+    PVarList (as_var <$> remove_dups opens) (PAsgn xs ts).
 
+  Lemma PAsgnWithOpens_no_opens xs ts `{OfSameLength _ _ xs ts} :
+    PAsgnWithOpens xs (FinalRhsTerm <$> ts) = PAsgn xs ts.
+  Proof.
+    unfold PAsgnWithOpens. rewrite split_asgn_list_no_opens. simpl. reflexivity.
+  Qed.
 End prog.
 
 Declare Custom Entry asgn_rhs_seq.
@@ -284,7 +306,7 @@ Notation "w : [ p , q ]" :=
     : refiney_scope.
 
 Notation ": [ p , q ]" :=
-  (PSpec [] p q)
+  (PSpec [] (as_final_formula p) q)
     (in custom prog at level 95, no associativity,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
@@ -318,3 +340,24 @@ Notation "'|[' 'con*' xs '⦁' y ']|' " :=
 (* Definition pp2 := <{ ∅ : [<! pre !>, post] }>. *)
 (* Definition pp3 := <{ x, y, z := y, x, ? }> : @prog M. *)
 (* Definition pp4 := <{ x : [pre, post] }> : @prog M. *)
+
+Section prog.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation prog := (@prog M).
+  Local Notation term := (term value).
+  Local Notation formula := (formula value).
+  Local Notation final_term := (final_term value).
+
+  Implicit Types A B C : formula.
+  Implicit Types pre post : formula.
+  Implicit Types w : list final_variable.
+  Implicit Types xs : list final_variable.
+
+  Lemma wp_asgn xs ts A `{OfSameLength _ _ xs ts} :
+    wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>.
+  Proof with auto.
+    rewrite PAsgnWithOpens_no_opens. simpl...
+  Qed.
+
+End prog.

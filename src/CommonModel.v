@@ -15,7 +15,8 @@ Inductive value :=
   | VStr (s : string)
   | VPair (v1 v2 : value)
   | VList (l : list value)
-  | VFinSet (s : listset value).
+  | VFinSet (s : listset value)
+  | VUnknown.
 
 Inductive value_ty :=
   | TEmpty
