@@ -109,7 +109,7 @@ Section n_ary_lemmas.
   Implicit Types Bs Cs Ds : list formula.
   Implicit Types vs : list value.
 
-  Lemma f_eqlist_nil :
+  Lemma f_eqlist_nil `{OfSameLength _ _ [] [] } :
     <! ⌜[] =* []⌝ !> ≡@{formula} <! true !>.
   Proof. unfold FEqList. reflexivity. Qed.
 

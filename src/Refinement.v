@@ -308,8 +308,20 @@ Section refinement.
   Qed.
 
   Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! ¬ (A [[*xs \ *ts]]) !> ≡ <! (¬ A) [[*xs \ *ts]] !>.
+    <! (¬ A) [[*xs \ *ts]] !> ≡ <! ¬ (A [[*xs \ *ts]]) !>.
   Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∧ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∨ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇒ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
+  Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇔ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
+  Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
 
   Lemma f_exists_intro_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
@@ -317,7 +329,7 @@ Section refinement.
     <! A[[*xs \ *ts]] !> ⇛ <! ∃* xs, A !>.
   Proof with auto.
     intros. rewrite f_existslist_as_foralllist. rewrite <- f_ent_contrapositive.
-    rewrite f_not_stable. rewrite simpl_ssubst_not. apply f_foralllist_elim_as_ssubst...
+    rewrite f_not_stable. rewrite <- simpl_ssubst_not. apply f_foralllist_elim_as_ssubst...
   Qed.
 
   Lemma initial_free_in_final_formula x A :
@@ -337,6 +349,49 @@ Section refinement.
     - apply initial_free_in_final_formula...
   Qed.
 
+  Lemma f_existslist_app (xs1 xs2 : list variable) A :
+    <! ∃* $(xs1 ++ xs2), A !> ≡ <! ∃* xs1, ∃* xs2, A !>.
+  Proof with auto.
+    induction xs1 as [|x1 xs1 IH]... simpl. rewrite IH...
+  Qed.
+
+  Lemma f_foralllist_app (xs1 xs2 : list variable) A :
+    <! ∀* $(xs1 ++ xs2), A !> ≡ <! ∀* xs1, ∀* xs2, A !>.
+  Proof with auto.
+    induction xs1 as [|x1 xs1 IH]... simpl. rewrite IH...
+  Qed.
+
+  Lemma f_foralllist_drop_binders (xs : list variable) A :
+    <! ∀* xs, A !> ⇛ <! A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl.
+    - reflexivity.
+    - rewrite IH. rewrite f_forall_drop_binder. reflexivity.
+  Qed.
+
+  Lemma f_existslist_introduce_binders (xs : list variable) A :
+    <! A !> ⇛ <! ∃* xs, A !>.
+  Proof with auto.
+    rewrite f_existslist_as_foralllist. rewrite <- f_ent_contrapositive. rewrite f_not_stable.
+    apply f_foralllist_drop_binders.
+  Qed.
+
+  Lemma f_eqlist_fmap_app {X} (l1 l2 : list X) (f : X → term) (g : X → term)
+                          `{OfSameLength _ _ (f <$> l1 ++ l2) (g <$> l1 ++ l2)}
+                          `{OfSameLength _ _ (f <$> l1) (g <$> l1)}
+                          `{OfSameLength _ _ (f <$> l2) (g <$> l2)} :
+    <! ⌜$(f <$> l1 ++ l2) =* $(g <$> l1 ++ l2)⌝ !> ≡
+       <! ⌜$(f <$> l1) =* $(g <$> l1)⌝ ∧ ⌜$(f <$> l2) =* $(g <$> l2)⌝ !>.
+  Proof with auto.
+    induction l1 as [|x l1 IH]; simpl.
+    - rewrite f_eqlist_nil. f_simpl. f_equiv. apply eq_pi. solve_decision.
+    - do 2 rewrite f_eqlist_cons. rewrite <- f_and_assoc. f_simpl.
+      rewrite IH...
+      Unshelve.
+      all: typeclasses eauto.
+  Qed.
+
+
 Notation "' xs" := (TVar ∘ as_var <$> xs : list term)
                        (in custom term at level 0,
                            xs constr at level 0) : refiney_scope.
@@ -344,10 +399,12 @@ Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term)
                        (in custom term at level 0,
                            xs constr at level 0) : refiney_scope.
   Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
+    length xs ≠ 0 →
+    NoDup xs →
     <! ⌜'₀w =* 'w⌝ ∧ ⌜'₀xs =* 'xs⌝ ∧ pre !> ⇛ <! post[[ *$(as_var <$> xs) \ *$(as_term <$> ts) ]] !> ->
     <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *$(FinalRhsTerm <$> ts)  }>.
   Proof with auto.
-    intros proviso A Hfree. simpl. rewrite wp_asgn.
+    intros Hlength Hnodup proviso A Hfinal. simpl. rewrite wp_asgn.
     assert (<! pre !> ≡ <! pre [_₀\w ++ xs] !>).
     { admit. }
     rewrite H1. clear H1. rewrite <- simpl_subst_initials_and. rewrite fmap_app.
@@ -369,7 +426,18 @@ Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term)
          apply elem_of_list_fmap in H5 as (x2&?&?). subst x1. simpl in H3.
          subst fvars. apply elem_of_singleton in H4. subst x0.
          apply initial_var_of_ne in H4 as []. }
-    rewrite (f_foralllist_elim_as_ssubst <! post ⇒ A !> _ (as_term <$> ts)...
+    rewrite f_foralllist_app. rewrite (f_foralllist_drop_binders (as_var <$> w)).
+    rewrite (f_foralllist_elim_as_ssubst <! post ⇒ A !> _ (as_term <$> ts))...
+    2:{ rewrite length_fmap... }
+    2:{ apply NoDup_fmap... apply as_var_inj. }
+    rewrite simpl_ssubst_impl.
+    setoid_rewrite fmap_app.
+    clear.
+    pose proof (f_eqlist_fmap_app w xs (initial_var_of) (TVar ∘ as_var)).
+    Unset Printing Notations. Set Printing Implicit.
+    unfold fmap.
+    rewrite H1.
+
     assert (<! ⌜@*(initial_var_of <$> w ++ xs) =* $(fmap (TVar ∘ as_var) (w ++ xs))⌝
               ⇒ pre ∧ (∀* $(fmap as_var (w ++ xs)),  post ⇒ A) !> ⇛
             <! ⌜@*(initial_var_of <$> w ++ xs) =* $(fmap (TVar ∘ as_var) (w ++ xs))⌝

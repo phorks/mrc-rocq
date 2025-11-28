@@ -84,8 +84,12 @@ Defined.
 
 Definition as_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
 Coercion as_var : final_variable >-> variable.
-Definition as_var_F `{FMap F} (x : F final_variable) : F variable :=
-  as_var <$> x.
+Definition as_var_F `{FMap F} (x : F final_variable) : F variable := as_var <$> x.
+Instance as_var_inj : Inj (=) (=) as_var.
+Proof.
+  intros x1 x2 H. unfold as_var in H. inversion H. destruct x1; destruct x2. simpl in *;
+    rewrite H1; rewrite H2; reflexivity.
+Qed.
 
 
 Definition initial_var_of (x : final_variable) := mkVar (var_name x) (var_sub x) true.
