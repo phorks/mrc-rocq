@@ -101,7 +101,7 @@ Proof.
   simpl in *. inversion Heq. rewrite <- H0. rewrite <- H1. reflexivity.
 Qed.
 
-Lemma initial_var_of_ne (x y : final_variable) :
+Lemma initial_var_of_eq_final_variable (x y : final_variable) :
   initial_var_of x ≠ y.
 Proof. destruct x. unfold as_var. done. Qed.
 

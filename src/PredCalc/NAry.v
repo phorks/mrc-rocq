@@ -159,7 +159,7 @@ Section syntactic.
                     (x :: w) (x :: w) initial_var_of (@TVar value ∘ as_var)
                     (@of_same_length_id final_variable (x :: w))))) = subst_initials A w
         ).
-      { unfold subst_initials. f_equal. apply eq_pi. solve_decision. }
+      { unfold subst_initials. f_equiv. apply OfSameLength_pi. }
       rewrite H. clear H.
       pose proof (@eq_refl _ (subst_initials_var_fvars A w)).
       unfold subst_initials_var_fvars at 2 in H. rewrite <- H. clear H.
@@ -357,7 +357,7 @@ Section semantic.
           apply IH.
   Qed.
 
-  Global Instance term_list_equiv_equiv : Equivalence term_list_equiv.
+  Global Instance term_list_equiv_equivalence : Equivalence term_list_equiv.
   Proof.
     split; [exact term_list_equiv_refl | exact term_list_equiv_sym |
              exact term_list_equiv_trans].
@@ -546,7 +546,7 @@ Section semantic.
     {Hl1 : OfSameLength xs ts} {Hl2 : OfSameLength (x :: xs) (t :: ts)} :
     @seqsubst _ A (x :: xs) (t :: ts) Hl2 ≡ <! $(@seqsubst _ A xs ts Hl1)[x \ t] !>.
   Proof with auto.
-    unfold seqsubst. simpl. f_equiv. f_equiv. apply eq_pi. solve_decision.
+    unfold seqsubst. simpl. f_equiv. f_equiv. apply OfSameLength_pi.
   Qed.
 
   Lemma seqsubst_app A xs1 ts1 xs2 ts2
@@ -559,7 +559,7 @@ Section semantic.
     generalize dependent ts1. generalize dependent xs2. generalize dependent ts2.
     induction xs1; intros.
     - inversion Hl1. symmetry in H0. apply length_zero_iff_nil in H0. subst.
-      simpl. f_equiv. apply eq_pi. solve_decision.
+      simpl. f_equiv. apply OfSameLength_pi.
     - inversion Hl1. symmetry in H0. apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?).
       subst ts1. rename ts1' into ts1. simpl. intros σ.
       pose proof (teval_total σ t1) as [v1 Hv1]. rewrite feval_subst with (v:=v1)...
@@ -574,10 +574,10 @@ Section semantic.
       eapply eq_rect.
       + symmetry. eapply eq_rect.
         * symmetry. exact IHxs1.
-        * f_equiv. f_equiv. apply eq_pi. solve_decision.
+        * f_equiv. f_equiv. apply OfSameLength_pi.
       + f_equiv. f_equal.
-        * f_equiv. apply eq_pi. solve_decision.
-        * apply eq_pi. solve_decision.
+        * f_equiv. apply OfSameLength_pi.
+        * apply OfSameLength_pi.
   Qed.
 
   Lemma seqsubst_snoc A x t xs ts
@@ -662,7 +662,15 @@ Section semantic.
     - simpl. rewrite IHxs. reflexivity.
   Qed.
 
-  Global Instance FEqList_proper : Proper (
+  (** Proper instances for eqlist and seqsubst:
+      The first three instances are not registered as [Instance] because setoid rewrite is not
+      able to automatically use them. It expects ts1 and ts1' be the same (it also expects
+      ts2 and ts2' be the same in the case of eqlist). They must be manually used for rewriting.
+      The second three instances are weaker versions of the first three that don't respect
+      [term_list_equiv]. However, setoid rewrite will use them.
+   **)
+
+  Definition FEqList_proper_strong_manual : Proper (
         respectful_hetero (list term) (list term)
         (λ ts1, ∀ ts2, OfSameLength ts1 ts2 → formula)
         (λ ts1, ∀ ts2, OfSameLength ts1 ts2 → formula)
@@ -695,70 +703,71 @@ Section semantic.
         * eapply of_same_length_rest. exact Hl2.
   Qed.
 
-  (* Global Instance seqsubst_proper : Proper ((≡@{formula}) ==> *)
-  (*       respectful_hetero (list variable) (list variable) *)
-  (*       (λ xs, ∀ ts, OfSameLength xs ts → formula) *)
-  (*       (λ xs, ∀ ts, OfSameLength xs ts → formula) *)
-  (*       (=) *)
-  (*       (λ xs xs', (respectful_hetero (list term) (list term) *)
-  (*                     (λ ts, OfSameLength xs ts → formula) *)
-  (*                     (λ ts, OfSameLength xs' ts → formula) *)
-  (*                     (term_list_equiv) *)
-  (*                     (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts') *)
-  (*                                   (λ _, formula) *)
-  (*                                   (λ _, formula) *)
-  (*                                   (λ _ _, True) *)
-  (*                                   (λ _ _, (≡@{formula}))))))) seqsubst. *)
-  (* Proof with auto. *)
-  (*   intros A B Hequiv xs ? <- ts1 ts2 Hts Hl1 Hl2 _. *)
-  (*   generalize dependent ts2. generalize dependent ts1. *)
-  (*   induction xs as [|x xs IH]; intros. *)
-  (*   - inversion Hl1. inversion Hl2. symmetry in H0, H1. apply length_zero_iff_nil in H0, H1. *)
-  (*     subst. simpl... *)
-  (*   - inversion Hl1. inversion Hl2. symmetry in H0, H1. *)
-  (*     apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1. *)
-  (*     apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2. *)
-  (*     apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'. *)
-  (*     do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. *)
-  (*      f_equiv... *)
-  (*     Unshelve. *)
-  (*     + exact Hl1'. *)
-  (*     + exact Hl2'. *)
-  (* Qed. *)
+  Definition seqsubst_proper_strong_manual : Proper ((≡@{formula}) ==>
+        respectful_hetero (list variable) (list variable)
+        (λ xs, ∀ ts, OfSameLength xs ts → formula)
+        (λ xs, ∀ ts, OfSameLength xs ts → formula)
+        (=)
+        (λ xs xs', (respectful_hetero (list term) (list term)
+                      (λ ts, OfSameLength xs ts → formula)
+                      (λ ts, OfSameLength xs' ts → formula)
+                      (term_list_equiv)
+                      (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts')
+                                    (λ _, formula)
+                                    (λ _, formula)
+                                    (λ _ _, True)
+                                    (λ _ _, (≡@{formula}))))))) seqsubst.
+  Proof with auto.
+    intros A B Hequiv xs ? <- ts1 ts2 Hts Hl1 Hl2 _.
+    generalize dependent ts2. generalize dependent ts1.
+    induction xs as [|x xs IH]; intros.
+    - inversion Hl1. inversion Hl2. symmetry in H0, H1. apply length_zero_iff_nil in H0, H1.
+      subst. simpl...
+    - inversion Hl1. inversion Hl2. symmetry in H0, H1.
+      apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
+      apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
+      apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
+      do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as [].
+       f_equiv...
+      Unshelve.
+      + exact Hl1'.
+      + exact Hl2'.
+  Qed.
 
-  (* Global Instance seqsubst_proper_fent : Proper ((⇛ₗ@{M}) ==> *)
-  (*       respectful_hetero (list variable) (list variable) *)
-  (*       (λ xs, ∀ ts, OfSameLength xs ts → formula) *)
-  (*       (λ xs, ∀ ts, OfSameLength xs ts → formula) *)
-  (*       (=) *)
-  (*       (λ xs xs', (respectful_hetero (list term) (list term) *)
-  (*                     (λ ts, OfSameLength xs ts → formula) *)
-  (*                     (λ ts, OfSameLength xs' ts → formula) *)
-  (*                     (term_list_equiv) *)
-  (*                     (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts') *)
-  (*                                   (λ _, formula) *)
-  (*                                   (λ _, formula) *)
-  (*                                   (λ _ _, True) *)
-  (*                                   (λ _ _, (⇛ₗ@{M}))))))) seqsubst. *)
-  (* Proof with auto. *)
-  (*   intros A B Hequiv xs ? <- ts1 ts2 Hts Hl1 Hl2 _. *)
-  (*   generalize dependent ts2. generalize dependent ts1. *)
-  (*   induction xs as [|x xs IH]; intros. *)
-  (*   - inversion Hl1. inversion Hl2. symmetry in H0, H1. apply length_zero_iff_nil in H0, H1. *)
-  (*     subst. simpl... *)
-  (*   - inversion Hl1. inversion Hl2. symmetry in H0, H1. *)
-  (*     apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1. *)
-  (*     apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2. *)
-  (*     apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'. *)
-  (*     do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. *)
-  (*      f_equiv... *)
-  (*     Unshelve. *)
-  (*     + exact Hl1'. *)
-  (*     + exact Hl2'. *)
-  (* Qed. *)
+  Definition seqsubst_proper_fent_strong_manual : Proper ((⇛ₗ@{M}) ==>
+        respectful_hetero (list variable) (list variable)
+        (λ xs, ∀ ts, OfSameLength xs ts → formula)
+        (λ xs, ∀ ts, OfSameLength xs ts → formula)
+        (=)
+        (λ xs xs', (respectful_hetero (list term) (list term)
+                      (λ ts, OfSameLength xs ts → formula)
+                      (λ ts, OfSameLength xs' ts → formula)
+                      (term_list_equiv)
+                      (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts')
+                                    (λ _, formula)
+                                    (λ _, formula)
+                                    (λ _ _, True)
+                                    (λ _ _, (⇛ₗ@{M}))))))) seqsubst.
+  Proof with auto.
+    intros A B Hequiv xs ? <- ts1 ts2 Hts Hl1 Hl2 _.
+    generalize dependent ts2. generalize dependent ts1.
+    induction xs as [|x xs IH]; intros.
+    - inversion Hl1. inversion Hl2. symmetry in H0, H1. apply length_zero_iff_nil in H0, H1.
+      subst. simpl...
+    - inversion Hl1. inversion Hl2. symmetry in H0, H1.
+      apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
+      apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
+      apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
+      do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as [].
+       f_equiv...
+      Unshelve.
+      + exact Hl1'.
+      + exact Hl2'.
+  Qed.
 
-  (** The following instance doesn't allow replacing ts with ts' in
-      [<! A [; *xs, *ts ;] !> ≡ <! A [; *xs, *ts' ;] !>] even if we
+  (** The following three instances are weaker version of the last three.
+      The don't allow replacing ts with ts' in cases like
+      [<! A [; *xs, *ts ;] !> ≡ <! A [; *xs, *ts' ;] !>] even if we have
       [term_list_equiv ts ts']. From what I understood Rocq doesn't allow
       such replacements because there are two implicit [OfSameLength]
       instances hidden inside seqsubst that depend on ts and ts'.
@@ -766,16 +775,21 @@ Section semantic.
       [OfSameLength] requirement from seqsubst and move it to lemmas and
       notation parsing.
    *)
+
+  Global Instance FEqList_of_same_length_pi :
+    Proper (forall_relation (λ ts1,
+                forall_relation (λ ts2, respectful universal_relation (=)))) FEqList.
+  Proof with auto.
+    intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
+  Qed.
+
   Global Instance seqsubst_proper : Proper ((≡@{formula}) ==>
             forall_relation
               (λ xs, forall_relation (λ ts, universal_relation ==> (≡@{formula}))))
            seqsubst.
   Proof with auto.
-    intros A B Hequiv xs ts Hl1 Hl2 _. assert (Hinv:=Hl1). generalize dependent ts.
-    induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in Hinv as ->. simpl...
-    - apply of_same_length_cons_inv_l in Hinv as (t&ts'&->&?). rename ts' into ts.
-      simpl. f_equiv. rewrite IH... apply of_same_length_rest in Hl1 as ?...
+    intros A B Hequiv xs ts Hl1 Hl2 _. apply seqsubst_proper_strong_manual...
+    reflexivity.
   Qed.
 
   Global Instance seqsubst_proper_fent : Proper ((⇛) ==>

@@ -203,7 +203,7 @@ Section prog.
   Proof.
     generalize dependent ts. induction xs as [|x xs IH]; simpl; intros.
     - assert (H':=H). apply of_same_length_nil_inv_l in H' as ->. simpl...
-      unfold split_asgn_list. simpl. f_equal. apply eq_pi. solve_decision.
+      unfold split_asgn_list. simpl. f_equal. apply OfSameLength_pi.
     - assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&->&?).
       rename ts' into ts. unfold split_asgn_list in IH. simpl.
       unfold split_asgn_list. simpl.
@@ -215,8 +215,8 @@ Section prog.
                     (x :: xs) (t :: ts) FinalRhsTerm H)) =
                 (@of_same_length_fmap_r final_variable final_term asgn_rhs_term xs
                    ts FinalRhsTerm H') ) as ->.
-      { apply eq_pi. solve_decision. }
-      rewrite IH. f_equal. apply eq_pi. solve_decision.
+      { apply OfSameLength_pi. }
+      rewrite IH. f_equiv. apply OfSameLength_pi.
   Qed.
 
   Definition PAsgnWithOpens (lhs : list final_variable) (rhs : list asgn_rhs_term)

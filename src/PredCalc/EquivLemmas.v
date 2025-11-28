@@ -191,6 +191,10 @@ Section props.
       <! C ⇒ (A ∧ B) !> ≡ <! (C ⇒ A) ∧ (C ⇒ B) !>.
   Proof. prove_equiv. Qed.
 
+  Lemma f_impl_dup_hyp A B :
+    <! A ⇒ B !> ≡ <! A ⇒ A ∧ B !>.
+  Proof. prove_equiv. Qed.
+
   (* A.34 *)
   Lemma f_impl_or_l A B C :
     <! (A ∨ B) ⇒ C !> ≡ <! (A ⇒ C) ∧ (B ⇒ C) !>.

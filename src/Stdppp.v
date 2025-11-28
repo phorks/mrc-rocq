@@ -91,6 +91,11 @@ Qed.
 Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=
   of_same_length : length l1 = length l2.
 
+
+Instance OfSameLength_pi {A B} (l1 : list A) (l2 : list B) :
+  ProofIrrel (OfSameLength l1 l2).
+Proof. apply eq_pi. solve_decision. Qed.
+
 Instance of_same_length_nil {A B} : @OfSameLength A B [] [].
 Proof. reflexivity. Defined.
 

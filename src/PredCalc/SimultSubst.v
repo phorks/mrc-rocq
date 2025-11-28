@@ -590,6 +590,101 @@ Section simult_subst.
     all: typeclasses eauto.
   Qed.
 
+  Lemma fvars_ssubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
+    term_fvars (simult_subst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    induction t; simpl; [set_solver| | ].
+    - destruct (to_var_term_map xs ts !! x) eqn:E.
+      + unfold to_var_term_map in E. apply lookup_list_to_map_zip_Some in E as (i&?&?)...
+        apply elem_of_list_lookup_2 in H1. set_unfold. intros x0 ?. right.
+        apply elem_of_union_list. exists (term_fvars t). set_solver.
+      + simpl. set_solver.
+    - induction args.
+      + simpl. set_solver.
+      + simpl. assert (H1:=H0 a). forward H1 by (left; auto).
+        forward IHargs.
+        1: { intros. apply H0. right... }
+        set_solver.
+  Qed.
+
+  Lemma fvars_ssubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
+    af_fvars (simult_subst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    destruct af; simpl; [set_solver|set_solver | | ].
+    - pose proof (fvars_ssubst_term_superset t1 xs ts).
+      pose proof (fvars_ssubst_term_superset t2 xs ts). set_solver.
+    - induction args.
+      + simpl. set_solver.
+      + simpl. pose proof (fvars_ssubst_term_superset a xs ts). set_solver.
+  Qed.
+
+  Lemma fvars_ssubst_superset A xs ts `{OfSameLength _ _ xs ts} :
+    formula_fvars <! A[[*xs \ *ts]] !> ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    induction A; simp simult_subst; simpl.
+    2-4: set_solver.
+    - apply fvars_ssubst_af_superset.
+    - generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
+      forward (H0 <! A [x \ x'] !>)...  clear H3 H4 H5.
+      destruct (decide (x ∈ formula_fvars A)).
+      + rewrite fvars_subst_free in H0... set_solver.
+      + rewrite fvars_subst_non_free in H0... set_solver.
+  Qed.
+
+  (* TODO: can I replace or teval equiv lemmas with simple equality? Or at least tequiv? *)
+  Lemma ssubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
+    term_fvars t ## list_to_set xs →
+    simult_subst_term t (to_var_term_map xs ts) = t.
+  Proof with auto.
+    intros. induction t; simpl...
+    - destruct (to_var_term_map xs ts !! x) eqn:E.
+      + apply elem_of_dom_2 in E. unfold to_var_term_map in E.
+        rewrite dom_list_to_map_zip_L in E... set_solver.
+      + apply not_elem_of_dom_2 in E. unfold to_var_term_map in E.
+        rewrite dom_list_to_map_zip_L in E...
+    - f_equal. induction args... simpl. f_equal.
+      + simpl in H0. apply H1...
+        * left...
+        * set_solver.
+      + apply IHargs.
+        * intros. apply H1... right...
+        * set_solver.
+  Qed.
+
+  Lemma ssubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
+    af_fvars af ## list_to_set xs →
+    simult_subst_af af (to_var_term_map xs ts) = af.
+  Proof with auto.
+    intros. destruct af; simpl in *...
+    - rewrite ssubst_term_non_free by set_solver. rewrite ssubst_term_non_free by set_solver...
+    - induction args; simpl... f_equal. f_equal.
+      + rewrite ssubst_term_non_free by set_solver...
+      + forward IHargs by set_solver. inversion IHargs... rewrite H2...
+  Qed.
+
+  Lemma ssubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
+    formula_fvars A ## list_to_set xs →
+    <! A[[*xs \ *ts]] !> ≡ A.
+  Proof with auto.
+    intros. induction A; simp simult_subst.
+    - rewrite ssubst_af_non_free...
+    - rewrite IHA...
+    - rewrite IHA1; [| set_solver]. rewrite IHA2; [| set_solver]...
+    - rewrite IHA1; [| set_solver]. rewrite IHA2; [| set_solver]...
+    - simpl. generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
+      unfold to_var_term_map in H5. rewrite dom_list_to_map_zip_L in H5...
+      destruct H4.
+      + subst. f_equiv. rewrite H1...
+        * rewrite fequiv_subst_diag...
+        * rewrite fvars_subst_diag. simpl in H0. set_solver.
+      + destruct (decide (x ∈ formula_fvars A)).
+        * rewrite (fexists_alpha_equiv x x' A)... f_equiv.
+          apply H1... rewrite fvars_subst_free... set_solver.
+        * rewrite H1...
+          2:{ rewrite fvars_subst_non_free... set_solver. }
+          rewrite (fexists_alpha_equiv x x' A)...
+  Qed.
+
 End simult_subst.
 
 Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))

@@ -64,7 +64,7 @@ Section sequential_subst.
         simpl in H. rewrite feval_subst with (v:=v) in H... unfold fmap.
         assert ((@of_same_length_rest variable term x xs' (@TConst value v)
             (list_fmap value term (@TConst value) vs) H1) = H0) as <-...
-        apply eq_pi. solve_decision.
+        apply OfSameLength_pi.
   Qed.
 
 
@@ -74,7 +74,7 @@ Section sequential_subst.
     {H1 : OfSameLength ts1 ts2}
     {H2 : OfSameLength (t1 :: ts1) (t2 :: ts2)} :
     AT_TermListEq (t1 :: ts1) (t2 :: ts2) ≡ <! ⌜t1 = t2⌝ ∧ $(AT_TermListEq ts1 ts2) !>.
-  Proof. unfold AT_TermListEq. simpl. f_equiv. f_equiv. apply eq_pi. solve_decision. Qed.
+  Proof. unfold AT_TermListEq. simpl. f_equiv. f_equiv. apply OfSameLength_pi. Qed.
 
   (* Lemma f_forall_list_unused x A : *)
   (*   x  *)

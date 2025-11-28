@@ -109,10 +109,12 @@ Section n_ary_lemmas.
   Implicit Types Bs Cs Ds : list formula.
   Implicit Types vs : list value.
 
+  (* TODO: can this be equality instead of equivalence *)
   Lemma f_eqlist_nil `{OfSameLength _ _ [] [] } :
     <! ⌜[] =* []⌝ !> ≡@{formula} <! true !>.
   Proof. unfold FEqList. reflexivity. Qed.
 
+  (* TODO: can this be equality instead of equivalence *)
   Lemma f_eqlist_cons t1 t2 ts1 ts2
     {H1 : OfSameLength ts1 ts2}
     {H2 : OfSameLength (t1 :: ts1) (t2 :: ts2)} :
@@ -699,11 +701,39 @@ Section n_ary_lemmas.
   Qed.
 
   (* A.76 *)
-  Lemma f_existslist_and_unused_l xs A B :
+  (* TODO: replace all [_ ∩ _ = ∅]s with [_ ## _]s *)
+  Lemma f_foralllist_and_unused_l xs A B :
     list_to_set xs ∩ formula_fvars A = ∅ →
-    <! ∃* xs, A ∧ B !> ≡ <! A ∧ (∃* xs, B) !>.
+    <! ∀* xs, A ∧ B !> ≡ <! A ∧ (∀* xs, B) !>.
   Proof with auto.
-    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_l|];
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_and_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.76' *)
+  Lemma f_foralllist_and_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∀* xs, A ∧ B !> ≡ <! (∀* xs, A) ∧ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_and_unused_r|];
+      set_solver.
+  Qed.
+
+  (* A.77 *)
+  Lemma f_foralllist_or_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∀* xs, A ∨ B !> ≡ <! A ∨ (∀* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_or_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.77' *)
+  Lemma f_foralllist_or_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∀* xs, A ∨ B !> ≡ <! (∀* xs, A) ∨ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_or_unused_r|];
       set_solver.
   Qed.
 
@@ -715,6 +745,70 @@ Section n_ary_lemmas.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_l|];
       set_solver.
   Qed.
+
+  (* A.79 *)
+  Lemma f_foralllist_impl_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∀* xs, A ⇒ B !> ≡ <! (∃* xs, A) ⇒ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_r|];
+      set_solver.
+  Qed.
+
+  (* A.80 *)
+  Lemma f_existslist_and_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∃* xs, A ∧ B !> ≡ <! A ∧ (∃* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.80' *)
+  Lemma f_existslist_and_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∃* xs, A ∧ B !> ≡ <! (∃* xs, A) ∧ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_r|];
+      set_solver.
+  Qed.
+
+  (* A.81 *)
+  Lemma f_existslist_or_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∃* xs, A ∨ B !> ≡ <! A ∨ (∃* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_or_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.81' *)
+  Lemma f_existslist_or_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∃* xs, A ∨ B !> ≡ <! (∃* xs, A) ∨ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_or_unused_r|];
+      set_solver.
+  Qed.
+
+  (* A.82 *)
+  Lemma f_existslist_impl_unused_l xs A B :
+    list_to_set xs ∩ formula_fvars A = ∅ →
+    <! ∃* xs, A ⇒ B !> ≡ <! A ⇒ (∃* xs, B) !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_impl_unused_l|];
+      set_solver.
+  Qed.
+
+  (* A.83 *)
+  Lemma f_existslist_impl_unused_r xs A B :
+    list_to_set xs ∩ formula_fvars B = ∅ →
+    <! ∃* xs, A ⇒ B !> ≡ <! (∀* xs, A) ⇒ B !>.
+  Proof with auto.
+    intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_impl_unused_r|];
+      set_solver.
+  Qed.
+
 
   (* TODO: Move these somewhere *)
   Definition seqsubst_lists_unique xs ts :=
@@ -839,7 +933,7 @@ Section n_ary_lemmas.
   (* A.56 *)
   Lemma f_existslist_one_point xs ts A `{OfSameLength _ _ xs ts} :
     seqsubst_lists_unique xs ts →
-    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     <! ∃* xs, ⌜@*xs =* ts⌝ ∧ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.
     intros Hunique Hfree. generalize dependent ts.
@@ -877,7 +971,7 @@ Section n_ary_lemmas.
 
   Lemma f_foralllist_one_point xs ts A `{OfSameLength _ _ xs ts} :
     seqsubst_lists_unique xs ts →
-    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     <! ∀* xs, ⌜@*xs =* ts⌝ ⇒ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.
     intros. rewrite f_foralllist_as_existslist. rewrite f_not_impl.
@@ -1003,121 +1097,6 @@ Section n_ary_lemmas.
 
   (* A.74: fforall_unused *)
   (* A.75: fexists_unused *)
-
-  (* A.76 *)
-  (* Lemma f_forall_and_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∀ x, A ∧ B !> ≡ <! A ∧ (∀ x, B) !>. *)
-  (* Proof with auto. intros. rewrite f_forall_and. rewrite fforall_unused... Qed. *)
-
-  (* A.76' *)
-  (* Lemma f_forall_and_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∀ x, A ∧ B !> ≡ <! (∀ x, A) ∧ B !>. *)
-  (* Proof with auto. intros. rewrite f_forall_and. rewrite (fforall_unused x B)... Qed. *)
-
-  (* A.77 *)
-  (* Lemma f_forall_or_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∀ x, A ∨ B !> ≡ <! A ∨ (∀ x, B) !>. *)
-  (* Proof with auto. *)
-  (*   intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or. *)
-  (*   split; intros. *)
-  (*   - simp feval. destruct (feval_lem σ A)... right. rewrite simpl_feval_fforall. *)
-  (*     intros. specialize (H0 v). simp feval in H0. destruct H0... *)
-  (*     rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0... *)
-  (*     contradiction. *)
-  (*   - simp feval in *. rewrite (feval_subst v)... rewrite feval_delete_state_var_head... *)
-  (*     destruct H0... right. rewrite simpl_feval_fforall in H0. apply H0. *)
-  (* Qed. *)
-
-  (* A.77' *)
-  (* Lemma f_forall_or_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∀ x, A ∨ B !> ≡ <! (∀ x, A) ∨ B !>. *)
-  (* Proof with auto. *)
-  (*   intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or. *)
-  (*   split; intros. *)
-  (*   - simp feval. destruct (feval_lem σ B)... left. rewrite simpl_feval_fforall. *)
-  (*     intros. specialize (H0 v). simp feval in H0. destruct H0... *)
-  (*     rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0... *)
-  (*     contradiction. *)
-  (*   - simp feval in *. destruct H0. *)
-  (*     + left. rewrite simpl_feval_fforall in H0. apply H0... *)
-  (*     + right. rewrite (feval_subst v)... rewrite feval_delete_state_var_head... *)
-  (* Qed. *)
-
-  (* A.78 *)
-  (* Lemma f_forall_impl_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∀ x, A ⇒ B !> ≡ <! A ⇒ (∀ x, B) !>. *)
-  (* Proof with auto. *)
-  (*   intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl. *)
-  (*   rewrite simpl_feval_fimpl. *)
-  (*   split; intros. *)
-  (*   - rewrite simpl_feval_fforall. intros. specialize (H0 v). rewrite simpl_feval_fimpl in H0. *)
-  (*     rewrite (feval_subst v) in H0... rewrite feval_delete_state_var_head in H0... *)
-  (*   - rewrite simpl_feval_fimpl. intros. rewrite (feval_subst v) in H1... *)
-  (*     rewrite feval_delete_state_var_head in H1... apply H0 in H1. *)
-  (*     rewrite simpl_feval_fforall in H1... *)
-  (* Qed. *)
-
-  (* A.79 *)
-  (* Lemma f_forall_impl_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∀ x, A ⇒ B !> ≡ <! (∃ x, A) ⇒ B !>. *)
-  (* Proof with auto. *)
-  (*   intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl. *)
-  (*   setoid_rewrite simpl_feval_fimpl. simp feval. *)
-  (*   split; intros. *)
-  (*   - destruct H1 as [v Hv]. apply H0 in Hv. apply (feval_subst v) in Hv... *)
-  (*     apply feval_delete_state_var_head in Hv... *)
-  (*   - forward H0 by (exists v)... apply (feval_subst v)... apply feval_delete_state_var_head... *)
-  (* Qed. *)
-
-  (* A.80 *)
-  (* Lemma f_exists_and_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∃ x, A ∧ B !> ≡ <! A ∧ (∃ x, B) !>. *)
-  (* Proof with auto. *)
-  (*   intros. rewrite <- (f_not_stable A). rewrite <- (f_not_stable B). rewrite <- (f_not_or). *)
-  (*   rewrite <- (f_not_forall). rewrite f_forall_or_unused_l by (simpl; auto). *)
-  (*   rewrite f_not_or. rewrite f_not_forall... *)
-  (* Qed. *)
-
-  (* A.80' *)
-  (* Lemma f_exists_and_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∃ x, A ∧ B !> ≡ <! (∃ x, A) ∧ B !>. *)
-  (* Proof with auto. *)
-  (*   intros. rewrite <- (f_not_stable A). rewrite <- (f_not_stable B). rewrite <- (f_not_or). *)
-  (*   rewrite <- (f_not_forall). rewrite f_forall_or_unused_r by (simpl; auto). *)
-  (*   rewrite f_not_or. rewrite f_not_forall... *)
-  (* Qed. *)
-
-  (* A.81 *)
-  (* Lemma f_exists_or_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∃ x, A ∨ B !> ≡ <! A ∨ (∃ x, B) !>. *)
-  (* Proof with auto. intros. rewrite f_exists_or. rewrite fexists_unused... Qed. *)
-
-  (* A.81' *)
-  (* Lemma f_exists_or_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∃ x, A ∨ B !> ≡ <! (∃ x, A) ∨ B !>. *)
-  (* Proof with auto. intros. rewrite f_exists_or. rewrite (fexists_unused _ B)... Qed. *)
-
-  (* A.82 *)
-  (* Lemma f_exists_impl_unused_l x A B : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! ∃ x, A ⇒ B !> ≡ <! A ⇒ (∃ x, B) !>. *)
-  (* Proof with auto. intros. rewrite f_exists_impl. rewrite fforall_unused... Qed. *)
-
-  (* A.83 *)
-  (* Lemma f_exists_impl_unused_r x A B : *)
-  (*   x ∉ formula_fvars B → *)
-  (*   <! ∃ x, A ⇒ B !> ≡ <! (∀ x, A) ⇒ B !>. *)
-  (* Proof with auto. intros. rewrite f_exists_impl. rewrite fexists_unused... Qed. *)
 
   (* A.84: fforall_alpha_equiv *)
   (* A.85: fexists_alpha_equiv *)
