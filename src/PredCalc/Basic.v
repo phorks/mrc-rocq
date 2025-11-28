@@ -730,13 +730,13 @@ Section pred_calc_semantics.
   Scheme teval_ind_mut := Induction for teval Sort Prop
       with teval_list_ind_mut := Induction for teval_list Sort Prop.
 
-  Lemma teval_det {σ} t v₁ v₂ :
-    teval σ t v₁ → teval σ t v₂ → v₁ = v₂.
+  Lemma teval_det {σ} t v1 v2 :
+    teval σ t v1 → teval σ t v2 → v1 = v2.
   Proof with auto.
-    intros H1 H2. generalize dependent v₂.
-    generalize dependent v₁. generalize dependent t.
-    apply (teval_ind_mut σ (λ t v₁ _, forall v₂, teval σ t v₂ → v₁ = v₂)
-             (λ args vargs₁ _, forall vargs₂, teval_list σ args vargs₂ → vargs₁ = vargs₂)).
+    intros H1 H2. generalize dependent v2.
+    generalize dependent v1. generalize dependent t.
+    apply (teval_ind_mut σ (λ t v1 _, forall v2, teval σ t v2 → v1 = v2)
+             (λ args vargs1 _, forall vargs2, teval_list σ args vargs2 → vargs1 = vargs2)).
     - intros. inversion H...
     - intros. inversion H; subst...
     - intros. inversion H0; subst. inversion H5; subst; inversion f0; subst...
@@ -745,7 +745,7 @@ Section pred_calc_semantics.
       + setoid_rewrite H1 in H4. discriminate.
       + setoid_rewrite H1 in H2. discriminate.
     - inversion 1...
-    - intros. destruct vargs₂.
+    - intros. destruct vargs2.
       + inversion H1.
       + inversion H1; subst. f_equal.
         * apply H...

@@ -1,7 +1,7 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
 From Equations Require Import Equations.
 From stdpp Require Import base tactics listset gmap.
-From Stdlib Require Import Strings.String.
+(* From Stdlib Require Import Strings.String. *)
 From MRC Require Import Prelude.
 From MRC Require Import SeqNotation.
 From MRC Require Import Tactics.
@@ -10,11 +10,40 @@ From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
 From MRC Require Import Prog.
 
+(*TODO: move it, probably the non-prime one is useless *)
+Instance feval_proper_fent' {M σ} : Proper ((@fent M) ==> impl) (feval σ).
+Proof.
+  intros A B H H0. apply H. apply H0.
+Qed.
+
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
 (* TODO: move it *)
 #[global] Hint Unfold universal_relation : core.
+(* Lemma lookup_list_to_map_zip_cons_ne {K A} `{Countable K} *)
+(*     (ks : list K) (xs : list A) (k : K) (x : A) (i : K) `{OfSameLength K A ks xs} : *)
+(*   k ≠ i → *)
+(*   (list_to_map (zip (k :: ks) (x ::xs)) : gmap K A) !! i = *)
+(*     (list_to_map (zip ks xs) : gmap K A) !! i. *)
+(* Proof with auto. *)
+(*   intros. simpl. rewrite lookup_insert_ne... *)
+(* Qed. *)
+(* Proof with auto. *)
+(*   remember (length ks) as n eqn:E. symmetry in E. generalize dependent xs. *)
+(*   generalize dependent ks. induction n; intros. *)
+(*   - simpl. apply length_zero_iff_nil in E. subst. simpl in H1. rewrite lookup_empty in H1. *)
+(*     discriminate. *)
+(*   - assert (E1:=E). rewrite of_same_length in E1. *)
+(*     apply length_nonzero_iff_cons in E as (k'&ks'&->&?). *)
+(*     apply length_nonzero_iff_cons in E1 as (x'&xs'&->&?). subst. simpl in H1. *)
+(*     destruct (decide (k' = k)). *)
+(*     + subst. rewrite lookup_insert in H1. exists 0. simpl. split... *)
+(*     + forward (IHn ks') by reflexivity. forward (IHn xs'). *)
+(*       { unfold OfSameLength... } *)
+(*       rewrite lookup_insert_ne in H1... destruct (IHn H1) as (i&?&?). *)
+(*       exists (S i). simpl. split... *)
+(* Qed. *)
 
 Section refinement.
   Context {M : model}.
@@ -117,6 +146,180 @@ Section refinement.
     apply f_exists_introduce_binder.
   Qed.
 
+  (* Definition x := raw_var "x". *)
+  (* Definition y := raw_var "y". *)
+  (* Definition n2 := raw_var "2". *)
+  (* Definition n5 := raw_var "5". *)
+
+  (* Definition FSForall xs A := <! ∀* xs, A[[*xs \ ]] *)
+
+  (* Infix "⇛ₗ@{ M }" := (@fent M _) (at level 70, only parsing, no associativity) *)
+  (*     : refiney_scope. *)
+  (* Lemma play : *)
+  (*   @fent M *)
+  (*   <! ∀* $([y; x]), ⌜x = y + n2⌝ !> <! ⌜y = n5 + n2⌝ !>. *)
+  (* Proof. *)
+  (*   simpl. rewrite f_forall_elim with (t:=n5). *)
+  (*   rewrite f_forall_elim with (t:=y). *)
+  (*   rewrite simpl_subst_af. simpl. rewrite simpl_subst_af. simpl. *)
+  (*   simpl. *)
+  (*   unfold formula_subst. *)
+  (*   cbn. unfold quant_subst_skip_cond. *)
+  (*   simpl. *)
+  (*   simpl. hnf. *)
+  Lemma teval_var_term_map_det {σ} m mv mv' :
+    @teval_var_term_map M σ m mv →
+    @teval_var_term_map M σ m mv' →
+    mv = mv'.
+  Proof with auto.
+    intros. generalize dependent m. generalize dependent mv'.
+    induction mv as [| x v mv Hx IH] using map_ind; intros.
+    - destruct H as []. destruct H0 as []. rewrite <- H in H0. rewrite dom_empty_L in H0.
+      apply dom_empty_inv_L in H0. subst...
+    - assert (Hmv:=H). assert (Hmv':=H0). destruct H as []. destruct H0 as [].
+      rewrite dom_insert_L in H. symmetry in H. rewrite H in H0.
+      apply dom_union_inv_L in H as (m1&m2&?&?&?&?).
+      2: { apply disjoint_singleton_l. apply not_elem_of_dom... }
+      apply dom_singleton_inv_L in H4 as [t Ht]. subst m1.
+      rewrite <- insert_union_singleton_l in H. subst m. rename m2 into m.
+      apply dom_union_inv_L in H0 as (m1&m2&?&?&?&?).
+      2: { apply disjoint_singleton_l. apply not_elem_of_dom... }
+      apply dom_singleton_inv_L in H4 as [v' Hv']. subst m1.
+      rewrite <- insert_union_singleton_l in H. subst mv'. rename m2 into mv'.
+      assert (teval σ t v).
+      { apply H1 with (x:=x); apply lookup_insert... }
+      assert (teval σ t v').
+      { apply H2 with (x:=x); apply lookup_insert... }
+      clear H1 H2. pose proof (teval_det _ _ _ H H4) as ->. clear H H4.
+      apply (teval_var_term_map_delete x) in Hmv, Hmv'.
+      apply map_disjoint_singleton_l in H3, H0. rewrite (delete_insert) in Hmv, Hmv'...
+      rewrite (delete_insert) in Hmv, Hmv'... rewrite (IH mv' m)...
+  Qed.
+
+  Lemma teval_var_term_map_zip_cons_inv σ x (xs : list variable) t ts mv `{OfSameLength _ _ xs ts} :
+    NoDup (x :: xs) →
+    @teval_var_term_map M σ (to_var_term_map (x :: xs) (t :: ts)) mv →
+    ∃ v mv', teval σ t v ∧ mv = {[x := v]} ∪ mv' ∧ x ∉ dom mv'
+             ∧ @teval_var_term_map M σ (to_var_term_map xs ts) mv'.
+  Proof with auto.
+    intros. generalize dependent mv. generalize dependent ts. generalize dependent t.
+    generalize dependent x. induction xs as [|x' xs' IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->. unfold to_var_term_map in H1. simpl in H1.
+      destruct H1 as []. rewrite insert_empty in H1. rewrite dom_singleton_L in H1.
+      apply dom_singleton_inv_L in H1 as [v ->]. exists v, ∅. split_and!.
+      + eapply H2; [apply lookup_insert|apply lookup_singleton].
+      + rewrite map_union_empty...
+      + apply not_elem_of_empty.
+      + hnf. cbn. split... intros. apply lookup_empty_Some in H1 as [].
+    - apply of_same_length_cons_inv_l in Hl as (t'&ts'&->&?).
+      apply NoDup_cons in H0 as []. forward (IH x')...
+      apply of_same_length_rest in H as Hl. specialize (IH t' ts' Hl).
+      destruct H1 as []. unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1.
+      2:{ typeclasses eauto. } rewrite list_to_set_cons in H1.
+      apply dom_union_inv_L in H1 as (m1&m2&?&?&?&?).
+      2: { set_solver. }
+      apply dom_singleton_inv_L in H6 as [v Hv]. subst m1.
+      rewrite <- insert_union_singleton_l in H1. subst mv. rename m2 into mv.
+      assert (teval_var_term_map σ (to_var_term_map (x' :: xs') (t' :: ts')) mv).
+      { split.
+        - unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        - intros. assert (x0 ≠ x).
+          { intros contra. subst. apply elem_of_dom_2 in H6. rewrite H7 in H6.
+            apply elem_of_list_to_set in H6. contradiction. }
+          apply (H4 x0)...
+          ++ unfold to_var_term_map. simpl. rewrite lookup_insert_ne...
+          ++ rewrite lookup_insert_ne...
+      }
+      destruct (IH mv) as (v'&mv'&?&?&?&?)...
+      exists v, mv. split_and!...
+      + apply (H4 x).
+          * unfold to_var_term_map. simpl. rewrite lookup_insert...
+          * rewrite lookup_insert...
+        + rewrite insert_union_singleton_l...
+        + set_solver.
+  Qed.
+
+  Lemma f_existslist_as_foralllist (xs : list variable) A :
+    <! ∃* xs, A !> ≡ <! ¬ ∀* xs, ¬ A !>.
+  Proof with auto.
+    induction xs as [|x xs IH]; simpl...
+    - rewrite f_not_stable...
+    - intros σ. unfold FForall. rewrite IH... rewrite f_not_stable...
+  Qed.
+  (* Lemma f_exists_intro_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} : *)
+  (*   length xs ≠ 0 → *)
+  (*   NoDup xs → *)
+  (*   <! A[[*xs \ *ts]] !> ⇛ <! ∃* xs, A !>. *)
+  (* Proof with auto. *)
+  (*   generalize dependent ts. generalize dependent A. *)
+  (*   induction xs as [|x xs IH]; intros; assert (Hl:=H). *)
+  (*   1: { simpl in H0. contradiction. } *)
+  (*   apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts. *)
+  (*   clear H0. destruct (length xs) eqn:E. *)
+  (*   1:{ apply length_zero_iff_nil in E, H2. subst. simpl in *. rewrite (ssubst_single A x t). *)
+  (*       apply f_exists_intro... } *)
+  (*   apply of_same_length_rest in H as ?. clear E. simpl. assert (Hunique:=H1). *)
+  (*   apply NoDup_cons in H1 as []. rewrite f_exists_existslist_comm. *)
+  (*   intros σ ?. pose proof (teval_total σ t) as [vt Hvt]. *)
+  (*   rewrite f_exists_intro with (t:=TConst vt). *)
+  (*   specialize (IH <! A[x \ $(TConst vt)] !> ts H0). forward IH by lia. *)
+  (*   rewrite IH in H4... rewrite <- ssubst_extract_inside in H4... *)
+  (*   2: { simpl. set_solver. } *)
+  (*   pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) (t::ts))) as (mv&?). *)
+  (*   rewrite feval_simult_subst with (mv:=mv)... *)
+  (*   pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) ((TConst vt)::ts))) as (mv'&?). *)
+  (*   rewrite feval_simult_subst with (mv:=mv') in H4... *)
+  (*   enough (mv = mv') by (subst mv'; assumption). clear H2 IH H4 A. *)
+  (*   apply of_same_length_rest in H as Hl. *)
+  (*   apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H5 as (v&mv0&?&->&?&?)... *)
+  (*   apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H6 as (v'&mv1&?&->&?&?)... *)
+  (*   inversion H6. subst v0. subst v'. pose proof (teval_det t vt v Hvt H2) as ->. *)
+  (*   pose proof (teval_var_term_map_det _ _ _ H5 H8) as ->... *)
+  (* Qed. *)
+  Lemma f_foralllist_elim_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    length xs ≠ 0 →
+    NoDup xs →
+    <! ∀* xs, A !> ⇛ <! A[[*xs \ *ts]] !>.
+  Proof with auto.
+    generalize dependent ts. generalize dependent A.
+    induction xs as [|x xs IH]; intros; assert (Hl:=H).
+    1: { simpl in H0. contradiction. }
+    apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts.
+    clear H0. destruct (length xs) eqn:E.
+    1:{ apply length_zero_iff_nil in E, H2. subst. simpl in H1. rewrite (ssubst_single A x t).
+        apply f_forall_elim... }
+    apply of_same_length_rest in H as ?. clear E. simpl. assert (Hunique:=H1).
+    apply NoDup_cons in H1 as []. rewrite f_forall_foralllist_comm.
+    intros σ ?. pose proof (teval_total σ t) as [vt Hvt].
+    rewrite f_forall_elim with (t:=TConst vt) in H4.
+    specialize (IH <! A[x \ $(TConst vt)] !> ts H0). forward IH by lia.
+    rewrite IH in H4... rewrite <- ssubst_extract_inside in H4...
+    2: { simpl. set_solver. }
+    pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) (t::ts))) as (mv&?).
+    rewrite feval_simult_subst with (mv:=mv)...
+    pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) ((TConst vt)::ts))) as (mv'&?).
+    rewrite feval_simult_subst with (mv:=mv') in H4...
+    enough (mv = mv') by (subst mv'; assumption). clear H2 IH H4 A.
+    apply of_same_length_rest in H as Hl.
+    apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H5 as (v&mv0&?&->&?&?)...
+    apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H6 as (v'&mv1&?&->&?&?)...
+    inversion H6. subst v0. subst v'. pose proof (teval_det t vt v Hvt H2) as ->.
+    pose proof (teval_var_term_map_det _ _ _ H5 H8) as ->...
+  Qed.
+
+  Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! ¬ (A [[*xs \ *ts]]) !> ≡ <! (¬ A) [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+
+  Lemma f_exists_intro_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    length xs ≠ 0 →
+    NoDup xs →
+    <! A[[*xs \ *ts]] !> ⇛ <! ∃* xs, A !>.
+  Proof with auto.
+    intros. rewrite f_existslist_as_foralllist. rewrite <- f_ent_contrapositive.
+    rewrite f_not_stable. rewrite simpl_ssubst_not. apply f_foralllist_elim_as_ssubst...
+  Qed.
+
   Lemma initial_free_in_final_formula x A :
     formula_final A →
     initial_var_of x ∉ formula_fvars A.
@@ -166,6 +369,7 @@ Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term)
          apply elem_of_list_fmap in H5 as (x2&?&?). subst x1. simpl in H3.
          subst fvars. apply elem_of_singleton in H4. subst x0.
          apply initial_var_of_ne in H4 as []. }
+    rewrite (f_foralllist_elim_as_ssubst <! post ⇒ A !> _ (as_term <$> ts)...
     assert (<! ⌜@*(initial_var_of <$> w ++ xs) =* $(fmap (TVar ∘ as_var) (w ++ xs))⌝
               ⇒ pre ∧ (∀* $(fmap as_var (w ++ xs)),  post ⇒ A) !> ⇛
             <! ⌜@*(initial_var_of <$> w ++ xs) =* $(fmap (TVar ∘ as_var) (w ++ xs))⌝
