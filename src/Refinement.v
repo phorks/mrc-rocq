@@ -27,6 +27,7 @@ Section refinement.
   (* Implicit Types ts : list term. *)
 
 
+  (* Law 1.1 *)
   Lemma r_strengthen_post w pre post post' `{FormulaFinal _ pre} :
     post' ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
@@ -34,6 +35,7 @@ Section refinement.
     intros Hent A Hinit. simpl. f_simpl. rewrite <- Hent. reflexivity.
   Qed.
 
+  (* Law 1.2 *)
   Lemma r_weaken_pre w pre pre' post `{FormulaFinal _ pre} `{FormulaFinal _ pre'} :
     pre ⇛ pre' ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre', post] }>.
@@ -45,7 +47,7 @@ Section refinement.
     w ≡ₚ w' →
     <{ *w : [pre, post] }> ≡ <{ *w' : [pre, post] }>.
   Proof with auto.
-    intros. split; intros A Hfree.
+    intros. split; intros A Hfinal.
     - simpl. f_simpl. rewrite subst_initials_perm with (xs':=w')... f_equiv.
       rewrite f_foralllist_permute with (xs':=(fmap as_var w')).
       + reflexivity.
@@ -61,7 +63,7 @@ Section refinement.
     w ## xs →
     <{ *w, *xs : [pre, post] }> ⊑ <{ *w : [pre, post[_₀\ xs] ] }>.
   Proof with auto.
-    intros Hdisjoint A Hfree. simpl. f_simpl.
+    intros Hdisjoint A Hfinal. simpl. f_simpl.
     rewrite fmap_app. rewrite f_foralllist_app. rewrite f_foralllist_comm.
     rewrite f_foralllist_elim_binders. rewrite subst_initials_app.
     f_equiv. unfold subst_initials at 1. rewrite simpl_seqsubst_foralllist.
@@ -74,6 +76,33 @@ Section refinement.
     f_simpl. rewrite f_subst_initials_final_formula... reflexivity.
   Qed.
 
+  Lemma r_skip' w pre post `{FormulaFinal _ pre} :
+    pre ⇛ post →
+    <{ *w : [pre, post] }> ⊑ skip.
+  Proof with auto.
+    intros. intros A Hfinal. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
+    f_simpl. rewrite <- (f_subst_initials_final_formula pre w)...
+    rewrite <- simpl_subst_initials_and. unfold subst_initials.
+    rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
+    rewrite H0. rewrite f_impl_elim. rewrite f_foralllist_one_point...
+    rewrite fold_subst_initials. rewrite f_subst_initials_final_formula... reflexivity.
+  Qed.
+
+  Lemma r_skip w pre post `{FormulaFinal _ pre} :
+    <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ pre !> ⇛ post →
+    <{ *w : [pre, post] }> ⊑ skip.
+  Proof with auto.
+    intros. intros A Hfinal. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
+    f_simpl. rewrite <- (f_subst_initials_final_formula pre w)...
+    rewrite <- simpl_subst_initials_and. unfold subst_initials.
+    rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
+    rewrite f_impl_dup_hyp.
+    erewrite eqlist_rewrite_l at 2. Unshelve.
+    3: { rewrite <- list_fmap_compose. reflexivity. }
+    rewrite f_and_assoc. rewrite H0. rewrite f_impl_elim. rewrite f_foralllist_one_point...
+    rewrite fold_subst_initials. rewrite f_subst_initials_final_formula... reflexivity.
+  Qed.
+
   Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
     NoDup xs →
@@ -81,8 +110,7 @@ Section refinement.
     <{ *w, *xs : [pre, post] }> ⊑ <{ *xs := *$(FinalRhsTerm <$> ts)  }>.
   Proof with auto.
     intros Hlength Hnodup proviso A Hfinal. simpl. rewrite wp_asgn.
-    assert (<! pre !> ≡ <! pre [_₀\w ++ xs] !>) as ->.
-    { rewrite f_subst_initials_final_formula...  }
+    rewrite <- (f_subst_initials_final_formula pre w)...
     rewrite <- simpl_subst_initials_and. rewrite fmap_app.
     unfold subst_initials. rewrite <- f_foralllist_one_point...
     rewrite f_foralllist_app. rewrite (f_foralllist_elim_binders (as_var <$> w)).
@@ -127,7 +155,7 @@ Lemma assignment : forall pre post x E,
   pre ⇛ post[x \ E] ->
   <{ x : [pre, post] ⊑ x := E }>.
 Proof.
-  intros pre post w E H A Hfree. simpl. etrans.
+  intros pre post w E H A Hfinal. simpl. etrans.
   -
   simpl. 
 Qed.
