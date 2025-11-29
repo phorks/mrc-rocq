@@ -1,5 +1,5 @@
 From Equations Require Import Equations.
-From stdpp Require Import fin_maps.
+From stdpp Require Import fin_maps gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -501,6 +501,58 @@ Section subst.
     unfold FForall. simp feval. setoid_rewrite (simpl_subst_not). split; intros.
     - destruct (feval_lem σ <! A [x \ $(TConst v)] !>)... exfalso. apply H. exists v. simp feval.
     - intros [v contra]. simp feval in contra...
+  Qed.
+
+  Lemma teval_delete_bottom_from_state σ x t v :
+    x ∉ dom σ →
+    teval (<[x:=value_bottom M]> σ) t v ↔ teval σ t v.
+  Proof with auto.
+    intros. generalize dependent v. induction t; intros.
+    - split; inversion 1...
+    - split; inversion 1; subst x1.
+      + destruct (decide (x = x0)).
+        * subst x0. rewrite (lookup_total_insert σ) in H2. subst v0. constructor.
+          rewrite (lookup_total_alt σ). apply (not_elem_of_dom σ) in H. rewrite H.
+          simpl...
+        * rewrite (lookup_total_insert_ne σ) in H2...
+      + destruct (decide (x = x0)).
+        * subst x0 v0. rewrite (lookup_total_alt σ) in H2. apply (not_elem_of_dom σ) in H.
+          rewrite H in H2. simpl in H2. rewrite H2. constructor.
+          rewrite (lookup_total_insert σ)...
+        * constructor. rewrite (lookup_total_insert_ne σ)...
+    - split; inversion 1; subst; apply TEval_App with (vargs:=vargs)...
+      + clear H1 H6. generalize dependent vargs. induction args; intros.
+        * inversion H4. subst. constructor.
+        * inversion H4. subst. constructor.
+          -- rewrite <- H0... left...
+          -- apply IHargs... intros. apply H0. right...
+      + clear H1 H6. generalize dependent vargs. induction args; intros.
+        * inversion H4. subst. constructor.
+        * inversion H4. subst. constructor.
+          -- rewrite H0... left...
+          -- apply IHargs... intros. apply H0. right...
+  Qed.
+
+  Lemma afeval_delete_bottom_from_state σ x af :
+    x ∉ dom σ →
+    afeval (<[x:=value_bottom M]> σ) af ↔ afeval σ af.
+  Proof with auto.
+    intros. destruct af...
+    - simpl. setoid_rewrite teval_delete_bottom_from_state...
+    - simpl. split; intros (vargs&?&?); exists vargs; split; auto; clear H1;
+        generalize dependent vargs; induction args; intros; inversion H0; subst;
+        try constructor...
+      + rewrite <- (teval_delete_bottom_from_state _ x a v)...
+      + rewrite (teval_delete_bottom_from_state _ x a v)...
+  Qed.
+
+  Lemma feval_delete_bottom_from_state σ x A :
+    x ∉ dom σ →
+    feval (<[x:=value_bottom M]> σ) A ↔ feval σ A.
+  Proof with auto.
+    intros. induction A; simp feval.
+    2-5: naive_solver.
+    apply afeval_delete_bottom_from_state...
   Qed.
 
 End subst.

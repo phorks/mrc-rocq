@@ -583,7 +583,6 @@ Notation "e" := e (in custom term at level 0, e constr at level 0) : refiney_sco
 Notation "$( e )" := e (in custom term at level 0, only parsing,
                           e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom term, e custom term at level 200) : refiney_scope.
-Notation "₀ x" := (initial_var_of x) (in custom term at level 5).
 Notation "t + u" := (TApp "+" (@cons term t (@cons term u nil)))
                       (in custom term at level 50,
                           t custom term,
@@ -662,22 +661,36 @@ Notation "A [ x \ t ]" := (subst_formula A x t)
                                 A custom formula,
                                 x constr at level 0, t custom formula) : refiney_scope.
 
-Declare Custom Entry term_seq_notation.
+Declare Custom Entry term_seq.
 Declare Custom Entry term_seq_elem.
 
-Notation "xs" := (xs) (in custom term_seq_notation at level 0,
+Notation "xs" := (xs) (in custom term_seq at level 0,
                        xs custom term_seq_elem)
     : refiney_scope.
-Notation "∅" := ([]) (in custom term_seq_notation at level 0)
+Notation "∅" := ([]) (in custom term_seq at level 0)
     : refiney_scope.
 
-Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at level 200)
+Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at level 70)
     : refiney_scope.
 Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "*$( x )" := x (in custom term_seq_elem at level 5, x constr at level 200)
+Notation "*$( x )" := x (in custom term_seq_elem at level 5, only parsing, x constr at level 200)
     : refiney_scope.
 Infix "," := app (in custom term_seq_elem at level 10, right associativity) : refiney_scope.
+
+Notation "(¬)ₗ" := FNot (only parsing) : refiney_scope.
+Notation "(∧)ₗ" := FAnd (only parsing) : refiney_scope.
+Notation "( X ∧.)ₗ" := (FAnd X) (only parsing) : refiney_scope.
+Notation "(.∧ X )ₗ" := (λ Y, FAnd X Y) (only parsing) : refiney_scope.
+Notation "(∨)ₗ" := FAnd (only parsing) : refiney_scope.
+Notation "( X ∨.)ₗ" := (FOr X) (only parsing) : refiney_scope.
+Notation "(.∨ X )ₗ" := (λ Y, FOr X Y) (only parsing) : refiney_scope.
+Notation "(⇒)ₗ" := FImpl (only parsing) : refiney_scope.
+Notation "( X ⇒.)ₗ" := (FImpl X) (only parsing) : refiney_scope.
+Notation "(.⇒ X )ₗ" := (λ Y, FImpl X Y) (only parsing) : refiney_scope.
+Notation "(⇔)ₗ" := FIff (only parsing) : refiney_scope.
+Notation "( X ⇔.)ₗ" := (FIff X) (only parsing) : refiney_scope.
+Notation "(.⇔ X )ₗ" := (λ Y, FIff X Y) (only parsing) : refiney_scope.
 
 Ltac fold_qrank_subst n A x t :=
   let R := fresh in

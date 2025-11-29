@@ -114,8 +114,8 @@ Section simult_subst.
 
   Local Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
                               (in custom formula at level 74, left associativity,
-                                xs custom seq_notation,
-                                ts custom seq_notation) : refiney_scope.
+                                xs custom var_seq,
+                                ts custom term_seq) : refiney_scope.
 
   Definition teval_var_term_map σ m mv :=
       dom mv = dom m ∧ ∀ x t v, m !! x = Some t → mv !! x = Some v → teval σ t v.
@@ -159,6 +159,78 @@ Section simult_subst.
         inversion H2; inversion H1; subst.
       + rewrite (lookup_delete_ne mv) in H2... rewrite (lookup_delete_ne m) in H1...
         apply (H0 _ _ _ H1 H2).
+  Qed.
+
+  Lemma teval_var_term_map_det {σ} m mv mv' :
+    teval_var_term_map σ m mv →
+    teval_var_term_map σ m mv' →
+    mv = mv'.
+  Proof with auto.
+    intros. generalize dependent m. generalize dependent mv'.
+    induction mv as [| x v mv Hx IH] using map_ind; intros.
+    - destruct H as []. destruct H0 as []. rewrite <- H in H0. rewrite dom_empty_L in H0.
+      apply dom_empty_inv_L in H0. subst...
+    - assert (Hmv:=H). assert (Hmv':=H0). destruct H as []. destruct H0 as [].
+      rewrite dom_insert_L in H. symmetry in H. rewrite H in H0.
+      apply dom_union_inv_L in H as (m1&m2&?&?&?&?).
+      2: { apply disjoint_singleton_l. apply not_elem_of_dom... }
+      apply dom_singleton_inv_L in H4 as [t Ht]. subst m1.
+      rewrite <- insert_union_singleton_l in H. subst m. rename m2 into m.
+      apply dom_union_inv_L in H0 as (m1&m2&?&?&?&?).
+      2: { apply disjoint_singleton_l. apply not_elem_of_dom... }
+      apply dom_singleton_inv_L in H4 as [v' Hv']. subst m1.
+      rewrite <- insert_union_singleton_l in H. subst mv'. rename m2 into mv'.
+      assert (teval σ t v).
+      { apply H1 with (x:=x); apply lookup_insert... }
+      assert (teval σ t v').
+      { apply H2 with (x:=x); apply lookup_insert... }
+      clear H1 H2. pose proof (teval_det _ _ _ H H4) as ->. clear H H4.
+      apply (teval_var_term_map_delete x) in Hmv, Hmv'.
+      apply map_disjoint_singleton_l in H3, H0. rewrite (delete_insert) in Hmv, Hmv'...
+      rewrite (delete_insert) in Hmv, Hmv'... rewrite (IH mv' m)...
+  Qed.
+
+  Lemma teval_var_term_map_zip_cons_inv σ x xs t ts mv `{OfSameLength _ _ xs ts} :
+    NoDup (x :: xs) →
+    teval_var_term_map σ (to_var_term_map (x :: xs) (t :: ts)) mv →
+    ∃ v mv', teval σ t v ∧ mv = {[x := v]} ∪ mv' ∧ x ∉ dom mv'
+             ∧ teval_var_term_map σ (to_var_term_map xs ts) mv'.
+  Proof with auto.
+    intros. generalize dependent mv. generalize dependent ts. generalize dependent t.
+    generalize dependent x. induction xs as [|x' xs' IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->. unfold to_var_term_map in H1. simpl in H1.
+      destruct H1 as []. rewrite insert_empty in H1. rewrite dom_singleton_L in H1.
+      apply dom_singleton_inv_L in H1 as [v ->]. exists v, ∅. split_and!.
+      + eapply H2; [apply lookup_insert|apply lookup_singleton].
+      + rewrite map_union_empty...
+      + apply not_elem_of_empty.
+      + hnf. cbn. split... intros. apply lookup_empty_Some in H1 as [].
+    - apply of_same_length_cons_inv_l in Hl as (t'&ts'&->&?).
+      apply NoDup_cons in H0 as []. forward (IH x')...
+      apply of_same_length_rest in H as Hl. specialize (IH t' ts' Hl).
+      destruct H1 as []. unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1.
+      2:{ typeclasses eauto. } rewrite list_to_set_cons in H1.
+      apply dom_union_inv_L in H1 as (m1&m2&?&?&?&?).
+      2: { set_solver. }
+      apply dom_singleton_inv_L in H6 as [v Hv]. subst m1.
+      rewrite <- insert_union_singleton_l in H1. subst mv. rename m2 into mv.
+      assert (teval_var_term_map σ (to_var_term_map (x' :: xs') (t' :: ts')) mv).
+      { split.
+        - unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        - intros. assert (x0 ≠ x).
+          { intros contra. subst. apply elem_of_dom_2 in H6. rewrite H7 in H6.
+            apply elem_of_list_to_set in H6. contradiction. }
+          apply (H4 x0)...
+          ++ unfold to_var_term_map. simpl. rewrite lookup_insert_ne...
+          ++ rewrite lookup_insert_ne...
+      }
+      destruct (IH mv) as (v'&mv'&?&?&?&?)...
+      exists v, mv. split_and!...
+      + apply (H4 x).
+          * unfold to_var_term_map. simpl. rewrite lookup_insert...
+          * rewrite lookup_insert...
+        + rewrite insert_union_singleton_l...
+        + set_solver.
   Qed.
 
   Lemma simult_subst_term_id t m :
@@ -685,9 +757,26 @@ Section simult_subst.
           rewrite (fexists_alpha_equiv x x' A)...
   Qed.
 
+  Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (¬ A) [[*xs \ *ts]] !> ≡ <! ¬ (A [[*xs \ *ts]]) !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∧ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∨ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇒ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
+  Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇔ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
+  Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
+
+
 End simult_subst.
 
 Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
                             (in custom formula at level 74, left associativity,
-                              xs custom seq_notation,
-                              ts custom seq_notation) : refiney_scope.
+                              xs custom var_seq,
+                              ts custom term_seq) : refiney_scope.

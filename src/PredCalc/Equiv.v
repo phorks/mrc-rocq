@@ -120,7 +120,7 @@ Section equiv.
     intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
   Qed.
 
-  Global Instance feval_proper_fent : Proper ((=) ==> (fent) ==> (→)) feval.
+  Global Instance feval_proper_fent : Proper ((=) ==> fent ==> impl) feval.
   Proof with auto.
     intros σ ? <- A B Hent H. apply Hent...
   Qed.

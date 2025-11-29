@@ -90,7 +90,7 @@ Section prog.
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
     | PSpec w pre post =>
-        <! pre ∧ (∀* $(as_var <$> w), post ⇒ A)[_₀\ w] !>
+        <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
     | PVar x p => <! ∀ x, $(wp p A) !>
     | PConst x p => <! ∃ x, $(wp p A) !>
     end.
@@ -240,12 +240,34 @@ Notation "xs" := (xs) (in custom asgn_rhs_seq at level 0,
 Notation "∅" := ([]) (in custom asgn_rhs_seq at level 0)
     : refiney_scope.
 
-Notation "x" := ([FinalRhsTerm (as_final_term x)]) (in custom asgn_rhs_elem at level 0, x custom term at level 200)
+Notation "x" := ([FinalRhsTerm (as_final_term x)]) (in custom asgn_rhs_elem at level 0,
+                      x custom term at level 200)
     : refiney_scope.
 Notation "?" := ([OpenRhsTerm]) (in custom asgn_rhs_elem at level 0) : refiney_scope.
 Notation "* x" := x (in custom asgn_rhs_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "*$( x )" := x (in custom asgn_rhs_elem at level 5, x constr at level 200)
+Notation "*$( x )" := x (in custom asgn_rhs_elem at level 5, only parsing, x constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ₊ xs" := (TVar <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ₊( xs )" := (TVar <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
+                      (in custom asgn_rhs_elem at level 5, ts constr at level 0)
     : refiney_scope.
 Infix "," := app (in custom asgn_rhs_elem at level 10, right associativity) : refiney_scope.
 
@@ -263,7 +285,7 @@ Notation "$( e )" := e (in custom prog at level 0, only parsing,
 
 Notation "xs := ts" := (PAsgnWithOpens xs ts)
                        (in custom prog at level 95,
-                           xs custom seq_notation at level 94,
+                           xs custom var_seq at level 94,
                            ts custom asgn_rhs_seq at level 94,
                            no associativity)
     : refiney_scope.
@@ -301,7 +323,7 @@ Notation "'while' A ⟶ p 'end" :=
 Notation "w : [ p , q ]" :=
   (PSpec w (as_final_formula p) q)
     (in custom prog at level 95, no associativity,
-        w custom seq_notation at level 94,
+        w custom var_seq at level 94,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
 
@@ -355,7 +377,7 @@ Section prog.
   Implicit Types xs : list final_variable.
 
   Lemma wp_asgn xs ts A `{OfSameLength _ _ xs ts} :
-    wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>.
+    wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[ ↑ₓ xs \ ⇑ₜ ts]] !>.
   Proof with auto.
     rewrite PAsgnWithOpens_no_opens. simpl...
   Qed.

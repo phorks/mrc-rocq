@@ -1,5 +1,5 @@
 From Equations Require Import Equations.
-From stdpp Require Import fin_maps.
+From stdpp Require Import fin_maps gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -590,6 +590,25 @@ Section props.
   Proof with auto.
     intros σ. simp feval. intros. pose proof (teval_total σ t) as [v Hv].
     exists v. rewrite (feval_subst v) in H... rewrite (feval_subst v)...
+  Qed.
+
+  Lemma f_exists_intro_binder x A :
+    A ⇛ <! ∃ x, A !>.
+  Proof with auto.
+    intros σ H. simp feval. pose proof (teval_total σ x) as [v Hv].
+    exists v. rewrite feval_subst with (v:=v)... inversion Hv.
+    subst x0. subst v0. unfold state in *.
+    rewrite lookup_total_alt in H1. destruct (σ !! x) eqn:E.
+    + simpl in H1. subst. rewrite insert_id...
+    + simpl in H1. rewrite <- H1. rewrite feval_delete_bottom_from_state...
+      apply (not_elem_of_dom σ)...
+  Qed.
+
+  Lemma f_forall_elim_binder A x :
+    <! ∀ x, A !> ⇛ A.
+  Proof with auto.
+    unfold FForall. apply f_ent_contrapositive. rewrite f_not_stable.
+    apply f_exists_intro_binder.
   Qed.
 
   Lemma f_impl_elim A B :

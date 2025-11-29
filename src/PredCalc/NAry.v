@@ -10,6 +10,7 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
+From MRC Require Import PredCalc.FinalElements.
 From MRC Require Import PredCalc.EquivLemmas.
 
 Section syntactic.
@@ -189,6 +190,7 @@ Section syntactic.
           rewrite fvars_subst_non_free; rewrite IH; clear IH; set_solver.
   Qed.
 
+  (* [seqsubst] facts *)
   Lemma simpl_seqsubst_not A xs ts `{OfSameLength _ _ xs ts} :
     seqsubst <! ¬ A !> xs ts = <! ¬ $(seqsubst A xs ts) !>.
   Proof with auto.
@@ -264,40 +266,83 @@ Section syntactic.
     unfold subst_initials. apply simpl_seqsubst_iff.
   Qed.
 
+  (** [FEqList] facts *)
+  Lemma eqlist_nil `{H : OfSameLength _ _ [] [] } :
+    @FEqList [] [] H = <! true !>.
+  Proof. unfold FEqList. reflexivity. Qed.
+
+  Lemma eqlist_cons t1 t2 ts1 ts2
+    {H1 : OfSameLength ts1 ts2}
+    {H2 : OfSameLength (t1 :: ts1) (t2 :: ts2)} :
+    @FEqList (t1 :: ts1) (t2 :: ts2) H2 =
+      <! ⌜t1 = t2⌝ ∧ $(@FEqList ts1 ts2 H1) !>.
+  Proof. reflexivity. Qed.
+
+  (** [subst_initials] facts *)
+  Lemma subst_initials_zip_pair_functional (xs : list final_variable) :
+    zip_pair_functional (initial_var_of <$> xs) (@TVar value ∘ as_var <$> xs).
+  Proof.
+    unfold zip_pair_functional. intros.
+    rewrite elem_of_zip_pair_indexed in H0, H1. destruct H0 as []. destruct H1 as [].
+    apply list_lookup_fmap_inv in H0 as (x1&?&?).
+    apply list_lookup_fmap_inv in H1 as (x2&?&?).
+    apply list_lookup_fmap_inv in H2 as (x3&?&?).
+    apply list_lookup_fmap_inv in H3 as (x4&?&?).
+    rewrite H4 in H6. inversion H6. subst x3. rewrite H5 in H7.
+    inversion H7. subst x4. clear H6 H7. rewrite H0 in H1.
+    rewrite H2. rewrite H3. f_equal. apply initial_var_of_inj in H1. assumption.
+  Qed.
+
+  Lemma subst_initials_vars_terms_disjoint (xs : list final_variable) :
+    list_to_set (initial_var_of <$> xs) ## ⋃ (@term_fvars value <$> (TVar ∘ as_var <$> xs)).
+  Proof.
+    intros x0 H1 H2. set_unfold. destruct H1 as (x&?&?). subst.
+    apply elem_of_union_list in H2 as (fvars&?&?).
+    apply elem_of_list_fmap in H as (x1&?&?). apply elem_of_list_fmap in H2 as (x2&?&?).
+    subst x1. simpl in H. subst fvars. apply elem_of_singleton in H1.
+    apply initial_var_of_eq_final_variable in H1 as [].
+  Qed.
+
+  Lemma fold_subst_initials A w :
+    seqsubst A (initial_var_of <$> w) (TVar ∘ as_var <$> w) = subst_initials A w.
+  Proof. reflexivity. Qed.
+
 End syntactic.
 
-Notation "ts =* us" := (FEqList ts us)
-                      (in custom term_relation at level 60,
-                          ts custom term at level 60,
-                          us custom term at level 60,
-                          no associativity) : refiney_scope.
-Notation "@ x" := (TVar x)
-                       (in custom term at level 0,
-                           only parsing,
-                           x constr at level 0) : refiney_scope.
-Notation "@* xs" := (TVar <$> xs)
-                       (in custom term at level 0,
-                           xs constr at level 0) : refiney_scope.
-Notation "∧* As" := (FAndList As) (in custom formula at level 75, right associativity) : refiney_scope.
-Notation "∧* As" := (FAndList As) (in custom formula at level 75, right associativity) : refiney_scope.
-Notation "∨* As" := (FOrList As) (in custom formula at level 75, right associativity) : refiney_scope.
+Hint Resolve subst_initials_zip_pair_functional : core.
+Hint Resolve subst_initials_vars_terms_disjoint : core.
+
+
+Notation "⎡ ts =* us ⎤" := (FEqList ts us)
+                      (in custom formula,
+                          ts custom term_list,
+                          us custom term_list) : refiney_scope.
+
+Notation "∧* Bs" := (FAndList Bs) (in custom formula at level 75,
+                          Bs custom formula_list,
+                          right associativity) : refiney_scope.
+Notation "∨* Bs" := (FOrList Bs) (in custom formula at level 75,
+                          Bs custom formula_list,
+                          right associativity) : refiney_scope.
 Notation "∃* xs , A" := (FExistsList xs A)
-                          (in custom formula at level 99, only parsing)
+                          (in custom formula at level 99, xs custom variable_list, only parsing)
     : refiney_scope.
 Notation "∃* xs ● A" := (FExistsList xs A)
-                          (in custom formula at level 99, only printing)
+                          (in custom formula at level 99, xs custom variable_list, only printing)
     : refiney_scope.
 Notation "∀* xs , A" := (FForallList xs A)
-                              (in custom formula at level 99, only parsing)
-    :refiney_scope.
+                              (in custom formula at level 99,
+                                  xs custom variable_list, only parsing)
+    : refiney_scope.
 Notation "∀* xs ● A" := (FForallList xs A)
-                              (in custom formula at level 99, only printing)
-    :refiney_scope.
+                              (in custom formula at level 99,
+                                  xs custom variable_list, only printing)
+    : refiney_scope.
 
 Notation "A [; xs \ ts ;]" := (seqsubst A xs ts)
                                 (in custom formula at level 74, left associativity,
-                                    xs custom seq_notation,
-                                    ts custom term_seq_notation) : refiney_scope.
+                                    xs custom var_seq,
+                                    ts custom term_seq) : refiney_scope.
 
 Notation "A [_₀\ w ]" := (subst_initials A w)
                             (in custom formula at level 74, left associativity,
@@ -540,7 +585,7 @@ Section semantic.
     split... split...
   Qed.
 
-  (** Sequential substitution **)
+  (** [seqsubst] facts **)
 
   Lemma seqsubst_cons A x t xs ts
     {Hl1 : OfSameLength xs ts} {Hl2 : OfSameLength (x :: xs) (t :: ts)} :
@@ -586,6 +631,18 @@ Section semantic.
     @seqsubst _ A (xs ++ [x]) (ts ++ [t]) Hl2 ≡ @seqsubst _ (<! A [x \ t] !>) xs ts Hl1.
   Proof with auto.
     simpl. rewrite (seqsubst_app A xs ts [x] [t]). f_equiv.
+  Qed.
+
+  Lemma seqsubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
+    formula_fvars A ## list_to_set xs →
+    <! A[; *xs \ *ts ;] !> ≡ A.
+  Proof with auto.
+    generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->. simpl...
+    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts. simpl...
+      rewrite IH.
+      2:{ set_solver. }
+      rewrite fequiv_subst_non_free... set_solver.
   Qed.
 
   (**  Proper Instances  **)
@@ -864,7 +921,7 @@ Section semantic.
       + simp feval in H. destruct H as [v Hv]. rewrite feval_subst with (v:=v) in Hv...
         apply IH in Hv as (vs&Hl&?). exists (v :: vs), of_same_length_cons.
         simpl. rewrite feval_subst with (v:=v)...
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper... reflexivity.
+        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
     - generalize dependent σ. induction xs as [|x xs' IH]; intros.
       + destruct H as (vs&Hl&?). apply of_same_length_nil_inv_l in Hl as ?. subst. simpl in H...
       + destruct H as (vs&Hl&?). apply of_same_length_cons_inv_l in Hl as ?.
@@ -872,7 +929,7 @@ Section semantic.
         simpl in H. rewrite feval_subst with (v:=v) in H... exists v.
         rewrite feval_subst with (v:=v)... apply IH. exists vs'.
         apply of_same_length_rest in Hl as ?. exists H0.
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper... reflexivity.
+        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
   Qed.
 
   Lemma simpl_feval_foralllist σ xs A :
@@ -889,14 +946,14 @@ Section semantic.
         rewrite simpl_feval_fforall in H. specialize (H v).
         rewrite feval_subst with (v:=v) in H...
         apply (IH vs' (@of_same_length_rest _ _ _ _ _ _ H0)) in H.
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper... reflexivity.
+        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
     - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
       + specialize (H [] of_same_length_nil). simpl in H...
       + rewrite simpl_feval_fforall. intros. rewrite feval_subst with (v:=v)...
         (* TODO: maybe rename fforall in [simpl_feval_fforall] to forall? *)
         apply IH. intros. specialize (H (v::vs) (of_same_length_cons)). simpl in H.
         rewrite feval_subst with (v:=v) in H...
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper... reflexivity.
+        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
   Qed.
 
 End semantic.

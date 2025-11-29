@@ -173,6 +173,11 @@ Section final_elements.
   Lemma as_formula_as_final_formula A `{FormulaFinal A} : as_formula (as_final_formula A) = A.
   Proof. unfold as_final_formula, as_formula. reflexivity. Qed.
 
+  Lemma initial_var_of_elem_of_formula_fvars x A :
+    initial_var_of x ∈ formula_fvars A →
+    ¬ formula_final A.
+  Proof. intros. intros contra. apply contra in H. cbv in H. discriminate. Qed.
+
   (* Axiom v : V. *)
   (* Axiom x : final_variable. *)
   (* Axiom y : variable. *)
@@ -191,25 +196,108 @@ Section final_elements.
 
 End final_elements.
 
-Notation "%% t" := (as_term t)
-                     (in custom term at level 0, only parsing,
-                         t constr at level 0) : refiney_scope.
-(* Notation "% x" := (as_var x) *)
-(*                        (in custom term at level 0, *)
-(*                            only parsing, *)
-(*                            x constr at level 0) : refiney_scope. *)
-Notation "% xs" := (as_var <$> xs)
-                       (in custom term at level 0,
-                           xs constr at level 0) : refiney_scope.
+Notation "₀ x" := (initial_var_of x) (in custom term at level 5) : refiney_scope.
 
-Notation "%₀ xs" := (initial_var_of <$> xs)
-                       (in custom term at level 0,
-                           xs constr at level 0) : refiney_scope.
+Declare Custom Entry variable_list.
+Declare Custom Entry term_list.
+Declare Custom Entry formula_list.
 
-Notation "% A" := (as_formula A)
-                    (in custom formula at level 0, only parsing,
-                        A constr at level 0) : refiney_scope.
+(* ******************************************************************* *)
+(* variable lists (e.g., binders of [∀*], [∃*])                        *)
+(* ******************************************************************* *)
+Notation "e" := e (in custom variable_list at level 0, e constr at level 0)
+    : refiney_scope.
+Notation "↑ₓ xs" := (as_var <$> xs : list variable)
+                      (in custom variable_list at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "↑ₓ( xs )" := (as_var <$> xs : list variable)
+                      (in custom variable_list at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "↑₀ xs" := (initial_var_of <$> xs : list variable)
+                      (in custom variable_list at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "↑₀( xs )" := (initial_var_of <$> xs : list variable)
+                      (in custom variable_list at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "$( e )" := e (in custom variable_list at level 5,
+                           only parsing,
+                           e constr at level 200)
+    : refiney_scope.
 
+(* ******************************************************************* *)
+(* term lists (e.g., rhs of [=*])                                      *)
+(* ******************************************************************* *)
+Notation "e" := e (in custom term_list at level 0, e constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom term_list at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom term_list at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ₊ xs" := (TVar <$> xs : list (@term _))
+                      (in custom term_list at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ₊( xs )" := (TVar <$> xs : list (@term _))
+                      (in custom term_list at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom term_list at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom term_list at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
+                      (in custom term_list at level 5, ts constr at level 0)
+    : refiney_scope.
+Notation "⇑ₜ( ts )" := (as_term <$> ts : list (@term _))
+                      (in custom term_list at level 5, only parsing, ts constr at level 200)
+    : refiney_scope.
+Notation "$( e )" := e (in custom term_list at level 5,
+                           only parsing,
+                           e constr at level 200)
+    : refiney_scope.
+
+(* ******************************************************************* *)
+(* formula lists (e.g., args of [∧*], [∨*])                            *)
+(* ******************************************************************* *)
+Notation "e" := e (in custom formula_list at level 0, e constr at level 0)
+    : refiney_scope.
+Notation "⤊ Bs" := (as_formula <$> Bs : list (@formula _))
+                      (in custom formula_list at level 5, Bs constr at level 0)
+    : refiney_scope.
+Notation "⤊( Bs )" := (as_formula <$> Bs : list (@formula _))
+                      (in custom formula_list at level 5, only parsing, Bs constr at level 200)
+    : refiney_scope.
+Notation "$( e )" := e (in custom formula_list at level 5,
+                           only parsing,
+                           e constr at level 200)
+    : refiney_scope.
+
+(* ******************************************************************* *)
+(* term_seq elements (e.g., right part of [[_ \ _]])                   *)
+(* ******************************************************************* *)
+Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ₊ xs" := (TVar <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ₊( xs )" := (TVar <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (in custom term_seq_elem at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
+                      (in custom term_seq_elem at level 5, ts constr at level 0)
+    : refiney_scope.
 Notation "<!! e !!>" := (as_final_formula e) (e custom formula) : refiney_scope.
 
 Arguments final_term V : clear implicits.

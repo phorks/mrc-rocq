@@ -8,11 +8,11 @@ src/PredCalc/Basic.v
 src/PredCalc/SyntacticFacts.v
 src/PredCalc/Equiv.v
 src/PredCalc/SemanticFacts.v
+src/PredCalc/FinalElements.v
 src/PredCalc/EquivLemmas.v
 src/PredCalc/NAry.v
-src/PredCalc/NAryEquivLemmas.v
-src/PredCalc/FinalElements.v
 src/PredCalc/SimultSubst.v
+src/PredCalc/NAryEquivLemmas.v
 src/PredCalc/Tactics.v
 src/PredCalc.v
 src/Prog.v
