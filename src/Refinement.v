@@ -41,76 +41,38 @@ Section refinement.
     intros Hent A Hinit. simpl. f_simpl. assumption.
   Qed.
 
-  Lemma r_contract_frame (x : final_variable) pre post `{FormulaFinal _ pre} :
-    <{ x : [pre, post] }> ⊑ <{ : [pre, post[₀x\x] ] }>.
+  Lemma r_permute_frame w w' pre post `{FormulaFinal _ pre} :
+    w ≡ₚ w' →
+    <{ *w : [pre, post] }> ≡ <{ *w' : [pre, post] }>.
   Proof with auto.
-    intros A Hfree. simpl. f_simpl. rewrite f_forall_elim_binder.
-    unfold subst_initials. simpl. rewrite simpl_subst_impl.
-    rewrite fequiv_subst_non_free with (A:=A).
-    - reflexivity.
-    - intros contra. apply initial_var_of_elem_of_formula_fvars in contra. contradiction.
+    intros. split; intros A Hfree.
+    - simpl. f_simpl. rewrite subst_initials_perm with (xs':=w')... f_equiv.
+      rewrite f_foralllist_permute with (xs':=(fmap as_var w')).
+      + reflexivity.
+      + apply Permutation_map...
+    - symmetry in H0. simpl. f_simpl. rewrite subst_initials_perm with (xs':=w)... f_equiv.
+      rewrite f_foralllist_permute with (xs':=(fmap as_var w)).
+      + reflexivity.
+      + apply Permutation_map...
   Qed.
 
-(* Ltac split_eqlist_fmap_app l1 l2 f g := *)
-(*   repeat match goal with *)
-(*     | H : context[@FEqList (f <$> l1 ++ l2) (f <$> l1 ++ l2) ?Hlength] |- _ => *)
-(*         rewrite (@f_eqlist_fmap_app _ l1 l2 ?f ?g ?Hlength _ _) in H *)
-(*     | |- context[@FEqList (f <$> l1 ++ l2) (g <$> l1 ++ l2) ?Hlength] => *)
-(*         assert (True); *)
-(*         rewrite (@f_eqlist_fmap_app _ l1 l2 ?f ?g ?Hlength _ _) *)
-(*     | |- context[FEqList (?f <$> ?l1) ?l2] => *)
-(*         let H := fresh in *)
-(*         idtac f l1 *)
-(*     end. *)
-
-(* Notation "↑ₓ xs" := (as_var <$> xs : list variable) (at level 0, *)
-(*                       xs constr at level 0) : refiney_scope. *)
-(* Notation "↑₀ xs" := (initial_var_of <$> xs : list variable) (at level 0, *)
-(*                       xs constr at level 0) : refiney_scope. *)
-(* Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list term) (at level 0, *)
-(*                       xs constr at level 0) : refiney_scope. *)
-(* Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list term) (at level 0, *)
-(*                       xs constr at level 0) : refiney_scope. *)
-(* Notation "⇑ₜ ts" := (as_term <$> ts : list term) (at level 0, *)
-(*                       ts constr at level 0) : refiney_scope. *)
-(* Notation "₀ xs" := (initial_var_of <$> xs : list variable) (at level 0, *)
-(*                       xs constr at level 0) : refiney_scope. *)
-
-(* Notation "xs |ₓ" := (as_var <$> xs : list variable) (at level 0). *)
-(* Notation "xs |ₓ₀" := (initial_var_of <$> xs : list variable) (at level 0). *)
-(* Notation "xs |ₜ" := (TVar ∘ as_var <$> xs : list term) (at level 0). *)
-(* Axiom xs : list final_variable. *)
-(* Definition x := xs|ₓ₀. *)
-(* Definition t := xs|ₜ. *)
-(* Notation "'ₓ( xs )" := (as_var <$> xs : list term) (at level 0). *)
-(* Notation "' xs" := (TVar ∘ as_var <$> xs : list term) *)
-(*                        (in custom term at level 0, *)
-(*                            xs constr at level 0) : refiney_scope. *)
-(* Notation "'₀ xs" := (TVar ∘ initial_var_of <$> xs : list term) *)
-(*                        (in custom term at level 0, *)
-(*                            xs constr at level 0) : refiney_scope. *)
-
-(* Notation "%% t" := (as_term t) *)
-(*                      (in custom term at level 0, only parsing, *)
-(*                          t constr at level 0) : refiney_scope. *)
-(* (* Notation "% x" := (as_var x) *) *)
-(* (*                        (in custom term at level 0, *) *)
-(* (*                            only parsing, *) *)
-(* (*                            x constr at level 0) : refiney_scope. *) *)
-(* Notation "% xs" := (as_var <$> xs) *)
-(*                        (in custom term at level 0, *)
-(*                            xs constr at level 0) : refiney_scope. *)
-
-(* Notation "%₀ xs" := (initial_var_of <$> xs) *)
-(*                        (in custom term at level 0, *)
-(*                            xs constr at level 0) : refiney_scope. *)
-
-(* Notation "% A" := (as_formula A) *)
-(*                     (in custom formula at level 0, only parsing, *)
-(*                         A constr at level 0) : refiney_scope. *)
-
-(* Notation "↑ₓ x" := () *)
-(* ₜₓ *)
+  (* Law 5.4 *)
+  Lemma r_contract_frame w xs pre post `{FormulaFinal _ pre} :
+    w ## xs →
+    <{ *w, *xs : [pre, post] }> ⊑ <{ *w : [pre, post[_₀\ xs] ] }>.
+  Proof with auto.
+    intros Hdisjoint A Hfree. simpl. f_simpl.
+    rewrite fmap_app. rewrite f_foralllist_app. rewrite f_foralllist_comm.
+    rewrite f_foralllist_elim_binders. rewrite subst_initials_app.
+    f_equiv. unfold subst_initials at 1. rewrite simpl_seqsubst_foralllist.
+    2: { set_solver. }
+    2: { intros x. intros. apply elem_of_union_list in H1 as (fvars&?&?).
+         apply elem_of_list_to_set in H0. apply elem_of_list_fmap in H0 as (x'&?&?).
+         apply elem_of_list_fmap in H1 as (t&?&?). apply elem_of_list_fmap in H4 as (y'&?&?).
+         set_solver. }
+    f_equiv. rewrite fold_subst_initials. rewrite simpl_subst_initials_impl.
+    f_simpl. rewrite f_subst_initials_final_formula... reflexivity.
+  Qed.
 
   Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
@@ -127,14 +89,14 @@ Section refinement.
     rewrite (f_foralllist_elim_as_ssubst <! post ⇒ A !> _ (as_term <$> ts))...
     2:{ rewrite length_fmap... }
     2:{ apply NoDup_fmap... apply as_var_inj. }
-    erewrite f_eqlist_replace. Unshelve.
+    erewrite eqlist_rewrite. Unshelve.
     4: { do 2 rewrite fmap_app. do 2 rewrite <- list_fmap_compose. reflexivity. }
     3: { rewrite fmap_app. reflexivity. }
     rewrite f_eqlist_app. rewrite f_impl_dup_hyp. rewrite (f_and_assoc _ pre).
     rewrite f_and_assoc in proviso. rewrite proviso. clear proviso. rewrite simpl_ssubst_impl.
     f_simpl. rewrite <- f_eqlist_app.
-    erewrite f_eqlist_replace. Unshelve.
-    5: { rewrite <- fmap_app. rewrite list_fmap_compose. reflexivity. }
+    erewrite eqlist_rewrite. Unshelve.
+    4: { rewrite <- fmap_app. rewrite list_fmap_compose. reflexivity. }
     3: { rewrite <- fmap_app. reflexivity. }
     pose proof (@f_foralllist_one_point M
                   (initial_var_of <$> (w ++ xs)) ((TVar ∘ as_var <$> (w++xs)))) as ->...

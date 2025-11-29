@@ -101,6 +101,14 @@ Proof.
   simpl in *. inversion Heq. rewrite <- H0. rewrite <- H1. reflexivity.
 Qed.
 
+Lemma initial_var_of_ne_iff x1 x2 :
+  ₀x1 ≠ ₀x2 ↔ x1 ≠ x2.
+Proof.
+  split; intros.
+  - intros contra. subst x2. contradiction.
+  - intros contra. apply initial_var_of_inj in contra. contradiction.
+Qed.
+
 Lemma initial_var_of_eq_final_variable (x y : final_variable) :
   initial_var_of x ≠ y.
 Proof. destruct x. unfold as_var. done. Qed.
@@ -210,8 +218,8 @@ Proof with auto.
     + simpl. destruct (decide (x ∈ fvars))...
 Qed.
 
-Lemma fresh_var_fresh : forall x fvars,
-    fresh_var x fvars ∉ fvars.
+Lemma fresh_var_fresh x fvars :
+  fresh_var x fvars ∉ fvars.
 Proof with auto.
   intros. assert (Haux := fresh_var_fresh_aux x fvars (S (size fvars))).
   forward Haux by lia. destruct Haux...
@@ -219,9 +227,9 @@ Proof with auto.
   unfold size, set_size in H. simpl in *. lia.
 Qed.
 
-Lemma fresh_var_free : forall x fvars,
-    x ∉ fvars →
-    fresh_var x fvars = x.
+Lemma fresh_var_id x fvars :
+  x ∉ fvars →
+  fresh_var x fvars = x.
 Proof with auto.
   intros. unfold fresh_var. unfold fresh_var_aux.
   destruct (decide (x ∈ fvars))... contradiction.

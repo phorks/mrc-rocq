@@ -754,6 +754,18 @@ Section n_ary_lemmas.
   Qed.
 
   (* A.64 *)
+  Lemma f_existslist_permute xs xs' A :
+    xs ≡ₚ xs' →
+    <! ∃* xs, A !> ≡ <! ∃* xs', A !>.
+  Proof with auto.
+    generalize dependent xs'. induction xs as [|x xs IH]; intros.
+    - intros. apply Permutation_nil_l in H. subst...
+    - simpl. apply Permutation_cons_inv_l in H as (xs'0&xs'1&->&?). rewrite existslist_app.
+      simpl. rewrite <- f_exists_existslist_comm. rewrite <- existslist_app.
+      f_equiv. apply IH. set_solver.
+  Qed.
+
+  (* A.64 *)
   Lemma f_existslist_comm xs1 xs2 A :
     <! ∃* xs1, ∃* xs2, A !> ≡ <! ∃* xs2, ∃* xs1, A !>.
   Proof with auto.
@@ -765,6 +777,18 @@ Section n_ary_lemmas.
     <! ∀ x, ∀* xs, A !> ≡ <! ∀* xs, ∀ x, A !>.
   Proof with auto.
     induction xs as [|x' xs IH]; simpl... rewrite f_forall_comm. rewrite IH...
+  Qed.
+
+  (* A.64 *)
+  Lemma f_foralllist_permute xs xs' A :
+    xs ≡ₚ xs' →
+    <! ∀* xs, A !> ≡ <! ∀* xs', A !>.
+  Proof with auto.
+    generalize dependent xs'. induction xs as [|x xs IH]; intros.
+    - intros. apply Permutation_nil_l in H. subst...
+    - simpl. apply Permutation_cons_inv_l in H as (xs'0&xs'1&->&?). rewrite foralllist_app.
+      simpl. rewrite <- f_forall_foralllist_comm. rewrite <- foralllist_app.
+      f_equiv. apply IH. set_solver.
   Qed.
 
   (* A.63 *)
@@ -830,33 +854,30 @@ Section n_ary_lemmas.
     rewrite f_forall_idemp. rewrite <- f_forall_foralllist_comm. rewrite IH...
   Qed.
 
+  (* Lemma *)
+
   (* A.56 *)
   Lemma f_existslist_one_point xs ts A `{OfSameLength _ _ xs ts} :
     zip_pair_functional xs ts →
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     <! ∃* xs, ⎡⇑ₓ₊ xs =* ts⎤ ∧ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.
-    intros Hunique Hfree. generalize dependent ts.
+    intros Hfn Hfree. generalize dependent ts.
     induction xs as [|x xs IH]; simpl in *; intros.
     - inversion H. assert (H':=H). apply of_same_length_nil_inv_l in H' as ->.
       simpl. unfold FEqList. simpl. rewrite f_and_comm. apply f_and_true.
     - inversion H. assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&?&?).
       subst ts. rename ts' into ts. erewrite eqlist_cons.
-      apply zip_pair_functional_cons_inv in Hunique as Hunique'.
+      apply zip_pair_functional_cons_inv in Hfn as Hfn'.
       destruct (decide (x ∈ xs)).
       + assert (e':=e). apply elem_of_list_lookup_1 in e' as [i Hi].
         rewrite f_eqlist_redundant_l.
         2:{ apply elem_of_zip_pair. exists i. split...
             - apply list_lookup_fmap_Some. exists x...
-            - assert (∃ t', ts !! i = Some t') as (t'&?).
-              { apply elem_of_list_split_length in Hi as (xs0&xs1&->&?).
-                simpl in H1. inversion H1. destruct (ts !! i) eqn:E.
-                + exists t0. subst...
-                + exfalso. apply list_lookup_None in E. rewrite length_app in H4.
-                  rewrite <- H0 in H4. simpl in H4. lia. }
-              specialize (Hunique 0 (S i) x t t').
+            - symmetry in H2. destruct (zip_pair_lookup_l' H2 Hi) as (t'&?).
+              specialize (Hfn 0 (S i) x t t').
               enough (t = t') by (subst t'; apply H0).
-              apply Hunique.
+              apply Hfn.
               + lia.
               + apply elem_of_zip_pair_hd_indexed. split...
               + apply elem_of_zip_pair_tl_indexed. apply elem_of_zip_pair_indexed... }
@@ -1033,7 +1054,7 @@ Section n_ary_lemmas.
     intros σ ?. pose proof (teval_total σ t) as [vt Hvt].
     rewrite f_forall_elim with (t:=TConst vt) in H4.
     specialize (IH <! A[x \ $(TConst vt)] !> ts H0). forward IH by lia.
-    rewrite IH in H4... rewrite <- ssubst_extract_inside in H4...
+    rewrite IH in H4... rewrite <- ssubst_extract_l in H4...
     2: { simpl. set_solver. }
     pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) (t::ts))) as (mv&?).
     rewrite feval_simult_subst with (mv:=mv)...
@@ -1220,20 +1241,6 @@ Section n_ary_lemmas.
       + simpl in H. apply of_same_length_rest in H...
       + apply of_same_length_rest in H0...
   Qed.
-
-  Lemma f_eqlist_replace_l ts1 ts1' ts2 {H : OfSameLength ts1 ts2} (Heq : ts1 = ts1') :
-    @FEqList _ ts1 ts2 H ≡@{formula} @FEqList _ ts1' ts2 (of_same_length_eq_l H Heq).
-  Proof. subst. f_equiv. apply OfSameLength_pi. Qed.
-
-  Lemma f_eqlist_replace_r ts1 ts2 ts2' {H : OfSameLength ts1 ts2} (Heq : ts2 = ts2') :
-    @FEqList _ ts1 ts2 H ≡@{formula} @FEqList _ ts1 ts2' (of_same_length_eq_r H Heq).
-  Proof. subst. f_equiv. apply OfSameLength_pi. Qed.
-
-  Lemma f_eqlist_replace {ts1 ts1' ts2 ts2'} {H : OfSameLength ts1 ts2} :
-    ∀ Heq1 : ts1 = ts1',
-    ∀ Heq2 : ts2 = ts2',
-    @FEqList _ ts1 ts2 H ≡@{formula} @FEqList _ ts1' ts2' (of_same_length_eq H Heq1 Heq2).
-  Proof. intros. subst. f_equiv. apply OfSameLength_pi. Qed.
 
   (** [subst_initials] facts *)
   Lemma f_subst_initials_final_formula A w :

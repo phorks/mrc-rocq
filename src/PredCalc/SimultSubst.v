@@ -472,7 +472,7 @@ Section simult_subst.
       apply simult_subst_term_extract...
   Qed.
 
-  Lemma simult_subst_extract_inside A x t m :
+  Lemma simult_subst_extract_l A x t m :
     m !! x = Some t →
     (term_fvars t ∩ dom (delete x m) = ∅) →
     simult_subst A m ≡ simult_subst (<! A[x \ t] !>) (delete x m).
@@ -490,7 +490,7 @@ Section simult_subst.
     rewrite feval_subst with (v:=v)... rewrite (insert_union_l (delete x mv))...
   Qed.
 
-  Lemma simult_subst_extract_outside A x t m :
+  Lemma simult_subst_extract_r A x t m :
     m !! x = Some t →
     (x ∉ var_term_map_fvars (delete x m)) →
     simult_subst A m ≡ <! $(simult_subst A (delete x m)) [x \ t] !>.
@@ -517,7 +517,7 @@ Section simult_subst.
     (x ∉ var_term_map_fvars (delete x m)) →
     simult_subst (<! A[x \ t] !>) (delete x m) ≡ <! $(simult_subst A (delete x m)) [x \ t] !>.
   Proof with auto.
-    intros. rewrite <- simult_subst_extract_inside... rewrite <- simult_subst_extract_outside...
+    intros. rewrite <- simult_subst_extract_l... rewrite <- simult_subst_extract_r...
   Qed.
 
   Lemma ssubst_empty A :
@@ -527,18 +527,18 @@ Section simult_subst.
   Lemma ssubst_single A x t :
     <! A[[x \ t]] !> ≡ <! A[x \ t] !>.
   Proof with auto.
-    unfold to_var_term_map. simpl. rewrite (simult_subst_extract_inside A x t _).
+    unfold to_var_term_map. simpl. rewrite (simult_subst_extract_l A x t _).
     - rewrite delete_insert... rewrite simult_subst_empty...
     - rewrite lookup_insert...
     - rewrite delete_insert... set_solver.
   Qed.
 
-  Lemma ssubst_extract_inside A x t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma ssubst_extract_l A x t xs ts `{OfSameLength _ _ xs ts} :
     x ∉ xs →
     (term_fvars t ∩ list_to_set xs = ∅) →
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[x \ t][[*xs \ *ts]] !>.
   Proof with auto.
-    intros. unfold to_var_term_map. simpl. rewrite (simult_subst_extract_inside A x t).
+    intros. unfold to_var_term_map. simpl. rewrite (simult_subst_extract_l A x t).
     - rewrite delete_insert... apply lookup_list_to_map_zip_None...
     - rewrite lookup_insert...
     - rewrite dom_delete_L. rewrite dom_insert_L.
@@ -549,13 +549,13 @@ Section simult_subst.
       rewrite not_elem_of_singleton. naive_solver.
   Qed.
 
-  Lemma ssubst_extract_outside A x t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma ssubst_extract_r A x t xs ts `{OfSameLength _ _ xs ts} :
     x ∉ xs →
     (x ∉ ⋃ (term_fvars <$> ts)) →
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[[*xs \ *ts]][x \ t] !>.
   Proof with auto.
     intros. unfold to_var_term_map. repeat rewrite app_nil_r.
-    simpl. rewrite (simult_subst_extract_outside A x t).
+    simpl. rewrite (simult_subst_extract_r A x t).
     - rewrite delete_insert... apply lookup_list_to_map_zip_None...
     - rewrite lookup_insert...
     - intros contra. apply elem_of_var_term_map_fvars in contra as (y&t0&?&?).
@@ -571,7 +571,7 @@ Section simult_subst.
     x2 ∉ term_fvars t1 →
     <! A[[x1, x2 \ t1, t2]] !> ≡ <! A[x1 \ t1][x2 \ t2] !>.
   Proof with auto.
-    intros. rewrite ssubst_extract_inside with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
+    intros. rewrite ssubst_extract_l with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
     - rewrite ssubst_single with (A:=<! A[x1\t1] !>) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - rewrite list_to_set_cons. rewrite list_to_set_nil. set_solver.
@@ -582,7 +582,7 @@ Section simult_subst.
     x1 ∉ term_fvars t2 →
     <! A[[x1, x2 \ t1, t2]] !> ≡ <! A[x2 \ t2][x1 \ t1] !>.
   Proof with auto.
-    intros. rewrite ssubst_extract_outside with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
+    intros. rewrite ssubst_extract_r with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
     - rewrite ssubst_single with (A:=A) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - simpl. set_solver.
@@ -758,19 +758,19 @@ Section simult_subst.
   Qed.
 
   Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (¬ A) [[*xs \ *ts]] !> ≡ <! ¬ (A [[*xs \ *ts]]) !>.
+    <! (¬ A) [[*xs \ *ts]] !> = <! ¬ (A [[*xs \ *ts]]) !>.
   Proof. simp simult_subst. reflexivity. Qed.
   Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ∧ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
+    <! (A ∧ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
   Proof. simp simult_subst. reflexivity. Qed.
   Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ∨ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
+    <! (A ∨ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
   Proof. simp simult_subst. reflexivity. Qed.
   Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ⇒ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
+    <! (A ⇒ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
   Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
   Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ⇔ B) [[*xs \ *ts]] !> ≡ <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
+    <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
   Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
 
 

@@ -403,6 +403,46 @@ Section subst.
     rewrite simpl_subst_not...
   Qed.
 
+  Lemma simpl_subst_exists y A x t :
+    y ∉ quant_subst_fvars y A x t →
+    <! (∃ y, A)[x \ t] !> ≡ <! (∃ y, A [x \ t]) !>.
+  Proof with auto.
+    intros. apply not_elem_of_quant_subst_fvars_inv in H as [? []]. clear H.
+    destruct (decide (x ∈ formula_fvars A)).
+    2:{ rewrite simpl_subst_exists_skip... rewrite (fequiv_subst_non_free A x t)... }
+    (* rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t as y'. *)
+    pose proof (fresh_var_fresh y (formula_fvars A ∪ term_fvars t ∪ {[x]})).
+    remember (fresh_var y (formula_fvars A ∪ term_fvars t ∪ {[x]})) as y'.
+    do 2 apply not_elem_of_union in H as []. apply not_elem_of_singleton in H2.
+    rewrite simpl_subst_exists_propagate... rewrite (fresh_var_id y); [| set_solver].
+    rewrite fequiv_subst_diag...
+  Qed.
+
+  Lemma simpl_subst_exists_rename y y' A x t :
+    y' ∉ quant_subst_fvars y A x t →
+    <! (∃ y, A)[x \ t] !> ≡ <! (∃ y', A [y \ y'] [x \ t]) !>.
+  Proof with auto.
+    intros. apply not_elem_of_quant_subst_fvars_inv in H as [? []]. destruct H.
+    - subst. rewrite fequiv_subst_diag. apply simpl_subst_exists. set_solver.
+    - rewrite (fexists_alpha_equiv y y')... apply simpl_subst_exists. set_solver.
+  Qed.
+
+  Lemma simpl_subst_forall y A x t :
+    y ∉ quant_subst_fvars y A x t →
+    <! (∀ y, A)[x \ t] !> ≡ <! (∀ y, A [x \ t]) !>.
+  Proof with auto.
+    intros. unfold FForall. rewrite simpl_subst_not. f_equiv. rewrite <- simpl_subst_not.
+    apply simpl_subst_exists...
+  Qed.
+
+  Lemma simpl_subst_forall_rename y y' A x t :
+    y' ∉ quant_subst_fvars y A x t →
+    <! (∀ y, A)[x \ t] !> ≡ <! (∀ y', A [y \ y'] [x \ t]) !>.
+  Proof with auto.
+    intros. unfold FForall. rewrite simpl_subst_not. f_equiv.
+    rewrite simpl_subst_exists_rename with (y':=y')... repeat rewrite simpl_subst_not...
+  Qed.
+
   Lemma fexists_unused x A :
     x ∉ formula_fvars A →
     <! ∃ x, A !> ≡ A.

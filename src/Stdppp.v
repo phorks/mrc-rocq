@@ -87,6 +87,15 @@ Proof with auto.
   - destruct H as (?&?&->&?). simpl. lia.
 Qed.
 
+Lemma length_nonzero_iff_snoc {A} (l : list A) n :
+  length l = S n ↔ ∃ xs x, l = xs ++ [x] ∧ length xs = n.
+Proof with auto.
+  intros. split; intros.
+  - destruct l eqn:E using rev_ind; simpl in H; [discriminate|]. exists l0, x. split...
+    rewrite length_app in H. simpl in H. lia.
+  - destruct H as (?&?&->&?). rewrite length_app. simpl. lia.
+Qed.
+
 Lemma list_lookup_None {A} (l : list A) i :
   l !! i = None ↔ length l ≤ i.
 Proof with auto.
@@ -204,6 +213,20 @@ Lemma of_same_length_cons_inv_r {A B} {l1 : list A} {x2 : B} {l2 : list B} :
 Proof.
   intros. unfold OfSameLength in H. simpl in H. 
   apply length_nonzero_iff_cons in H. exact H.
+Qed.
+
+Lemma of_same_length_snoc_inv_l {A B} {l1 : list A} {x1 : A} {l2 : list B} :
+  OfSameLength (l1 ++ [x1]) l2 → ∃ l2' x2, l2 = l2' ++ [x2] ∧ length l2' = length l1.
+Proof.
+  intros. unfold OfSameLength in H. rewrite length_app in H. symmetry in H. simpl in H.
+  rewrite Nat.add_1_r in H. apply length_nonzero_iff_snoc in H. exact H.
+Qed.
+
+Lemma of_same_length_snoc_inv_r {A B} {l1 : list A}  {l2 : list B} {x2 : B} :
+  OfSameLength l1 (l2 ++ [x2]) → ∃ l1' x1, l1 = l1' ++ [x1] ∧ length l1' = length l2.
+Proof.
+  intros. unfold OfSameLength in H. rewrite length_app in H. simpl in H.
+  rewrite Nat.add_1_r in H. apply length_nonzero_iff_snoc in H. exact H.
 Qed.
 
 Lemma elem_of_zip_with_indexed {A B C} (c : C) (xs : list A) (ys : list B) (f : A → B → C)
@@ -336,6 +359,43 @@ Proof with auto.
   apply (H (S i) (S j) x0); [lia| |]; apply elem_of_zip_pair_tl_indexed...
 Qed.
 
+Hint Resolve zip_pair_functional_cons_inv : core.
+
+Lemma zip_pair_lookup_l' {A B} {l1 : list A} {l2 : list B} {i x1} :
+  length l1 = length l2 →
+  l1 !! i = Some x1 → ∃ x2, l2 !! i = Some x2.
+Proof with auto.
+  intros. apply elem_of_list_split_length in H0 as (l10&l11&->&?).
+  destruct (l2 !! i) as [x2|] eqn:E.
+  - exists x2...
+  - exfalso. apply list_lookup_None in E. rewrite length_app in H. rewrite <- H in E.
+    simpl in E. subst i. lia.
+Qed.
+
+Lemma zip_pair_lookup_l {A B} {l1 : list A} {l2 : list B} {x1} :
+  length l1 = length l2 →
+  x1 ∈ l1 → ∃ x2, (x1, x2) ∈ (l1, l2).
+Proof with auto.
+  intros. apply elem_of_list_lookup in H0 as [i ?].
+  destruct (zip_pair_lookup_l' H H0) as [x2 ?]. exists x2. apply elem_of_zip_pair.
+  exists i. split...
+Qed.
+
+Lemma list_to_map_zip_lookup_zip_pair_functional {A B} `{Countable A} {x y} {xs : list A} {ys : list B} :
+  zip_pair_functional (x :: xs) (y :: ys) →
+  length xs = length ys →
+  x ∈ xs →
+  (list_to_map (zip xs ys) : gmap A B) !! x = Some y.
+Proof with auto.
+  intros.
+  destruct (list_to_map (zip xs ys) !! x) as [y'|] eqn:E.
+  - apply lookup_list_to_map_zip_Some in E as (i&?&?)... enough (y = y') by (subst; auto).
+    unfold zip_pair_functional in H0. apply (H0 0 (S i) x).
+    + lia.
+    + apply elem_of_zip_pair_hd_indexed. split...
+    + apply elem_of_zip_pair_tl_indexed. apply elem_of_zip_pair_indexed...
+  - exfalso. apply lookup_list_to_map_zip_None in E...
+Qed.
 
 (* HACK: These are not currently used. I will keep them as reference.
    I should delete them at some point. *)

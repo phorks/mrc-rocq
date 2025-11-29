@@ -152,7 +152,7 @@ Section pred_calc_syntax.
   Definition quant_subst_fvars y A x t :=
     (formula_fvars A ∖ {[y]}) ∪ term_fvars t ∪ {[x]}.
 
-  Lemma quant_subst_fvars_inv y' y A x t :
+  Lemma not_elem_of_quant_subst_fvars_inv y' y A x t :
     y' ∉ quant_subst_fvars y A x t → (y = y' ∨ y' ∉ formula_fvars A) ∧ y' ∉ term_fvars t ∧ y' ≠ x.
   Proof with auto.
     intros. unfold quant_subst_fvars in H. apply not_elem_of_union in H as [H H1].
@@ -859,6 +859,6 @@ Tactic Notation "generalize_fresh_var" ident(y) constr(A) ident(x) constr(t) "as
   let Heq := fresh in
   let H1 := fresh in let H2 := fresh in let H3 := fresh in
   pose proof (Hfresh := fresh_var_fresh y (quant_subst_fvars y A x t));
-  apply quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
+  apply not_elem_of_quant_subst_fvars_inv in Hfresh as (H1&H2&H3);
   remember (fresh_var y (quant_subst_fvars y A x t)) as y' eqn:Heq;
   clear Heq.

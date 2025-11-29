@@ -300,5 +300,52 @@ Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
     : refiney_scope.
 Notation "<!! e !!>" := (as_final_formula e) (e custom formula) : refiney_scope.
 
+
+(* ******************************************************************* *)
+(* adding notations to Rocq's default scope                            *)
+(* ******************************************************************* *)
+Notation "↑ₓ xs" := (as_var <$> xs : list variable)
+                      (at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "↑ₓ( xs )" := (as_var <$> xs : list variable)
+                      (at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "↑₀ xs" := (initial_var_of <$> xs : list variable)
+                      (at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "↑₀( xs )" := (initial_var_of <$> xs : list variable)
+                      (at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs : list (@term _))
+                      (at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₓ₊ xs" := (TVar <$> xs : list (@term _))
+                      (at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑ₓ₊( xs )" := (TVar <$> xs : list (@term _))
+                      (at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (at level 5, xs constr at level 0)
+    : refiney_scope.
+Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+                      (at level 5, only parsing, xs constr at level 200)
+    : refiney_scope.
+Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
+                      (at level 5, ts constr at level 0)
+    : refiney_scope.
+Notation "⇑ₜ( ts )" := (as_term <$> ts : list (@term _))
+                      (at level 5, only parsing, ts constr at level 200)
+    : refiney_scope.
+Notation "⤊ Bs" := (as_formula <$> Bs : list (@formula _))
+                      (at level 5, Bs constr at level 0)
+    : refiney_scope.
+Notation "⤊( Bs )" := (as_formula <$> Bs : list (@formula _))
+                      (at level 5, only parsing, Bs constr at level 200)
+    : refiney_scope.
+
 Arguments final_term V : clear implicits.
 Arguments final_formula V : clear implicits.

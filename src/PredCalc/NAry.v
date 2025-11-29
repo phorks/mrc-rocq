@@ -12,6 +12,7 @@ From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.FinalElements.
 From MRC Require Import PredCalc.EquivLemmas.
+From MRC Require Import PredCalc.SimultSubst.
 
 Section syntactic.
   Context {value : Type}.
@@ -190,7 +191,91 @@ Section syntactic.
           rewrite fvars_subst_non_free; rewrite IH; clear IH; set_solver.
   Qed.
 
-  (* [seqsubst] facts *)
+  (** [FExistsList] and [FForallList] facts *)
+  Lemma existslist_cons x xs A :
+    FExistsList (x :: xs) A = FExists x (FExistsList xs A).
+  Proof with auto. reflexivity. Qed.
+
+  Lemma existslist_single x A :
+    FExistsList [x] A = FExists x A.
+  Proof. reflexivity. Qed.
+
+  Lemma existslist_app xs1 xs2 A :
+    FExistsList (xs1 ++ xs2) A = FExistsList xs1 (FExistsList xs2 A).
+  Proof with auto. induction xs1 as [|x1 xs1 IH]... simpl. rewrite IH... Qed.
+
+  Lemma existslist_snoc x xs A :
+    FExistsList (xs ++ [x]) A = FExistsList xs (FExists x A).
+  Proof with auto. rewrite existslist_app... Qed.
+
+  Lemma foralllist_cons x xs A :
+    FForallList (x :: xs) A = FForall x (FForallList xs A).
+  Proof with auto. reflexivity. Qed.
+
+  Lemma foralllist_single x A :
+    FForallList [x] A = FForall x A.
+  Proof. reflexivity. Qed.
+
+  Lemma foralllist_app xs1 xs2 A :
+    FForallList (xs1 ++ xs2) A = FForallList xs1 (FForallList xs2 A).
+  Proof with auto. induction xs1 as [|x1 xs1 IH]... simpl. rewrite IH... Qed.
+
+  Lemma foralllist_snoc x xs A :
+    FForallList (xs ++ [x]) A = FForallList xs (FForall x A).
+  Proof with auto. rewrite foralllist_app... Qed.
+
+  (** [seqsubst] facts *)
+
+  Lemma seqsubst_rewrite_l A xs xs' ts {H : OfSameLength xs ts} (Heq : xs = xs') :
+    @seqsubst A xs ts H = @seqsubst A xs' ts (of_same_length_eq_l H Heq).
+  Proof. subst. f_equal. apply OfSameLength_pi. Qed.
+
+  Lemma seqsubst_rewrite_r A xs ts ts' {H : OfSameLength xs ts} (Heq : ts = ts') :
+    @seqsubst A xs ts H = @seqsubst A xs ts' (of_same_length_eq_r H Heq).
+  Proof. subst. f_equal. apply OfSameLength_pi. Qed.
+
+  Lemma seqsubst_rewrite A xs xs' ts ts' {H : OfSameLength xs ts} :
+    ∀ Heq1 : xs = xs',
+    ∀ Heq2 : ts = ts',
+    @seqsubst A xs ts H = @seqsubst A xs' ts' (of_same_length_eq H Heq1 Heq2).
+  Proof. intros. subst. f_equal. apply OfSameLength_pi. Qed.
+
+  Lemma seqsubst_cons A x t xs ts
+    {Hl1 : OfSameLength xs ts} {Hl2 : OfSameLength (x :: xs) (t :: ts)} :
+    @seqsubst A (x :: xs) (t :: ts) Hl2 = <! $(@seqsubst A xs ts Hl1)[x \ t] !>.
+  Proof with auto.
+    unfold seqsubst. simpl. f_equal. f_equal. apply OfSameLength_pi.
+  Qed.
+
+  Lemma seqsubst_single A x t {H : OfSameLength [x] [t] } :
+    <! A [x \ t] !> = @seqsubst A [x] [t] H.
+  Proof with auto.
+    unfold seqsubst. simpl...
+  Qed.
+
+  Lemma seqsubst_app A xs1 ts1 xs2 ts2
+    {Hl1 :OfSameLength xs1 ts1}
+    {Hl2 : OfSameLength xs2 ts2}
+    {Hl3 : OfSameLength (xs1 ++ xs2) (ts1 ++ ts2)} :
+    @seqsubst A (xs1 ++ xs2) (ts1 ++ ts2) Hl3 =
+    @seqsubst (@seqsubst A xs2 ts2 Hl2) xs1 ts1 Hl1.
+  Proof with auto.
+    generalize dependent ts1. generalize dependent xs2. generalize dependent ts2.
+    induction xs1; intros.
+    - inversion Hl1. symmetry in H0. apply length_zero_iff_nil in H0. subst.
+      simpl. f_equal. apply OfSameLength_pi.
+    - inversion Hl1. symmetry in H0. apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?).
+      subst ts1. rename ts1' into ts1. simpl. f_equal. erewrite IHxs1...
+  Qed.
+
+  Lemma seqsubst_snoc A x t xs ts
+    {Hl1 : OfSameLength (xs ++ [x]) (ts ++ [t])}
+    {Hl2 : OfSameLength xs ts} :
+    @seqsubst A (xs ++ [x]) (ts ++ [t]) Hl1 = @seqsubst (<! A [x \ t] !>) xs ts Hl2.
+  Proof with auto.
+    simpl. rewrite (seqsubst_app A xs ts [x] [t]). f_equal.
+  Qed.
+
   Lemma simpl_seqsubst_not A xs ts `{OfSameLength _ _ xs ts} :
     seqsubst <! ¬ A !> xs ts = <! ¬ $(seqsubst A xs ts) !>.
   Proof with auto.
@@ -267,6 +352,20 @@ Section syntactic.
   Qed.
 
   (** [FEqList] facts *)
+  Lemma eqlist_rewrite_l ts1 ts1' ts2 {H : OfSameLength ts1 ts2} (Heq : ts1 = ts1') :
+    @FEqList ts1 ts2 H = @FEqList ts1' ts2 (of_same_length_eq_l H Heq).
+  Proof. subst. f_equal. Qed.
+
+  Lemma eqlist_rewrite_r ts1 ts2 ts2' {H : OfSameLength ts1 ts2} (Heq : ts2 = ts2') :
+    @FEqList ts1 ts2 H = @FEqList ts1 ts2' (of_same_length_eq_r H Heq).
+  Proof. subst. f_equal. Qed.
+
+  Lemma eqlist_rewrite {ts1 ts1' ts2 ts2'} {H : OfSameLength ts1 ts2} :
+    ∀ Heq1 : ts1 = ts1',
+    ∀ Heq2 : ts2 = ts2',
+    @FEqList ts1 ts2 H = @FEqList ts1' ts2' (of_same_length_eq H Heq1 Heq2).
+  Proof. intros. subst. f_equiv. apply OfSameLength_pi. Qed.
+
   Lemma eqlist_nil `{H : OfSameLength _ _ [] [] } :
     @FEqList [] [] H = <! true !>.
   Proof. unfold FEqList. reflexivity. Qed.
@@ -307,11 +406,18 @@ Section syntactic.
     seqsubst A (initial_var_of <$> w) (TVar ∘ as_var <$> w) = subst_initials A w.
   Proof. reflexivity. Qed.
 
+  Lemma subst_initials_app A (xs1 xs2 : list final_variable) :
+    subst_initials A (xs1 ++ xs2) = subst_initials (subst_initials A xs2) xs1.
+  Proof.
+    unfold subst_initials. erewrite seqsubst_rewrite. Unshelve.
+    4-5: apply fmap_app.
+    erewrite seqsubst_app. f_equal.
+  Qed.
+
 End syntactic.
 
 Hint Resolve subst_initials_zip_pair_functional : core.
 Hint Resolve subst_initials_vars_terms_disjoint : core.
-
 
 Notation "⎡ ts =* us ⎤" := (FEqList ts us)
                       (in custom formula,
@@ -361,7 +467,7 @@ Section semantic.
   Implicit Types t : term.
   Implicit Types af : atomic_formula.
   Implicit Types A B : formula.
-  Implicit Types xs : list variable.
+  Implicit Types xs ys : list variable.
   Implicit Types ts : list term.
   Implicit Types Bs : list formula.
   Implicit Types vs : list value.
@@ -587,52 +693,6 @@ Section semantic.
 
   (** [seqsubst] facts **)
 
-  Lemma seqsubst_cons A x t xs ts
-    {Hl1 : OfSameLength xs ts} {Hl2 : OfSameLength (x :: xs) (t :: ts)} :
-    @seqsubst _ A (x :: xs) (t :: ts) Hl2 ≡ <! $(@seqsubst _ A xs ts Hl1)[x \ t] !>.
-  Proof with auto.
-    unfold seqsubst. simpl. f_equiv. f_equiv. apply OfSameLength_pi.
-  Qed.
-
-  Lemma seqsubst_app A xs1 ts1 xs2 ts2
-    {Hl1 :OfSameLength xs1 ts1}
-    {Hl2 : OfSameLength xs2 ts2}
-    {Hl3 : OfSameLength (xs1 ++ xs2) (ts1 ++ ts2)} :
-    @seqsubst _ A (xs1 ++ xs2) (ts1 ++ ts2) Hl3 ≡
-    @seqsubst _ (@seqsubst _ A xs2 ts2 Hl2) xs1 ts1 Hl1.
-  Proof with auto.
-    generalize dependent ts1. generalize dependent xs2. generalize dependent ts2.
-    induction xs1; intros.
-    - inversion Hl1. symmetry in H0. apply length_zero_iff_nil in H0. subst.
-      simpl. f_equiv. apply OfSameLength_pi.
-    - inversion Hl1. symmetry in H0. apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?).
-      subst ts1. rename ts1' into ts1. simpl. intros σ.
-      pose proof (teval_total σ t1) as [v1 Hv1]. rewrite feval_subst with (v:=v1)...
-      rewrite feval_subst with (v:=v1)... specialize (IHxs1 ts2 xs2).
-      assert (OfSameLength xs2 ts2).
-      { unfold OfSameLength. unfold OfSameLength in Hl3. simpl in Hl3.
-        do 2 rewrite length_app in Hl3. rewrite H0 in Hl3. lia. }
-      assert (OfSameLength xs1 ts1) by (symmetry in H0; apply H0).
-      assert (OfSameLength (xs1 ++ xs2) (ts1 ++ ts2)).
-      { apply of_same_length_app. }
-      specialize (IHxs1 H ts1 H1 H2 (<[a:=v1]> σ)).
-      eapply eq_rect.
-      + symmetry. eapply eq_rect.
-        * symmetry. exact IHxs1.
-        * f_equiv. f_equiv. apply OfSameLength_pi.
-      + f_equiv. f_equal.
-        * f_equiv. apply OfSameLength_pi.
-        * apply OfSameLength_pi.
-  Qed.
-
-  Lemma seqsubst_snoc A x t xs ts
-    {Hl1 : OfSameLength xs ts}
-    {Hl2 : OfSameLength (xs ++ [x]) (ts ++ [t])} :
-    @seqsubst _ A (xs ++ [x]) (ts ++ [t]) Hl2 ≡ @seqsubst _ (<! A [x \ t] !>) xs ts Hl1.
-  Proof with auto.
-    simpl. rewrite (seqsubst_app A xs ts [x] [t]). f_equiv.
-  Qed.
-
   Lemma seqsubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
     formula_fvars A ## list_to_set xs →
     <! A[; *xs \ *ts ;] !> ≡ A.
@@ -643,6 +703,30 @@ Section semantic.
       rewrite IH.
       2:{ set_solver. }
       rewrite fequiv_subst_non_free... set_solver.
+  Qed.
+
+  Lemma seqsubst_ssubst A xs ts `{OfSameLength _ _ xs ts} :
+    zip_pair_functional xs ts →
+    list_to_set xs ## ⋃ (term_fvars <$> ts) →
+    <! A [; *xs \ *ts ;] !> ≡ <! A [[ *xs \ *ts ]] !>.
+  Proof with auto.
+    generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->. simpl. rewrite ssubst_empty...
+    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts. simpl.
+      apply zip_pair_functional_cons_inv in H0 as H3.
+      destruct (decide (x ∈ xs)).
+      + rewrite fequiv_subst_non_free.
+        2:{ intros contra.
+            apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver. }
+        rewrite IH... 2:{ set_solver. } f_equiv. unfold to_var_term_map.
+        apply map_eq. intros x'. destruct (decide (x = x')).
+        * subst. simpl. rewrite lookup_insert. symmetry in H2.
+          rewrite (list_to_map_zip_lookup_zip_pair_functional H0 H2 e)...
+        * simpl. rewrite lookup_insert_ne...
+      + etrans.
+        * rewrite IH; [| apply zip_pair_functional_cons_inv in H0; auto | set_solver].
+          rewrite <- ssubst_extract_r; [| set_solver | set_solver]. reflexivity.
+        * simpl. reflexivity.
   Qed.
 
   (**  Proper Instances  **)
@@ -784,11 +868,7 @@ Section semantic.
       apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
       apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
       apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
-      do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as [].
-       f_equiv...
-      Unshelve.
-      + exact Hl1'.
-      + exact Hl2'.
+      do 2 erewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. f_equiv...
   Qed.
 
   Definition seqsubst_proper_fent_strong_manual : Proper ((⇛ₗ@{M}) ==>
@@ -815,11 +895,7 @@ Section semantic.
       apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
       apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
       apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
-      do 2 rewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as [].
-       f_equiv...
-      Unshelve.
-      + exact Hl1'.
-      + exact Hl2'.
+      do 2 erewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. f_equiv...
   Qed.
 
   (** The following three instances are weaker version of the last three.
@@ -863,25 +939,118 @@ Section semantic.
       + apply of_same_length_rest in Hl1 as ?...
   Qed.
 
-  Global Instance subst_initials_proper_fent : Proper ((⇛ₗ@{M}) ==> (=) ==> (⇛)) subst_initials.
-  Proof. intros A B Hent w ? <-. unfold subst_initials. rewrite Hent. reflexivity. Qed.
+  (** [subst_initials] facts *)
+  Lemma subst_initials_ssubst (xs : list final_variable) A :
+    <! A[_₀\ xs] !> ≡ <! A[[↑₀ xs \ ⇑ₓ xs]] !>.
+  Proof with auto.
+    unfold subst_initials. apply seqsubst_ssubst...
+  Qed.
+
+  Lemma subst_initials_perm (xs xs' : list final_variable) A :
+    xs ≡ₚ xs' →
+    <! A[_₀\ xs] !> ≡ <! A[_₀\ xs'] !>.
+  Proof with auto.
+    intros. do 2 rewrite subst_initials_ssubst. f_equiv. unfold to_var_term_map.
+    induction H; simpl...
+    - f_equal. etrans.
+      + apply IHPermutation.
+      + reflexivity.
+    - destruct (decide (₀y = ₀x)).
+      + apply initial_var_of_inj in e as e'. subst. rewrite insert_insert...
+      + rewrite insert_commute...
+    - rewrite IHPermutation1. rewrite IHPermutation2...
+  Qed.
+
+  Lemma subst_initials_app_comm (xs1 xs2 : list final_variable) A :
+    <! A[_₀\ xs1 ++ xs2] !> ≡ <! A[_₀\ xs2 ++ xs1] !>.
+  Proof.
+    apply subst_initials_perm. apply Permutation_app_comm.
+  Qed.
+
+  Global Instance subst_initials_proper_fent : Proper ((⇛ₗ@{M}) ==> (≡ₚ) ==> (⇛)) subst_initials.
+  Proof with auto.
+    intros A B Hent xs1 xs2 Hperm. unfold subst_initials. rewrite Hent.
+    do 2 rewrite fold_subst_initials. rewrite subst_initials_perm with (xs':=xs2)...
+    reflexivity.
+  Qed.
 
   Global Instance subst_initials_proper :
-    Proper ((≡@{formula}) ==> (=) ==> (≡@{formula})) subst_initials.
-  Proof. intros A B Hent w ? <-. unfold subst_initials. rewrite Hent. reflexivity. Qed.
+    Proper ((≡@{formula}) ==> (≡ₚ) ==> (≡@{formula})) subst_initials.
+  Proof with auto.
+    intros A B Hent xs1 xs2 Hperm. unfold subst_initials. rewrite Hent.
+    do 2 rewrite fold_subst_initials. rewrite subst_initials_perm with (xs':=xs2)...
+  Qed.
 
-  (* Global Instance FImpl_proper_fent : Proper ((⇚) ==> (⇛ₗ@{M}) ==> (⇛)) FImpl. *)
-  (* Proof with auto. *)
-  (*   intros A1 A2 Hent1 B1 B2 Hent2. unfold FImpl. rewrite f_ent_reverse_direction in Hent1. *)
-  (*   rewrite Hent1. rewrite Hent2. reflexivity. *)
-  (* Qed. *)
-  (* Lemma fff A B C xs xs' ts ts' (H : term_list_equiv ts ts') `{OfSameLength _ _ xs ts} `{OfSameLength _ _ xs' ts'} : *)
-  (*   A ⇛ B → *)
-  (*     <! (∀* xs, (B ⇒ C)) [; *xs \ *ts ;] !> ⇛ *)
-  (*                                  <! (∀* xs, (A ⇒ C))[; *xs' \ *ts' ;] !> . *)
-  (* Proof. *)
-  (*   intros. rewrite <- H2. setoid_rewrite H. *)
+  (** simplification lemmas for {subst, seqsusbt} × {∃, ∃*, ∀, ∀*} *)
+  Lemma simpl_seqsubst_exists y A xs ts
+    `{OfSameLength _ _ xs ts} :
+    y ∉ xs →
+    y ∉ ⋃ (term_fvars <$> ts) →
+    <! (∃ y, A)[; *xs \ *ts ;] !> ≡ <! ∃ y, (A [; *xs \ *ts ;]) !>.
+  Proof with auto.
+    intros. generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->...
+    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?)... rename ts' into ts. simpl.
+      rewrite IH; [| set_solver | set_solver]. rewrite simpl_subst_exists...
+      set_solver.
+  Qed.
 
+  Lemma simpl_subst_existslist ys A x t :
+    x ∉ ys →
+    list_to_set ys ## term_fvars t →
+    <! (∃* ys, A)[x \ t] !> ≡ <! ∃* ys, (A [x \ t]) !>.
+  Proof with auto.
+    intros. induction ys as [|y ys IH]... simpl. rewrite simpl_subst_exists; [| set_solver].
+    rewrite IH... all: set_solver.
+  Qed.
+
+  Lemma simpl_seqsubst_existslist ys A xs ts
+    `{OfSameLength _ _ xs ts} :
+    (list_to_set ys : gset variable) ## list_to_set xs →
+    list_to_set ys ## ⋃ (term_fvars <$> ts) →
+    <! (∃* ys, A)[; *xs \ *ts ;] !> ≡ <! ∃* ys, (A [; *xs \ *ts ;]) !>.
+  Proof with auto.
+    intros. generalize dependent A. generalize dependent ts. generalize dependent xs.
+    induction ys as [|y ys IH]; intros.
+    - simpl...
+    - simpl. rewrite simpl_seqsubst_exists. 2-3: set_solver. rewrite IH...
+      1-2: set_solver.
+  Qed.
+
+  Lemma simpl_seqsubst_forall y A xs ts
+    `{OfSameLength _ _ xs ts} :
+    y ∉ xs →
+    y ∉ ⋃ (term_fvars <$> ts) →
+    <! (∀ y, A)[; *xs \ *ts ;] !> ≡ <! ∀ y, (A [; *xs \ *ts ;]) !>.
+  Proof with auto.
+    intros. generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
+    - apply of_same_length_nil_inv_l in Hl as ->...
+    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?)... rename ts' into ts. simpl.
+      rewrite IH; [| set_solver | set_solver]. rewrite simpl_subst_forall...
+      set_solver.
+  Qed.
+
+  Lemma simpl_subst_foralllist ys A x t :
+    x ∉ ys →
+    list_to_set ys ## term_fvars t →
+    <! (∀* ys, A)[x \ t] !> ≡ <! ∀* ys, (A [x \ t]) !>.
+  Proof with auto.
+    intros. induction ys as [|y ys IH]... simpl. rewrite simpl_subst_forall; [| set_solver].
+    rewrite IH... all: set_solver.
+  Qed.
+
+  Lemma simpl_seqsubst_foralllist ys A xs ts
+    `{OfSameLength _ _ xs ts} :
+    (list_to_set ys : gset variable) ## list_to_set xs →
+    list_to_set ys ## ⋃ (term_fvars <$> ts) →
+    <! (∀* ys, A)[; *xs \ *ts ;] !> ≡ <! ∀* ys, (A [; *xs \ *ts ;]) !>.
+  Proof with auto.
+    intros. generalize dependent A. generalize dependent ts. generalize dependent xs.
+    induction ys as [|y ys IH]; intros.
+    - simpl...
+    - simpl. rewrite simpl_seqsubst_forall. 2-3: set_solver. rewrite IH...
+      1-2: set_solver.
+  Qed.
 
   (** Simplification lemmas for feval of n-ary variants **)
   Lemma simpl_feval_andlist σ Bs :
