@@ -196,6 +196,9 @@ Section final_elements.
 
 End final_elements.
 
+Hint Extern 3 (FormulaFinal _) => typeclasses eauto : core.
+
+
 Notation "₀ x" := (initial_var_of x) (in custom term at level 5) : refiney_scope.
 
 Declare Custom Entry variable_list.

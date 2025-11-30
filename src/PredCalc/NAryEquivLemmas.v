@@ -1243,7 +1243,7 @@ Section n_ary_lemmas.
   Qed.
 
   (** [subst_initials] facts *)
-  Lemma f_subst_initials_final_formula A w :
+  Lemma f_subst_initials_final_formula' A w :
     formula_final A →
     <! A[_₀\ w] !> ≡ A.
   Proof.
@@ -1251,5 +1251,9 @@ Section n_ary_lemmas.
     set_unfold. destruct H1 as (x&?&?). apply H in H0. unfold var_final in H0.
     rewrite H1 in H0. simpl in H0. discriminate.
   Qed.
+
+  Lemma f_subst_initials_final_formula A w `{FormulaFinal _ A} :
+    <! A[_₀\ w] !> ≡ A.
+  Proof. apply f_subst_initials_final_formula'. auto. Qed.
 
 End n_ary_lemmas.

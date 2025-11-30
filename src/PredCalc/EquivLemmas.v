@@ -266,6 +266,10 @@ Section props.
     <! A ⇔ (A ∧ B) !> ≡ <! A ⇒ B !>.
   Proof. prove_equiv. Qed.
 
+  Lemma f_intro_hyp {A} B :
+    <! A !> ⇛ <! B ⇒ A !>.
+  Proof. intros σ. rewrite simpl_feval_fimpl. simp feval. Qed.
+
   (* A.47 *)
   Lemma f_iff_or_absorb A B :
     <! A ⇔ (A ∨ B) !> ≡ <! B ⇒ A !>.

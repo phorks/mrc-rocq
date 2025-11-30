@@ -99,16 +99,14 @@ Section prog.
   (* definition and properties of ⊑ and ≡ on progs                       *)
   (* ******************************************************************* *)
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
-    ∀ A : final_formula,
-      (formula_final A) →
-      wp p1 A ⇛ (wp p2 A).
+    ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
 
   Global Instance pequiv : Equiv prog := λ p1 p2, p1 ⊑ p2 ∧ p2 ⊑ p1.
   Global Instance refines_refl : Reflexive refines.
-  Proof with auto. intros ? ? ?. reflexivity. Qed.
+  Proof with auto. intros ? ?.  reflexivity. Qed.
 
   Global Instance refines_trans : Transitive refines.
-  Proof with auto. intros ? ? ? ? ? ? ?... transitivity (wp y A); naive_solver. Qed.
+  Proof with auto. intros ? ? ? ? ? ?... transitivity (wp y A); naive_solver. Qed.
 
   Global Instance pequiv_refl : Reflexive pequiv.
   Proof with auto. split; reflexivity. Qed.

@@ -186,6 +186,14 @@ Section syntactic.
           rewrite fvars_subst_non_free; rewrite IH; clear IH; set_solver.
   Qed.
 
+  Lemma fvars_subst_initials_superset A w :
+    formula_fvars (subst_initials A w) ⊆ ((formula_fvars A ∖ (list_to_set (initial_var_of <$> w)))
+                                             ∪ (list_to_set (as_var <$> w))).
+  Proof with auto.
+    rewrite fvars_subst_initials. set_unfold. intros x [|]... right.
+    apply elem_of_subst_initials_var_fvars in H as (x'&?&?&?). exists x'. split...
+  Qed.
+
   (** [FExistsList] and [FForallList] facts *)
   Lemma existslist_cons x xs A :
     FExistsList (x :: xs) A = FExists x (FExistsList xs A).
@@ -410,6 +418,19 @@ Section syntactic.
     3:{ rewrite fmap_app. apply fmap_app. }
     erewrite seqsubst_app. f_equal.
   Qed.
+
+  (** [FormulaFinal] instances *)
+  Global Instance FExistsList_final (xs : list variable) A `{FormulaFinal _ A} :
+    FormulaFinal (FExistsList xs A).
+  Proof. intros x H'. rewrite fvars_existslist in H'. set_solver. Qed.
+
+  Global Instance FForallList_final (xs : list variable) A `{FormulaFinal _ A} :
+    FormulaFinal (FForallList xs A).
+  Proof. intros x H'. rewrite fvars_foralllist in H'. set_solver. Qed.
+
+  Global Instance subst_initials_final A (xs : list final_variable) `{FormulaFinal _ A} :
+    FormulaFinal (subst_initials A xs).
+  Proof. intros x H'. apply fvars_subst_initials_superset in H'. set_solver. Qed.
 
 End syntactic.
 
