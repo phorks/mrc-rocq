@@ -1254,6 +1254,18 @@ Section n_ary_lemmas.
 
   Lemma f_subst_initials_final_formula A w `{FormulaFinal _ A} :
     <! A[_₀\ w] !> ≡ A.
-  Proof. apply f_subst_initials_final_formula'. auto. Qed.
+  Proof. intros. apply f_subst_initials_final_formula'. auto. Qed.
+
+  Lemma f_subst_initials_no_initials A w :
+    formula_fvars A ## list_to_set (↑₀ w) →
+    <! A[_₀\ w] !> ≡ A.
+  Proof. intros. unfold subst_initials. apply seqsubst_non_free. set_solver. Qed.
+
+  Lemma final_formula_disjoint_initial_vars A w `{FormulaFinal _ A} :
+    list_to_set (↑₀ w) ## formula_fvars A.
+  Proof.
+    intros x ? ?. apply H in H1. set_unfold. destruct H0 as (x'&?&?).
+    unfold var_final in H1. rewrite H0 in H1. simpl in H1. discriminate.
+  Qed.
 
 End n_ary_lemmas.
