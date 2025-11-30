@@ -76,7 +76,8 @@ Section refinement.
     f_simpl. rewrite f_subst_initials_final_formula... reflexivity.
   Qed.
 
-  Lemma r_skip' w pre post `{FormulaFinal _ pre} :
+  (* Law 3.2 *)
+  Lemma r_skip w pre post `{FormulaFinal _ pre} :
     pre ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
@@ -88,7 +89,8 @@ Section refinement.
     rewrite fold_subst_initials. rewrite f_subst_initials_final_formula...
   Qed.
 
-  Lemma r_skip w pre post `{FormulaFinal _ pre} :
+  (* Law 5.3 *)
+  Lemma r_skip_with_initials w pre post `{FormulaFinal _ pre} :
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ pre !> ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
@@ -101,7 +103,7 @@ Section refinement.
     rewrite f_subst_initials_final_formula...
   Qed.
 
-  (* 3.3 *)
+  (* Law 3.3 *)
   Lemma r_seq w pre mid post `{FormulaFinal _ pre} `{FormulaFinal _ mid} `{FormulaFinal _ post} :
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, mid]; *w : [mid, post] }>.
   Proof with auto.
@@ -124,6 +126,7 @@ Section refinement.
     discriminate.
   Qed.
 
+  (* Law B.2 *)
   Lemma r_seq_frame w xs pre mid post `{FormulaFinal _ pre} `{FormulaFinal _ mid} :
     w ## xs →
     list_to_set (↑₀ xs) ## formula_fvars post →
