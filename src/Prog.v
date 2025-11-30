@@ -248,25 +248,25 @@ Notation "* x" := x (in custom asgn_rhs_elem at level 0, x constr at level 0)
     : refiney_scope.
 Notation "*$( x )" := x (in custom asgn_rhs_elem at level 5, only parsing, x constr at level 200)
     : refiney_scope.
-Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs : list (@term _))
+Notation "⇑ₓ xs" := (TVar ∘ as_var <$> xs)
                       (in custom asgn_rhs_elem at level 5, xs constr at level 0)
     : refiney_scope.
-Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs : list (@term _))
+Notation "⇑ₓ( xs )" := (TVar ∘ as_var <$> xs)
                       (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
     : refiney_scope.
-Notation "⇑ₓ₊ xs" := (TVar <$> xs : list (@term _))
+Notation "⇑ₓ₊ xs" := (TVar <$> xs)
                       (in custom asgn_rhs_elem at level 5, xs constr at level 0)
     : refiney_scope.
-Notation "⇑ₓ₊( xs )" := (TVar <$> xs : list (@term _))
+Notation "⇑ₓ₊( xs )" := (TVar <$> xs)
                       (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
     : refiney_scope.
-Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+Notation "⇑₀ xs" := (TVar ∘ initial_var_of <$> xs)
                       (in custom asgn_rhs_elem at level 5, xs constr at level 0)
     : refiney_scope.
-Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs : list (@term _))
+Notation "⇑₀( xs )" := (TVar ∘ initial_var_of <$> xs)
                       (in custom asgn_rhs_elem at level 5, only parsing, xs constr at level 200)
     : refiney_scope.
-Notation "⇑ₜ ts" := (as_term <$> ts : list (@term _))
+Notation "⇑ₜ ts" := (as_term <$> ts)
                       (in custom asgn_rhs_elem at level 5, ts constr at level 0)
     : refiney_scope.
 Infix "," := app (in custom asgn_rhs_elem at level 10, right associativity) : refiney_scope.

@@ -14,16 +14,16 @@ Notation "∅" := ([]) (in custom var_seq at level 0)
 
 Notation "x" := ([x]) (in custom var_seq_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "↑ₓ xs" := (as_var <$> xs : list variable)
+Notation "↑ₓ xs" := (as_var <$> xs)
                       (in custom var_seq_elem at level 5, xs constr at level 0)
     : refiney_scope.
-Notation "↑ₓ( xs )" := (as_var <$> xs : list variable)
+Notation "↑ₓ( xs )" := (as_var <$> xs)
                       (in custom var_seq_elem at level 5, only parsing, xs constr at level 200)
     : refiney_scope.
-Notation "↑₀ xs" := (initial_var_of <$> xs : list variable)
+Notation "↑₀ xs" := (initial_var_of <$> xs)
                       (in custom var_seq_elem at level 5, xs constr at level 0)
     : refiney_scope.
-Notation "↑₀( xs )" := (initial_var_of <$> xs : list variable)
+Notation "↑₀( xs )" := (initial_var_of <$> xs)
                       (in custom var_seq_elem at level 5, only parsing, xs constr at level 200)
     : refiney_scope.
 Notation "$( x )" := ([x]) (in custom var_seq_elem at level 5,

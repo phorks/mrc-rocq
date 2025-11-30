@@ -60,7 +60,7 @@ Section syntactic.
     of_same_length_rect id (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
 
   Definition subst_initials A (w : list final_variable) : formula :=
-    seqsubst A (initial_var_of <$> w) (TVar ∘ as_var <$> w).
+    seqsubst A (initial_var_of <$> w) (TVar <$> (as_var <$> w)).
 
   Lemma fvars_andlist Bs :
     formula_fvars (FAndList Bs) = ⋃ (formula_fvars <$> Bs).
@@ -150,21 +150,16 @@ Section syntactic.
   Proof with auto.
     induction w as [|x w IH].
     - cbn. set_solver.
-    - unfold subst_initials. simpl. unfold subst_initials_var_fvars. simpl.
+    - unfold subst_initials. simpl.
       (* Folding [subst_initials] and [subst_initials_var_fvars] back *)
-      assert (
-          (@seqsubst A (list_fmap final_variable variable initial_var_of w)
-              (list_fmap final_variable term (@TVar value ∘ as_var) w)
-              (@of_same_length_rest variable term ₀x (list_fmap final_variable variable initial_var_of w) x
-                (list_fmap final_variable term (@TVar value ∘ as_var) w)
-                (@of_same_length_fmap final_variable variable final_variable term
-                    (x :: w) (x :: w) initial_var_of (@TVar value ∘ as_var)
-                    (@of_same_length_id final_variable (x :: w))))) = subst_initials A w
-        ).
-      { unfold subst_initials. f_equiv. apply OfSameLength_pi. }
-      rewrite H. clear H.
-      pose proof (@eq_refl _ (subst_initials_var_fvars A w)).
-      unfold subst_initials_var_fvars at 2 in H. rewrite <- H. clear H.
+      etrans.
+      1:{ f_equiv. erewrite (@f_equal _ _ (λ A, subst_formula A ₀x x)).
+          1:{ reflexivity. }
+          Unshelve.
+          2:{ exact (subst_initials A w). }
+          unfold subst_initials. f_equiv. apply OfSameLength_pi. }
+      unfold subst_initials_var_fvars. simpl.
+      fold (subst_initials_var_fvars A w).
       (* Actual proof steps *)
       destruct (decide (x ∈ w)).
       + rewrite fvars_subst_non_free.
@@ -379,9 +374,10 @@ Section syntactic.
 
   (** [subst_initials] facts *)
   Lemma subst_initials_zip_pair_functional (xs : list final_variable) :
-    zip_pair_functional (initial_var_of <$> xs) (@TVar value ∘ as_var <$> xs).
+    zip_pair_functional (initial_var_of <$> xs) (@TVar value <$> (as_var <$> xs)).
   Proof.
     unfold zip_pair_functional. intros.
+    rewrite <- list_fmap_compose in *.
     rewrite elem_of_zip_pair_indexed in H0, H1. destruct H0 as []. destruct H1 as [].
     apply list_lookup_fmap_inv in H0 as (x1&?&?).
     apply list_lookup_fmap_inv in H1 as (x2&?&?).
@@ -393,9 +389,9 @@ Section syntactic.
   Qed.
 
   Lemma subst_initials_vars_terms_disjoint (xs : list final_variable) :
-    list_to_set (initial_var_of <$> xs) ## ⋃ (@term_fvars value <$> (TVar ∘ as_var <$> xs)).
+    list_to_set (initial_var_of <$> xs) ## ⋃ (@term_fvars value <$> (TVar <$> (as_var <$> xs))).
   Proof.
-    intros x0 H1 H2. set_unfold. destruct H1 as (x&?&?). subst.
+    rewrite <- list_fmap_compose. intros x0 H1 H2. set_unfold. destruct H1 as (x&?&?). subst.
     apply elem_of_union_list in H2 as (fvars&?&?).
     apply elem_of_list_fmap in H as (x1&?&?). apply elem_of_list_fmap in H2 as (x2&?&?).
     subst x1. simpl in H. subst fvars. apply elem_of_singleton in H1.
@@ -403,14 +399,15 @@ Section syntactic.
   Qed.
 
   Lemma fold_subst_initials A w :
-    seqsubst A (initial_var_of <$> w) (TVar ∘ as_var <$> w) = subst_initials A w.
+    seqsubst A (initial_var_of <$> w) (TVar <$> (as_var <$> w)) = subst_initials A w.
   Proof. reflexivity. Qed.
 
   Lemma subst_initials_app A (xs1 xs2 : list final_variable) :
     subst_initials A (xs1 ++ xs2) = subst_initials (subst_initials A xs2) xs1.
   Proof.
     unfold subst_initials. erewrite seqsubst_rewrite. Unshelve.
-    4-5: apply fmap_app.
+    4:{ apply fmap_app.  }
+    3:{ rewrite fmap_app. apply fmap_app. }
     erewrite seqsubst_app. f_equal.
   Qed.
 
