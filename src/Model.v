@@ -120,6 +120,10 @@ Lemma to_final_var_as_var (x : final_variable) :
   to_final_var (as_var x) = x.
 Proof. cbv. destruct x. reflexivity. Qed.
 
+Lemma to_final_var_initial_var_of (x : final_variable) :
+  to_final_var (initial_var_of x) = x.
+Proof. cbv. destruct x. reflexivity. Qed.
+
 Lemma as_var_to_final_var (x : variable) :
   as_var (to_final_var x) = var_with_is_initial x false.
 Proof. cbv. reflexivity. Qed.

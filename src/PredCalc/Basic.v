@@ -674,7 +674,7 @@ Notation "x" := ([x]) (in custom term_seq_elem at level 0, x custom term at leve
     : refiney_scope.
 Notation "* x" := x (in custom term_seq_elem at level 0, x constr at level 0)
     : refiney_scope.
-Notation "*$( x )" := x (in custom term_seq_elem at level 5, only parsing, x constr at level 200)
+Notation "*$( x )" := x (in custom term_seq_elem at level 2, only parsing, x constr at level 200)
     : refiney_scope.
 Infix "," := app (in custom term_seq_elem at level 10, right associativity) : refiney_scope.
 

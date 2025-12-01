@@ -234,7 +234,7 @@ Section simult_subst.
   Qed.
 
   Lemma simult_subst_term_id t m :
-    term_fvars t ∩ dom m = ∅ →
+    dom m ## term_fvars t →
     simult_subst_term t m = t.
   Proof with auto.
     intros H. induction t; simpl...
@@ -246,7 +246,7 @@ Section simult_subst.
   Qed.
 
   Lemma simult_subst_af_id af m :
-    af_fvars af ∩ dom m = ∅ →
+    dom m ## af_fvars af →
     simult_subst_af af m = af.
   Proof with auto.
     intros H.
@@ -268,7 +268,7 @@ Section simult_subst.
     clear Heq.
 
   Lemma simult_subst_id A m :
-    formula_fvars A ∩ dom m = ∅ →
+    dom m ## formula_fvars A →
     simult_subst A m ≡ A.
   Proof with auto.
     induction A; simp simult_subst; intros.
@@ -367,7 +367,7 @@ Section simult_subst.
 
   Lemma teval_delete_state_var_term_map_head σ t m mv v :
     teval_var_term_map σ m mv →
-    term_fvars t ∩ dom mv = ∅ →
+    dom mv ## term_fvars t →
     teval σ t v ↔ teval (mv ∪ σ) t v.
   Proof with auto.
     intros. rewrite <- teval_simult_subst with (m:=m)...
@@ -376,7 +376,7 @@ Section simult_subst.
 
   Lemma afeval_delete_state_var_term_map_head σ af m mv :
     teval_var_term_map σ m mv →
-    af_fvars af ∩ dom mv = ∅ →
+    dom mv ## af_fvars af →
     afeval σ af ↔ afeval (mv ∪ σ) af.
   Proof with auto.
     intros. rewrite <- afeval_simult_subst with (m:=m)...
@@ -385,7 +385,7 @@ Section simult_subst.
 
   Lemma feval_delete_state_var_term_map_head σ A m mv :
     teval_var_term_map σ m mv →
-    formula_fvars A ∩ dom mv = ∅ →
+    dom mv ## formula_fvars A →
     feval σ A ↔ feval (mv ∪ σ) A.
   Proof with auto.
     intros. rewrite <- feval_simult_subst with (m:=m)...
@@ -447,7 +447,7 @@ Section simult_subst.
 
   Lemma simult_subst_term_extract t0 x t m :
     m !! x = Some t →
-    (term_fvars t ∩ dom (delete x m) = ∅) →
+    dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
     simult_subst_term t0 m = simult_subst_term (subst_term t0 x t) (delete x m).
   Proof with auto.
@@ -462,7 +462,7 @@ Section simult_subst.
 
   Lemma simult_subst_af_extract af x t m :
     m !! x = Some t →
-    (term_fvars t ∩ dom (delete x m) = ∅) →
+    dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
     simult_subst_af af m = simult_subst_af (subst_af af x t) (delete x m).
   Proof with auto.
@@ -474,7 +474,7 @@ Section simult_subst.
 
   Lemma simult_subst_extract_l A x t m :
     m !! x = Some t →
-    (term_fvars t ∩ dom (delete x m) = ∅) →
+    dom (delete x m) ## term_fvars t →
     simult_subst A m ≡ simult_subst (<! A[x \ t] !>) (delete x m).
   Proof with auto.
     intros. intros σ. rewrite <- (insert_delete m x t) at 1...
@@ -513,7 +513,7 @@ Section simult_subst.
 
   Lemma simult_subst_subst_comm A x t m :
     m !! x = Some t →
-    (term_fvars t ∩ dom (delete x m) = ∅) →
+    dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
     simult_subst (<! A[x \ t] !>) (delete x m) ≡ <! $(simult_subst A (delete x m)) [x \ t] !>.
   Proof with auto.
@@ -535,7 +535,7 @@ Section simult_subst.
 
   Lemma ssubst_extract_l A x t xs ts `{OfSameLength _ _ xs ts} :
     x ∉ xs →
-    (term_fvars t ∩ list_to_set xs = ∅) →
+    list_to_set xs ## term_fvars t →
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[x \ t][[*xs \ *ts]] !>.
   Proof with auto.
     intros. unfold to_var_term_map. simpl. rewrite (simult_subst_extract_l A x t).
@@ -703,9 +703,9 @@ Section simult_subst.
       + rewrite fvars_subst_non_free in H0... set_solver.
   Qed.
 
-  (* TODO: can I replace or teval equiv lemmas with simple equality? Or at least tequiv? *)
+  (* TODO: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
   Lemma ssubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
-    term_fvars t ## list_to_set xs →
+    list_to_set xs ## term_fvars t →
     simult_subst_term t (to_var_term_map xs ts) = t.
   Proof with auto.
     intros. induction t; simpl...
@@ -724,7 +724,7 @@ Section simult_subst.
   Qed.
 
   Lemma ssubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
-    af_fvars af ## list_to_set xs →
+    list_to_set xs ## af_fvars af →
     simult_subst_af af (to_var_term_map xs ts) = af.
   Proof with auto.
     intros. destruct af; simpl in *...
@@ -735,7 +735,7 @@ Section simult_subst.
   Qed.
 
   Lemma ssubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
-    formula_fvars A ## list_to_set xs →
+    list_to_set xs ## formula_fvars A →
     <! A[[*xs \ *ts]] !> ≡ A.
   Proof with auto.
     intros. induction A; simp simult_subst.

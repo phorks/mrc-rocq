@@ -90,7 +90,7 @@ Section syntactic.
   Qed.
 
   Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{OfSameLength _ _ xs ts} :
-    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     formula_fvars (seqsubst A xs ts) ⊆ (formula_fvars A ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl H.
@@ -108,6 +108,7 @@ Section syntactic.
     ⋃ (map (λ x : final_variable,
              if decide (initial_var_of x ∈ formula_fvars A) then {[as_var x]} else ∅) w).
 
+  (* TODO: convert it to a SetUnfoldElemOf instance *))
   Lemma elem_of_subst_initials_var_fvars A w x :
     (∃ x' : final_variable, x = as_var x' ∧ x' ∈ w ∧ initial_var_of x' ∈ formula_fvars A) ↔
     x ∈ subst_initials_var_fvars A w.
@@ -406,9 +407,20 @@ Section syntactic.
     apply initial_var_of_eq_final_variable in H1 as [].
   Qed.
 
-  Lemma fold_subst_initials A w :
-    seqsubst A (initial_var_of <$> w) (TVar <$> (as_var <$> w)) = subst_initials A w.
+  Lemma fold_subst_initials A w
+      `{H : OfSameLength _ _ (initial_var_of <$> w) (TVar <$> (as_var <$> w))} :
+    @seqsubst A (initial_var_of <$> w) (TVar <$> (as_var <$> w)) H = subst_initials A w.
+  Proof. unfold subst_initials. f_equal. apply OfSameLength_pi. Qed.
+
+  Lemma subst_initials_nil A :
+    subst_initials A [] = A.
   Proof. reflexivity. Qed.
+
+  Lemma subst_initials_cons A (x : final_variable) (xs : list final_variable) :
+    subst_initials A (x :: xs) = subst_formula (subst_initials A xs) (initial_var_of x) (as_var x).
+  Proof.
+    unfold subst_initials. simpl. rewrite fold_subst_initials. reflexivity.
+  Qed.
 
   Lemma subst_initials_app A (xs1 xs2 : list final_variable) :
     subst_initials A (xs1 ++ xs2) = subst_initials (subst_initials A xs2) xs1.
@@ -418,6 +430,10 @@ Section syntactic.
     3:{ rewrite fmap_app. apply fmap_app. }
     erewrite seqsubst_app. f_equal.
   Qed.
+
+  Lemma subst_initials_snoc A (xs : list final_variable) (x : final_variable) :
+    subst_initials A (xs ++ [x]) = subst_initials (subst_formula A (initial_var_of x) (as_var x)) xs.
+  Proof. rewrite subst_initials_app. reflexivity. Qed.
 
   (** [FormulaFinal] instances *)
   Global Instance FExistsList_final (xs : list variable) A `{FormulaFinal _ A} :
@@ -712,7 +728,7 @@ Section semantic.
   (** [seqsubst] facts **)
 
   Lemma seqsubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
-    formula_fvars A ## list_to_set xs →
+    list_to_set xs ## formula_fvars A →
     <! A[; *xs \ *ts ;] !> ≡ A.
   Proof with auto.
     generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).

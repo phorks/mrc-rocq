@@ -622,7 +622,7 @@ Section n_ary_lemmas.
   (* A.76 *)
   (* TODO: replace all [_ ∩ _ = ∅]s with [_ ## _]s *)
   Lemma f_foralllist_and_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∀* xs, A ∧ B !> ≡ <! A ∧ (∀* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_and_unused_l|];
@@ -631,7 +631,7 @@ Section n_ary_lemmas.
 
   (* A.76' *)
   Lemma f_foralllist_and_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∀* xs, A ∧ B !> ≡ <! (∀* xs, A) ∧ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_and_unused_r|];
@@ -640,7 +640,7 @@ Section n_ary_lemmas.
 
   (* A.77 *)
   Lemma f_foralllist_or_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∀* xs, A ∨ B !> ≡ <! A ∨ (∀* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_or_unused_l|];
@@ -649,7 +649,7 @@ Section n_ary_lemmas.
 
   (* A.77' *)
   Lemma f_foralllist_or_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∀* xs, A ∨ B !> ≡ <! (∀* xs, A) ∨ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_or_unused_r|];
@@ -658,7 +658,7 @@ Section n_ary_lemmas.
 
   (* A.78 *)
   Lemma f_foralllist_impl_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∀* xs, A ⇒ B !> ≡ <! A ⇒ (∀* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_l|];
@@ -667,7 +667,7 @@ Section n_ary_lemmas.
 
   (* A.79 *)
   Lemma f_foralllist_impl_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∀* xs, A ⇒ B !> ≡ <! (∃* xs, A) ⇒ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_r|];
@@ -676,7 +676,7 @@ Section n_ary_lemmas.
 
   (* A.80 *)
   Lemma f_existslist_and_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∃* xs, A ∧ B !> ≡ <! A ∧ (∃* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_l|];
@@ -685,7 +685,7 @@ Section n_ary_lemmas.
 
   (* A.80' *)
   Lemma f_existslist_and_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∃* xs, A ∧ B !> ≡ <! (∃* xs, A) ∧ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_and_unused_r|];
@@ -694,7 +694,7 @@ Section n_ary_lemmas.
 
   (* A.81 *)
   Lemma f_existslist_or_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∃* xs, A ∨ B !> ≡ <! A ∨ (∃* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_or_unused_l|];
@@ -703,7 +703,7 @@ Section n_ary_lemmas.
 
   (* A.81' *)
   Lemma f_existslist_or_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∃* xs, A ∨ B !> ≡ <! (∃* xs, A) ∨ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_or_unused_r|];
@@ -712,7 +712,7 @@ Section n_ary_lemmas.
 
   (* A.82 *)
   Lemma f_existslist_impl_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∃* xs, A ⇒ B !> ≡ <! A ⇒ (∃* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_impl_unused_l|];
@@ -721,7 +721,7 @@ Section n_ary_lemmas.
 
   (* A.83 *)
   Lemma f_existslist_impl_unused_r xs A B :
-    list_to_set xs ∩ formula_fvars B = ∅ →
+    list_to_set xs ## formula_fvars B →
     <! ∃* xs, A ⇒ B !> ≡ <! (∀* xs, A) ⇒ B !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_exists_impl_unused_r|];
@@ -1248,8 +1248,8 @@ Section n_ary_lemmas.
     <! A[_₀\ w] !> ≡ A.
   Proof.
     intros. unfold subst_initials. apply seqsubst_non_free. intros x0 ? ?.
-    set_unfold. destruct H1 as (x&?&?). apply H in H0. unfold var_final in H0.
-    rewrite H1 in H0. simpl in H0. discriminate.
+    set_unfold. destruct H0 as (x&?&?). apply H in H1. unfold var_final in H1.
+    rewrite H0 in H1. simpl in H1. discriminate.
   Qed.
 
   Lemma f_subst_initials_final_formula A w `{FormulaFinal _ A} :
@@ -1257,7 +1257,7 @@ Section n_ary_lemmas.
   Proof. intros. apply f_subst_initials_final_formula'. auto. Qed.
 
   Lemma f_subst_initials_no_initials A w :
-    formula_fvars A ## list_to_set (↑₀ w) →
+    list_to_set (↑₀ w) ## formula_fvars A →
     <! A[_₀\ w] !> ≡ A.
   Proof. intros. unfold subst_initials. apply seqsubst_non_free. set_solver. Qed.
 

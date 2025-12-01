@@ -94,7 +94,7 @@ Section sequential_subst.
 
   (* A.78 *)
   Lemma f_forall_list_impl_unused_l xs A B :
-    list_to_set xs ∩ formula_fvars A = ∅ →
+    list_to_set xs ## formula_fvars A →
     <! ∀* xs, A ⇒ B !> ≡ <! A ⇒ (∀* xs, B) !>.
   Proof with auto.
     intros. induction xs as [|x xs IH]... simpl. rewrite IH; [rewrite f_forall_impl_unused_l|];
@@ -103,7 +103,7 @@ Section sequential_subst.
 
   Lemma f_forall_list_one_point xs ts A `{OfSameLength _ _ xs ts} :
     NoDup xs →
-    (list_to_set xs) ∩ ⋃ (term_fvars <$> ts) = ∅ →
+    list_to_set xs ## (term_fvars <$> ts) →
     <! ∀* xs, $(AT_TermListEq (TVar <$> xs) ts) ⇒ A !> ≡ seq_subst A xs ts.
   Proof with auto.
     intros Hnodup Hfree. generalize dependent ts.
