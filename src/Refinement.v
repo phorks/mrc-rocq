@@ -29,7 +29,7 @@ Section refinement.
   (* TODO: reorder laws *)
   (* 1.8 *)
   Lemma r_absorb_assumption pre' w pre post `{FormulaFinal _ pre'} `{FormulaFinal _ pre} :
-    <{ {pre'} *w : [pre, post] }> ≡ <{ *w : [pre' ∧ pre, post] }>.
+    <{ {pre'}; *w : [pre, post] }> ≡ <{ *w : [pre' ∧ pre, post] }>.
   Proof.
     split; intros A; simpl.
     - f_simpl. rewrite subst_initials_nil. rewrite f_and_assoc. reflexivity.

@@ -96,11 +96,6 @@ Section prog.
     end.
 
   (* ******************************************************************* *)
-  (* sugars                                                              *)
-  (* ******************************************************************* *)
-  Definition PAssumption pre p := PSeq (PSpec [] pre <! true !>) p.
-
-  (* ******************************************************************* *)
   (* definition and properties of ⊑ and ≡ on progs                       *)
   (* ******************************************************************* *)
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
@@ -354,9 +349,9 @@ Notation "'|[' 'con*' xs '⦁' y ']|' " :=
   (PConstList xs y)
     (in custom prog at level 95 ) : refiney_scope.
 
-Notation "{ A } p" := (PAssumption (as_final_formula A) p)
+Notation "{ A }" := (PSpec [] (as_final_formula A) <! true !>)
                         (in custom prog at level 95, no associativity,
-                            A custom formula at level 200, p custom prog at level 120 )
+                            A custom formula at level 200)
     : refiney_scope.
 
 (* Axiom M : model. *)
