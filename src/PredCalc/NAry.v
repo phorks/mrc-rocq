@@ -108,7 +108,6 @@ Section syntactic.
     ⋃ (map (λ x : final_variable,
              if decide (initial_var_of x ∈ formula_fvars A) then {[as_var x]} else ∅) w).
 
-  (* TODO: convert it to a SetUnfoldElemOf instance *))
   Lemma elem_of_subst_initials_var_fvars A w x :
     (∃ x' : final_variable, x = as_var x' ∧ x' ∈ w ∧ initial_var_of x' ∈ formula_fvars A) ↔
     x ∈ subst_initials_var_fvars A w.

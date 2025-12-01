@@ -26,6 +26,15 @@ Section refinement.
   Implicit Types w xs : list final_variable.
   (* Implicit Types ts : list term. *)
 
+  (* TODO: reorder laws *)
+  (* 1.8 *)
+  Lemma r_absorb_assumption pre' w pre post `{FormulaFinal _ pre'} `{FormulaFinal _ pre} :
+    <{ {pre'} *w : [pre, post] }> ≡ <{ *w : [pre' ∧ pre, post] }>.
+  Proof.
+    split; intros A; simpl.
+    - f_simpl. rewrite subst_initials_nil. rewrite f_and_assoc. reflexivity.
+    - f_simpl. rewrite subst_initials_nil. rewrite f_and_assoc. reflexivity.
+  Qed.
 
   (* Law 1.1 *)
   Lemma r_strengthen_post w pre post post' `{FormulaFinal _ pre} :
