@@ -5,9 +5,9 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.SyntacticFacts.
 
 Section final_elements.
-  Context {V : Type}.
-  Notation term := (term V).
-  Notation formula := (formula V).
+  Context {value : Type}.
+  Notation term := (term value).
+  Notation formula := (formula value).
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
@@ -42,7 +42,11 @@ Section final_elements.
   Global Instance non_initial_var_final {x i} : VarFinal (mkVar x i false).
   Proof. reflexivity. Defined.
 
-  Global Instance var_final_as_var {x} : VarFinal (as_var x).
+  Global Instance as_var_var_final {x} : VarFinal (as_var x).
+  Proof. reflexivity. Defined.
+
+  Lemma var_final_as_var x :
+    var_final (as_var x).
   Proof. reflexivity. Defined.
 
   Lemma var_final_initial_var_of x :
@@ -203,9 +207,20 @@ Section final_elements.
   (* Definition aa : final_formula := as_final_formula <! ⌜t + x = t + t⌝ !>. *)
   (* Definition aa1 : final_formula := as_final_formula <! ⌜t + x = t + t⌝ ∧ A[y \ u] !>. *)
 
+  Lemma final_var_list_as_var_disjoint_term_fvars_initial_var_of (xs : list final_variable) :
+    list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar value <$> (initial_var_of <$> xs))).
+  Proof.
+    intros x H1 H2. apply elem_of_union_list in H2 as (fvars&?&?).
+    rewrite <- list_fmap_compose in H. set_unfold in H. destruct H as (x0&?&(x'&?&?)).
+    subst. simpl in *. set_solver.
+  Qed.
+
 End final_elements.
 
+
+Hint Resolve var_final_as_var : core.
 Hint Resolve var_final_initial_var_of : core.
+Hint Resolve final_var_list_as_var_disjoint_term_fvars_initial_var_of : core.
 Hint Extern 3 (FormulaFinal _) => typeclasses eauto : core.
 
 
@@ -360,5 +375,5 @@ Notation "⤊( Bs )" := (as_formula <$> Bs)
                       (at level 5, only parsing, Bs constr at level 200)
     : refiney_scope.
 
-Arguments final_term V : clear implicits.
-Arguments final_formula V : clear implicits.
+Arguments final_term value : clear implicits.
+Arguments final_formula value : clear implicits.

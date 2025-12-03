@@ -23,7 +23,7 @@ Section prog.
   Inductive prog : Type :=
   | PAsgn (xs : list final_variable) (ts: list final_term) `{OfSameLength _ _ xs ts}
   | PSeq (p1 p2 : prog)
-  | PIf (gcmds : list (formula * prog))
+  | PIf (gcmds : list (final_formula * prog))
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : variable) (p : prog)
   | PConst (x : variable) (p : prog).
@@ -41,8 +41,8 @@ Section prog.
     end.
 
 
-  Notation gcmd_list := (list (formula * prog)).
-  Definition gcmd_comprehension (gs : list formula) (f : formula → prog) : gcmd_list :=
+  Notation gcmd_list := (list (final_formula * prog)).
+  Definition gcmd_comprehension (gs : list final_formula) (f : final_formula → prog) : gcmd_list :=
     map (λ A, (A, f A)) gs.
 
   Fixpoint modified_final_vars p : gset final_variable :=
@@ -88,7 +88,7 @@ Section prog.
     match p with
     | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
     | PSeq p1 p2 => wp p1 (wp p2 A)
-    | PIf gcs => <! $(any_guard gcs) ∧ $(all_cmds gcs A) !>
+    | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
     | PSpec w pre post =>
         <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
     | PVar x p => <! ∀ x, $(wp p A) !>
@@ -292,7 +292,7 @@ Notation "p ; q" := (PSeq p q)
                       (in custom prog at level 120, right associativity)
     : refiney_scope.
 
-Notation "A → p" := ((A, p)) (in custom gcmd at level 60,
+Notation "A → p" := ((as_final_formula A), p) (in custom gcmd at level 60,
                            A custom formula,
                            p custom prog,
                            no associativity) : refiney_scope.

@@ -136,15 +136,15 @@ Ltac f_simpl :=
     | |- context[<! ¬ ?A ∧ ?A !>] =>
         rewrite (f_and_comm (<! ¬ A !>) A); rewrite f_and_not_self
 
-    (* f_excluded_middle *)
+    (* f_lem *)
     | H : context[<! ?A ∨ ¬ ?A !>] |- _ =>
-        rewrite f_excluded_middle in H
+        rewrite f_lem in H
     | H : context[<! ¬ ?A ∨ ?A !>] |- _ =>
-        rewrite (f_or_comm (<! ¬ A !>) A) in H; rewrite f_excluded_middle in H
+        rewrite (f_or_comm (<! ¬ A !>) A) in H; rewrite f_lem in H
     | |- context[<! ?A ∨ ¬ ?A !>] =>
-        rewrite f_excluded_middle
+        rewrite f_lem
     | |- context[<! ¬ ?A ∨ ?A !>] =>
-        rewrite (f_or_comm (<! ¬ A !>) A); rewrite f_excluded_middle
+        rewrite (f_or_comm (<! ¬ A !>) A); rewrite f_lem
 
     (* f_not_stable *)
     | H : context[<! ¬ ¬ ?A !>] |- _ =>

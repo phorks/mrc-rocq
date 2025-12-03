@@ -87,7 +87,7 @@ Section props.
     <! A ∧ ¬ A !> ≡ <! false !>.
   Proof. prove_equiv. Qed.
 
-  Lemma f_excluded_middle A :
+  Lemma f_lem A :
       <! A ∨ ¬ A !> ≡ <! true !>.
   Proof. prove_equiv. Qed.
 

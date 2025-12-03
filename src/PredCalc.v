@@ -2,9 +2,9 @@ From MRC Require Export PredCalc.Basic.
 From MRC Require Export PredCalc.SyntacticFacts.
 From MRC Require Export PredCalc.Equiv.
 From MRC Require Export PredCalc.SemanticFacts.
+From MRC Require Export PredCalc.FinalElements.
 From MRC Require Export PredCalc.EquivLemmas.
+From MRC Require Export PredCalc.SimultSubst.
 From MRC Require Export PredCalc.NAry.
 From MRC Require Export PredCalc.NAryEquivLemmas.
-From MRC Require Export PredCalc.FinalElements.
-From MRC Require Export PredCalc.SimultSubst.
 From MRC Require Export PredCalc.Tactics.

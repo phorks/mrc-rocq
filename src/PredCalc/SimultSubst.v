@@ -9,12 +9,14 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SemanticFacts.
+From MRC Require Import PredCalc.FinalElements.
 
-Section simult_subst.
-  Context {M : model}.
+Open Scope refiney_scope.
 
-  Local Notation value := (value M).
+Section syntax.
+  Context {value : Type}.
   Local Notation term := (term value).
+  Local Notation final_term := (final_term value).
   Local Notation atomic_formula := (atomic_formula value).
   Local Notation formula := (formula value).
 
@@ -106,16 +108,208 @@ Section simult_subst.
   Definition to_var_term_map (xs : list variable) (ts : list term)
     `{OfSameLength variable term xs ts}: gmap variable term := list_to_map (zip xs ts).
 
-
-  (* Notation "A [[ xs \ ts ]]" := (simult_subst A (@to_var_term_map xs ts _)) *)
-  (*                             (at level 10, left associativity, *)
-  (*                               xs custom seq_notation, *)
-  (*                               ts custom seq_notation) : refiney_scope. *)
-
   Local Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
-                              (in custom formula at level 74, left associativity,
-                                xs custom var_seq,
-                                ts custom term_seq) : refiney_scope.
+                                        (in custom formula at level 74, left associativity,
+                                            xs custom var_seq,
+                                            ts custom term_seq) : refiney_scope.
+
+  Local Tactic Notation "generalize_fresh_var_for_simult_subst"
+    ident(y) constr(A) constr(m) "as" ident(y') :=
+    let Hfresh := fresh in
+    let Heq := fresh in
+    let H1 := fresh in let H2 := fresh in let H3 := fresh in
+    pose proof (Hfresh := fresh_var_fresh y (quant_simult_subst_fvars y A m));
+    apply quant_simult_subst_fvars_inv in Hfresh as (H1&H2&H3);
+    remember (fresh_var y (quant_simult_subst_fvars y A m)) as y' eqn:Heq;
+    clear Heq.
+
+
+  Lemma simult_subst_term_id t m :
+    dom m ## term_fvars t →
+    simult_subst_term t m = t.
+  Proof with auto.
+    intros H. induction t; simpl...
+    - simpl in H. replace (m !! x) with (@None term)... symmetry.
+      rewrite <- not_elem_of_dom. set_solver.
+    - f_equal. induction args... simpl. f_equal.
+      + apply H0; [left; auto | set_solver].
+      + apply IHargs; [naive_solver | set_solver].
+  Qed.
+
+  Lemma simult_subst_af_id af m :
+    dom m ## af_fvars af →
+    simult_subst_af af m = af.
+  Proof with auto.
+    intros H.
+    destruct af...
+    - simpl. simpl in H. do 2 rewrite simult_subst_term_id by set_solver...
+    - simpl. f_equal. induction args... simpl in H. simpl in *. f_equal.
+      + rewrite simult_subst_term_id... set_solver.
+      + apply IHargs. set_solver.
+  Qed.
+
+  Lemma simult_subst_term_empty t :
+    simult_subst_term t ∅ = t.
+  Proof. apply simult_subst_term_id. set_solver. Qed.
+
+  Lemma simult_subst_af_empty af :
+    simult_subst_af af ∅ = af.
+  Proof. apply simult_subst_af_id. set_solver. Qed.
+
+  Lemma simult_subst_term_delete_non_free t x m :
+    x ∉ term_fvars t →
+    simult_subst_term t m = simult_subst_term t (delete x m).
+  Proof with auto.
+    intros. induction t; simpl...
+    - simpl in H. apply not_elem_of_singleton in H. rewrite lookup_delete_ne...
+    - f_equal. induction args... simpl. f_equal.
+      + apply H0; [naive_solver | set_solver].
+      + apply IHargs.
+        * intros. apply H0... right...
+        * set_solver.
+  Qed.
+
+  Lemma simult_subst_af_delete_non_free af x m :
+    x ∉ af_fvars af →
+    simult_subst_af af m = simult_subst_af af (delete x m).
+  Proof with auto.
+    intros. destruct af; simpl...
+    - rewrite <- simult_subst_term_delete_non_free by set_solver.
+      rewrite <- simult_subst_term_delete_non_free by set_solver...
+    - f_equal. induction args... simpl. f_equal.
+      + rewrite <- simult_subst_term_delete_non_free... set_solver.
+      + apply IHargs. set_solver.
+  Qed.
+
+  (* TODO: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
+  Lemma ssubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
+    list_to_set xs ## term_fvars t →
+    simult_subst_term t (to_var_term_map xs ts) = t.
+  Proof with auto.
+    intros. induction t; simpl...
+    - destruct (to_var_term_map xs ts !! x) eqn:E.
+      + apply elem_of_dom_2 in E. unfold to_var_term_map in E.
+        rewrite dom_list_to_map_zip_L in E... set_solver.
+      + apply not_elem_of_dom_2 in E. unfold to_var_term_map in E.
+        rewrite dom_list_to_map_zip_L in E...
+    - f_equal. induction args... simpl. f_equal.
+      + simpl in H0. apply H1...
+        * left...
+        * set_solver.
+      + apply IHargs.
+        * intros. apply H1... right...
+        * set_solver.
+  Qed.
+
+  Lemma ssubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
+    list_to_set xs ## af_fvars af →
+    simult_subst_af af (to_var_term_map xs ts) = af.
+  Proof with auto.
+    intros. destruct af; simpl in *...
+    - rewrite ssubst_term_non_free by set_solver. rewrite ssubst_term_non_free by set_solver...
+    - induction args; simpl... f_equal. f_equal.
+      + rewrite ssubst_term_non_free by set_solver...
+      + forward IHargs by set_solver. inversion IHargs... rewrite H2...
+  Qed.
+
+  Lemma fvars_ssubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
+    term_fvars (simult_subst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    induction t; simpl; [set_solver| | ].
+    - destruct (to_var_term_map xs ts !! x) eqn:E.
+      + unfold to_var_term_map in E. apply lookup_list_to_map_zip_Some in E as (i&?&?)...
+        apply elem_of_list_lookup_2 in H1. set_unfold. intros x0 ?. right.
+        apply elem_of_union_list. exists (term_fvars t). set_solver.
+      + simpl. set_solver.
+    - induction args.
+      + simpl. set_solver.
+      + simpl. assert (H1:=H0 a). forward H1 by (left; auto).
+        forward IHargs.
+        1: { intros. apply H0. right... }
+        set_solver.
+  Qed.
+
+  Lemma fvars_ssubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
+    af_fvars (simult_subst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    destruct af; simpl; [set_solver|set_solver | | ].
+    - pose proof (fvars_ssubst_term_superset t1 xs ts).
+      pose proof (fvars_ssubst_term_superset t2 xs ts). set_solver.
+    - induction args.
+      + simpl. set_solver.
+      + simpl. pose proof (fvars_ssubst_term_superset a xs ts). set_solver.
+  Qed.
+
+  Lemma fvars_ssubst_superset A xs ts `{OfSameLength _ _ xs ts} :
+    formula_fvars (<! A [[*xs \ *ts]] !>) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    induction A; simp simult_subst; simpl.
+    2-4: set_solver.
+    - apply fvars_ssubst_af_superset.
+    - generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
+      forward (H0 <! A [x \ x'] !>)...  clear H3 H4 H5.
+      destruct (decide (x ∈ formula_fvars A)).
+      + rewrite fvars_subst_free in H0... set_solver.
+      + rewrite fvars_subst_non_free in H0... set_solver.
+  Qed.
+
+  Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (¬ A) [[*xs \ *ts]] !> = <! ¬ (A [[*xs \ *ts]]) !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∧ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ∨ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
+  Proof. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇒ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
+  Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
+  Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+    <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
+  Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
+
+  Global Instance ssubst_formula_final {A xs} {ts : list final_term}
+      `{FormulaFinal _ A} `{OfSameLength _ _ xs ts} :
+    FormulaFinal <! A[[*xs \ ⇑ₜ ts]] !>.
+  Proof with auto.
+    intros x ?. apply fvars_ssubst_superset in H1. set_unfold. destruct H1 as [|].
+    - apply H in H1...
+    - apply elem_of_union_list in H1 as (fvars&?&?). set_unfold. destruct H1 as (?&->&t&->&?).
+      apply (final_term_final t) in H2...
+  Qed.
+
+End syntax.
+
+Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
+                            (in custom formula at level 74, left associativity,
+                              xs custom var_seq,
+                              ts custom term_seq) : refiney_scope.
+
+Tactic Notation "generalize_fresh_var_for_simult_subst"
+    ident(y) constr(A) constr(m) "as" ident(y') :=
+  let Hfresh := fresh in
+  let Heq := fresh in
+  let H1 := fresh in let H2 := fresh in let H3 := fresh in
+  pose proof (Hfresh := fresh_var_fresh y (quant_simult_subst_fvars y A m));
+  apply quant_simult_subst_fvars_inv in Hfresh as (H1&H2&H3);
+  remember (fresh_var y (quant_simult_subst_fvars y A m)) as y' eqn:Heq;
+  clear Heq.
+
+Section semantics.
+  Context {M : model}.
+
+  Local Notation value := (value M).
+  Local Notation term := (term value).
+  Local Notation atomic_formula := (atomic_formula value).
+  Local Notation formula := (formula value).
+
+  Implicit Types x y : variable.
+  Implicit Types t : term.
+  Implicit Types af : atomic_formula.
+  Implicit Types A : formula.
+  Implicit Types m : gmap variable term.
+  Implicit Types mv : gmap variable value.
 
   Definition teval_var_term_map σ m mv :=
       dom mv = dom m ∧ ∀ x t v, m !! x = Some t → mv !! x = Some v → teval σ t v.
@@ -232,40 +426,6 @@ Section simult_subst.
         + rewrite insert_union_singleton_l...
         + set_solver.
   Qed.
-
-  Lemma simult_subst_term_id t m :
-    dom m ## term_fvars t →
-    simult_subst_term t m = t.
-  Proof with auto.
-    intros H. induction t; simpl...
-    - simpl in H. replace (m !! x) with (@None term)... symmetry.
-      rewrite <- not_elem_of_dom. set_solver.
-    - f_equal. induction args... simpl. f_equal.
-      + apply H0; [left; auto | set_solver].
-      + apply IHargs; [naive_solver | set_solver].
-  Qed.
-
-  Lemma simult_subst_af_id af m :
-    dom m ## af_fvars af →
-    simult_subst_af af m = af.
-  Proof with auto.
-    intros H.
-    destruct af...
-    - simpl. simpl in H. do 2 rewrite simult_subst_term_id by set_solver...
-    - simpl. f_equal. induction args... simpl in H. simpl in *. f_equal.
-      + rewrite simult_subst_term_id... set_solver.
-      + apply IHargs. set_solver.
-  Qed.
-
-  Tactic Notation "generalize_fresh_var_for_simult_subst"
-      ident(y) constr(A) constr(m) "as" ident(y') :=
-    let Hfresh := fresh in
-    let Heq := fresh in
-    let H1 := fresh in let H2 := fresh in let H3 := fresh in
-    pose proof (Hfresh := fresh_var_fresh y (quant_simult_subst_fvars y A m));
-    apply quant_simult_subst_fvars_inv in Hfresh as (H1&H2&H3);
-    remember (fresh_var y (quant_simult_subst_fvars y A m)) as y' eqn:Heq;
-    clear Heq.
 
   Lemma simult_subst_id A m :
     dom m ## formula_fvars A →
@@ -392,42 +552,9 @@ Section simult_subst.
     rewrite simult_subst_id... rewrite <- (proj1 H)...
   Qed.
 
-  Lemma simult_subst_term_empty t :
-    simult_subst_term t ∅ = t.
-  Proof. apply simult_subst_term_id. set_solver. Qed.
-
-  Lemma simult_subst_af_empty af :
-    simult_subst_af af ∅ = af.
-  Proof. apply simult_subst_af_id. set_solver. Qed.
-
   Lemma simult_subst_empty A :
     simult_subst A ∅ ≡ A.
   Proof. apply simult_subst_id. set_solver. Qed.
-
-  Lemma simult_subst_term_delete_non_free t x m :
-    x ∉ term_fvars t →
-    simult_subst_term t m = simult_subst_term t (delete x m).
-  Proof with auto.
-    intros. induction t; simpl...
-    - simpl in H. apply not_elem_of_singleton in H. rewrite lookup_delete_ne...
-    - f_equal. induction args... simpl. f_equal.
-      + apply H0; [naive_solver | set_solver].
-      + apply IHargs.
-        * intros. apply H0... right...
-        * set_solver.
-  Qed.
-
-  Lemma simult_subst_af_delete_non_free af x m :
-    x ∉ af_fvars af →
-    simult_subst_af af m = simult_subst_af af (delete x m).
-  Proof with auto.
-    intros. destruct af; simpl...
-    - rewrite <- simult_subst_term_delete_non_free by set_solver.
-      rewrite <- simult_subst_term_delete_non_free by set_solver...
-    - f_equal. induction args... simpl. f_equal.
-      + rewrite <- simult_subst_term_delete_non_free... set_solver.
-      + apply IHargs. set_solver.
-  Qed.
 
   Lemma simult_subst_delete_non_free A x m :
     x ∉ formula_fvars A →
@@ -662,78 +789,6 @@ Section simult_subst.
     all: typeclasses eauto.
   Qed.
 
-  Lemma fvars_ssubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
-    term_fvars (simult_subst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
-  Proof with auto.
-    induction t; simpl; [set_solver| | ].
-    - destruct (to_var_term_map xs ts !! x) eqn:E.
-      + unfold to_var_term_map in E. apply lookup_list_to_map_zip_Some in E as (i&?&?)...
-        apply elem_of_list_lookup_2 in H1. set_unfold. intros x0 ?. right.
-        apply elem_of_union_list. exists (term_fvars t). set_solver.
-      + simpl. set_solver.
-    - induction args.
-      + simpl. set_solver.
-      + simpl. assert (H1:=H0 a). forward H1 by (left; auto).
-        forward IHargs.
-        1: { intros. apply H0. right... }
-        set_solver.
-  Qed.
-
-  Lemma fvars_ssubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
-    af_fvars (simult_subst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
-  Proof with auto.
-    destruct af; simpl; [set_solver|set_solver | | ].
-    - pose proof (fvars_ssubst_term_superset t1 xs ts).
-      pose proof (fvars_ssubst_term_superset t2 xs ts). set_solver.
-    - induction args.
-      + simpl. set_solver.
-      + simpl. pose proof (fvars_ssubst_term_superset a xs ts). set_solver.
-  Qed.
-
-  Lemma fvars_ssubst_superset A xs ts `{OfSameLength _ _ xs ts} :
-    formula_fvars <! A[[*xs \ *ts]] !> ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
-  Proof with auto.
-    induction A; simp simult_subst; simpl.
-    2-4: set_solver.
-    - apply fvars_ssubst_af_superset.
-    - generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
-      forward (H0 <! A [x \ x'] !>)...  clear H3 H4 H5.
-      destruct (decide (x ∈ formula_fvars A)).
-      + rewrite fvars_subst_free in H0... set_solver.
-      + rewrite fvars_subst_non_free in H0... set_solver.
-  Qed.
-
-  (* TODO: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
-  Lemma ssubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
-    list_to_set xs ## term_fvars t →
-    simult_subst_term t (to_var_term_map xs ts) = t.
-  Proof with auto.
-    intros. induction t; simpl...
-    - destruct (to_var_term_map xs ts !! x) eqn:E.
-      + apply elem_of_dom_2 in E. unfold to_var_term_map in E.
-        rewrite dom_list_to_map_zip_L in E... set_solver.
-      + apply not_elem_of_dom_2 in E. unfold to_var_term_map in E.
-        rewrite dom_list_to_map_zip_L in E...
-    - f_equal. induction args... simpl. f_equal.
-      + simpl in H0. apply H1...
-        * left...
-        * set_solver.
-      + apply IHargs.
-        * intros. apply H1... right...
-        * set_solver.
-  Qed.
-
-  Lemma ssubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
-    list_to_set xs ## af_fvars af →
-    simult_subst_af af (to_var_term_map xs ts) = af.
-  Proof with auto.
-    intros. destruct af; simpl in *...
-    - rewrite ssubst_term_non_free by set_solver. rewrite ssubst_term_non_free by set_solver...
-    - induction args; simpl... f_equal. f_equal.
-      + rewrite ssubst_term_non_free by set_solver...
-      + forward IHargs by set_solver. inversion IHargs... rewrite H2...
-  Qed.
-
   Lemma ssubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
     list_to_set xs ## formula_fvars A →
     <! A[[*xs \ *ts]] !> ≡ A.
@@ -757,26 +812,4 @@ Section simult_subst.
           rewrite (fexists_alpha_equiv x x' A)...
   Qed.
 
-  Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (¬ A) [[*xs \ *ts]] !> = <! ¬ (A [[*xs \ *ts]]) !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ∧ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ∨ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ⇒ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
-  Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
-    <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
-  Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
-
-
-End simult_subst.
-
-Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
-                            (in custom formula at level 74, left associativity,
-                              xs custom var_seq,
-                              ts custom term_seq) : refiney_scope.
+End semantics.
