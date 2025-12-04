@@ -849,6 +849,7 @@ End pred_calc_semantics.
 Arguments term V : clear implicits.
 Arguments atomic_formula : clear implicits.
 Arguments formula V : clear implicits.
+Arguments state M : clear implicits.
 
 Hint Constructors teval : core.
 

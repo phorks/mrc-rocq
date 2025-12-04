@@ -123,7 +123,7 @@ Section refinement.
         (Q1 ∧ ¬Q2).
   Proof with auto.
     constructor. split; intros.
-    - set_unfold in H. set_unfold in H1. destruct H1 as [ [] | ].
+    - set_unfold in H. set_unfold in H1. destruct H1 as [[] | ].
       + split... intros ?. apply H2. exists x. set_solver.
       + destruct H1 as (x'&?&?&?). set_solver.
     - destruct H1. rewrite <- (@set_unfold_elem_of _ _ _ _ _ _ H) in H1.
@@ -210,7 +210,7 @@ Section refinement.
       2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
       + rewrite fequiv_subst_non_free.
         2:{ intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
-            set_unfold in contra. destruct contra as [ [] |]; [|set_solver].
+            set_unfold in contra. destruct contra as [[] |]; [|set_solver].
             apply not_and_l in H0 as [].
             - apply H0. apply var_final_as_var.
             - rewrite to_final_var_as_var in H0. contradiction. }
@@ -223,7 +223,7 @@ Section refinement.
         1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2. f_equiv. f_equiv.
             apply OfSameLength_pi. }
         intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
-        set_unfold. destruct contra as [ [] | [] ].
+        set_unfold. destruct contra as [[] | []].
         * apply Hfinal in H... apply var_final_initial_var_of in H as [].
         * rewrite to_final_var_initial_var_of in H0. contradiction.
   Qed.
@@ -409,29 +409,36 @@ Section refinement.
     destruct (feval_lem σ A); naive_solver.
   Qed.
 
-  Lemma feval_or_elim_Prop A B (P : formula → Prop) :
-    (P A → P <! A ∨ B !>)
-    (∀ σ, feval σ A → P A) →
-    (∀ σ, feval σ B → P B) →
-    ∀ σ, feval σ <! A ∨ B !> → P <! A ∨ B !>.
-  Proof.
-    intros. specialize (H σ). specialize (H0 σ). intros. simp feval in H1.
-    destruct (feval_lem σ A).
-    - apply H in H2.
-  Qed.
+  Lemma f_true_in_st {σ A} :
+    feval σ A →
+    A ≡_{σ} <! true !>.
+  Proof. intros. split; intros; [constructor | assumption]. Qed.
 
-  Lemma f_or_elim_Prop A B C (P : formula → state → Prop) :
-    Proper ((≡) ==> (=) ==> iff) P →
-    (∀ σ, P A σ ∨ P A σ → P <! A ∨ B !> σ) →
-    (∀ σ, P A σ) →
-    (∀ σ, P B σ) →
-    ∀ σ, P <! A ∨ B !> σ.
+  Lemma f_or_elim_Prop A B (P : state → Prop) :
+    (∀ σ, <! A ∨ B !> ≡_{σ} <! A !> → P σ) →
+    (∀ σ, <! A ∨ B !> ≡_{σ} <! B !> → P σ) →
+    ∀ σ, P σ.
   Proof.
-    intros. destruct (feval_lem σ <! A ∨ B !>).
-    - admit.
-      -
-    -
-    Admitted.
+    intros. specialize (H σ). specialize (H0 σ). destruct (feval_lem σ A). Admitted.
+
+  (*   - pose proof (f_true_in_st H1). *)
+  (*   - i *)
+  (*   destruct (feval_lem σ A). *)
+  (*   - apply H in H2. *)
+  (* Qed. *)
+
+  (* Lemma f_or_elim_Prop A B C (P : formula → state → Prop) : *)
+  (*   Proper ((≡) ==> (=) ==> iff) P → *)
+  (*   (∀ σ, P A σ ∨ P A σ → P <! A ∨ B !> σ) → *)
+  (*   (∀ σ, P A σ) → *)
+  (*   (∀ σ, P B σ) → *)
+  (*   ∀ σ, P <! A ∨ B !> σ. *)
+  (* Proof. *)
+  (*   intros. destruct (feval_lem σ <! A ∨ B !>). *)
+  (*   - admit. *)
+  (*     - *)
+  (*   - *)
+  (*   Admitted. *)
   (*   intros. intros σ. specialize (H0 σ). specialize (H1 σ). intros. destruct (feval_lem σ A). *)
   (*   -  *)
   (*   intros. intros σ *)
@@ -514,6 +521,12 @@ Section refinement.
   (* Proof. *)
   (*   intros. pose proof (f_lem A).  *)
 
+  Lemma f_destruct A (P : ∀ σ : state, Prop) :
+    (∀ σ, A ≡_{σ} <! true !> → P σ) →
+    (∀ σ, A ≡_{σ} <! false !> → P σ) →
+    ∀ σ, P σ.
+  Proof. Admitted.
+
   Lemma r_alternation w pre post gs `{FormulaFinal _ pre} :
     pre ⇛ <! ∨* ⤊ gs !> →
     <{ *w : [pre, post] }> ⊑ <{ if | g : gs → *w : [g ∧ pre, post] fi }>.
@@ -522,9 +535,13 @@ Section refinement.
     - simpl. f_simpl. reflexivity.
     - simpl. fold (@fmap list _ final_formula formula).
       fold (@fmap list _ (final_formula * prog)).
-      revert g.
-      destruct
-      destruct (feval_lem )
+      unfold fent.
+      match goal with
+      | |- ∀ s, ?P => apply (f_destruct g (λ s, P)) end.
+      + intros σ H'. fold (fent_st σ). intros.
+      apply (f_destruct g).
+
+      + intros. assert (σ0 = σ) by admit.
       forward IH.
       { rewrite proviso. simpl. fold (@fmap list _ final_formula). f_or_intro_l
       (* replace (list_fmap final_formula formula as_formula) with *)

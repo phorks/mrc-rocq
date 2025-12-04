@@ -281,7 +281,7 @@ Section syntax.
 
 End syntax.
 
-Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
+Notation "A [ [ xs \ ts ] ]" := (simult_subst A (to_var_term_map xs ts))
                             (in custom formula at level 74, left associativity,
                               xs custom var_seq,
                               ts custom term_seq) : refiney_scope.
