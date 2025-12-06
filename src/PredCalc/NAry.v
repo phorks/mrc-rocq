@@ -389,6 +389,22 @@ Section syntactic.
     rewrite H2. rewrite H3. f_equal. apply initial_var_of_inj in H1. assumption.
   Qed.
 
+  Lemma subst_initials_inverse_zip_pair_functional (xs : list final_variable) :
+    zip_pair_functional (as_var <$> xs) (@TVar value <$> (initial_var_of <$> xs)).
+  Proof with auto.
+    intros i j x y1 y2 Hij ??.
+    rewrite elem_of_zip_pair_indexed in H, H0.
+    destruct H as []. destruct H0 as [].
+    apply list_lookup_fmap_inv in H as (x1&?&?).
+    apply list_lookup_fmap_inv in H0 as (x2&?&?).
+    apply list_lookup_fmap_inv in H1 as (x3&?&?).
+    apply list_lookup_fmap_inv in H2 as (x4&?&?).
+    subst. apply as_var_inj in H0. subst.
+    apply list_lookup_fmap_inv in H5 as (y1&?&?).
+    apply list_lookup_fmap_inv in H6 as (y2&?&?).
+    subst. rewrite H3 in H0. inversion H0. subst. rewrite H4 in H2. inversion H2. subst...
+  Qed.
+
   Lemma subst_initials_vars_terms_disjoint (xs : list final_variable) :
     list_to_set (initial_var_of <$> xs) ## ⋃ (@term_fvars value <$> (TVar <$> (as_var <$> xs))).
   Proof.
@@ -443,6 +459,7 @@ Section syntactic.
 End syntactic.
 
 Hint Resolve subst_initials_zip_pair_functional : core.
+Hint Resolve subst_initials_inverse_zip_pair_functional : core.
 Hint Resolve subst_initials_vars_terms_disjoint : core.
 
 Notation "⎡ ts =* us ⎤" := (FEqList ts us)

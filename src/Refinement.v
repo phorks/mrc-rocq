@@ -116,8 +116,7 @@ Section refinement.
     unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
     erewrite (@eqlist_rewrite _ (⇑₀ (w ++ xs))). Unshelve.
-    4:{ do 2 rewrite fmap_app. reflexivity. }
-    3:{ do 2 rewrite fmap_app. reflexivity. }
+    4-5: do 2 rewrite fmap_app; reflexivity.
     rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
     rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).
     2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
@@ -128,17 +127,6 @@ Section refinement.
     rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>).
     2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
     setoid_rewrite (f_foralllist_one_point (↑ₓ xs))...
-    2:{ intros i j x y1 y2 Hij ??.
-        rewrite elem_of_zip_pair_indexed in H0. rewrite elem_of_zip_pair_indexed in H1.
-        destruct H0 as []. destruct H1 as [].
-        apply list_lookup_fmap_inv in H0 as (x1&?&?).
-        apply list_lookup_fmap_inv in H1 as (x2&?&?).
-        apply list_lookup_fmap_inv in H2 as (x3&?&?).
-        apply list_lookup_fmap_inv in H3 as (x4&?&?).
-        Set Printing Coercions. subst. apply as_var_inj in H1. subst.
-        apply list_lookup_fmap_inv in H6 as (y1&?&?).
-        apply list_lookup_fmap_inv in H7 as (y2&?&?).
-        subst. rewrite H4 in H1. inversion H1. subst. rewrite H5 in H3. inversion H3. subst... }
     rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials.
     rewrite subst_initials_inverse_l...
     1: { rewrite H... }
