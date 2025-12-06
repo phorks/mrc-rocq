@@ -10,33 +10,27 @@ From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
 
-Lemma f_lem_elim_Prop {M : model} (A : formula (value M)) (P : ∀ σ : state M, Prop) :
-  (∀ σ, A ≡_{σ} <! true !> → P σ) →
-  (∀ σ, A ≡_{σ} <! false !> → P σ) →
-  ∀ σ, P σ.
-Proof.
-  intros. specialize (H σ). specialize (H0 σ).
-  destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
-Qed.
+Ltac fSplit :=
+  match goal with
+  | |- _ ⇛ <! _ ∧ _ !> => apply f_split; split
+  | |- _ ⇛_{_} <! _ ∧ _ !> => apply f_split_st; split
+  end.
 
-Lemma fent_fent_st {M : model} (A B : formula (value M)) :
-  A ⇛ B ↔ ∀ σ, A ⇛_{σ} B.
-Proof. reflexivity. Qed.
-
-Lemma fequiv_fequiv_st {M : model} (A B : formula (value M)) :
-  A ≡ B ↔ ∀ σ, A ≡_{σ} B.
-Proof. reflexivity. Qed.
-
-Ltac fLem C :=
-  (match goal with
-  | |- _ ⇛ _ => rewrite fent_fent_st
-  | |- _ ≡ _ => rewrite fequiv_fequiv_st
-  end);
+Local Ltac fLem_parametric C :=
   (match goal with
   | |- ∀ σ, ?P => apply (f_lem_elim_Prop C (λ σ, P))
   end);
+  intros σ.
+
+Ltac fLem C :=
+  match goal with
+  | |- _ ⇛ _ => rewrite fent_fent_st; fLem_parametric C
+  | |- _ ≡ _ => rewrite fequiv_fequiv_st; fLem_parametric C
+  | |- _ ⇛_{?σ} _ => apply (f_lem_elim_st_Prop C _ σ)
+  | |- _ ≡_{?σ} _ => apply (f_lem_elim_st_Prop C _ σ)
+  end;
   let H := fresh in
-  intros σ H; rewrite H in *.
+  intros H; try rewrite H in *.
 
 Ltac fRewrite_goal E tac :=
   match goal with
@@ -96,7 +90,7 @@ Tactic Notation "fRewrite" "<-" uconstr(E) "in" hyp(H) :=
 Tactic Notation "fRewrite" "<-" uconstr(E) "in" hyp(H) "at" integer(n) :=
   fRewrite_goal E ltac:(fun HE => rewrite <- HE in H at n).
 
-Ltac f_simpl :=
+Ltac fSimpl :=
   repeat match goal with
     | H : context[<! ?A ∧ ?A !>] |- _ =>
         fRewrite (f_and_idemp A) in H

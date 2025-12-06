@@ -732,4 +732,139 @@ Section props.
   Proof.
     rewrite f_eq_refl. rewrite f_not_true. reflexivity.
   Qed.
+
+  Lemma f_or_elim A B C :
+    A ⇛ C →
+    B ⇛ C →
+    <! A ∨ B !> ⇛ C.
+  Proof.
+    intros. intros σ. specialize (H σ). specialize (H0 σ). intros. simp feval in H1.
+    destruct (feval_lem σ A); naive_solver.
+  Qed.
+
+  Lemma feval_or_elim A B C :
+    (∀ σ, feval σ A → feval σ C) →
+    (∀ σ, feval σ B → feval σ C) →
+    ∀ σ, feval σ <! A ∨ B !> → feval σ C.
+  Proof.
+    intros. specialize (H σ). specialize (H0 σ). intros. simp feval in H1.
+    destruct (feval_lem σ A); naive_solver.
+  Qed.
+
+  Lemma f_equiv_st_true_feval {σ A} :
+    feval σ A ↔
+    A ≡_{σ} <! true !>.
+  Proof.
+    split; intros.
+    - split; intros; [constructor | assumption].
+    - inversion H. apply H1. constructor.
+  Qed.
+
+  Lemma f_or_elim_Prop A B (P : state M → Prop) :
+    (∀ σ, <! A ∨ B !> ≡_{σ} <! A !> → P σ) →
+    (∀ σ, <! A ∨ B !> ≡_{σ} <! B !> → P σ) →
+    ∀ σ, P σ.
+  Proof.
+    intros. specialize (H σ). specialize (H0 σ).
+    destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
+  Qed.
+
+  Lemma f_lem_elim_Prop A (P : ∀ σ : state M, Prop) :
+    (∀ σ, A ≡_{σ} <! true !> → P σ) →
+    (∀ σ, A ≡_{σ} <! false !> → P σ) →
+    ∀ σ, P σ.
+  Proof.
+    intros. specialize (H σ). specialize (H0 σ).
+    destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
+  Qed.
+
+  Lemma f_lem_elim_st_Prop A (P : Prop) σ :
+    (A ≡_{σ} <! true !> → P) →
+    (A ≡_{σ} <! false !> → P) →
+    P.
+  Proof.
+    intros. destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
+  Qed.
+
+  Lemma fent_fent_st A B :
+    A ⇛ B ↔ ∀ σ, A ⇛_{σ} B.
+  Proof. reflexivity. Qed.
+
+  Lemma fequiv_fequiv_st A B :
+    A ≡ B ↔ ∀ σ, A ≡_{σ} B.
+  Proof. reflexivity. Qed.
+
+  Lemma f_false_fent A :
+    <! false !> ⇛ A.
+  Proof. intros σ H. inversion H. Qed.
+
+  Lemma f_false_fent_st A σ :
+    <! false !> ⇛_{σ} A.
+  Proof. intros H. inversion H. Qed.
+
+  Lemma f_fent_true A :
+    A ⇛ <! true !>.
+  Proof. intros σ H. constructor. Qed.
+
+  Lemma f_fent_st_true A σ :
+    A ⇛_{σ} <! true !>.
+  Proof. intros H. constructor. Qed.
+
+  Lemma f_split A B C :
+    A ⇛ <! B ∧ C !> ↔ A ⇛ B ∧ A ⇛ C.
+  Proof.
+    unfold fent. split; intros.
+    - split; intros σ; specialize (H σ); simp feval in H; naive_solver.
+    - simp feval. naive_solver.
+  Qed.
+
+  Lemma f_split_st A B C σ :
+    A ⇛_{σ} <! B ∧ C !> ↔ A ⇛_{σ} B ∧ A ⇛_{σ} C.
+  Proof.
+    unfold fent_st. simp feval. naive_solver.
+  Qed.
+
+  Lemma f_left A B C :
+    A ⇛ B → A ⇛ <! B ∨ C !>.
+  Proof.
+    unfold fent. intros H σ. simp feval. naive_solver.
+  Qed.
+
+  Lemma f_left_st A B C σ :
+    A ⇛_{σ} B → A ⇛_{σ} <! B ∨ C !>.
+  Proof.
+    unfold fent_st. intros H. simp feval. naive_solver.
+  Qed.
+
+  Lemma f_right A B C :
+    A ⇛ C → A ⇛ <! B ∨ C !>.
+  Proof.
+    unfold fent. intros H σ. simp feval. naive_solver.
+  Qed.
+
+  Lemma f_right_st A B C σ :
+    A ⇛_{σ} C → A ⇛_{σ} <! B ∨ C !>.
+  Proof.
+    unfold fent_st. intros H. simp feval. naive_solver.
+  Qed.
+
+  Lemma f_or_equiv_false A B :
+    <! A ∨ B !> ≡ <! false !> ↔
+             A ≡ <! false !> ∧ B ≡ <! false !>.
+  Proof.
+    unfold equiv, fequiv. split; intros.
+    - split; intros σ; specialize (H σ); simp feval in *; naive_solver.
+    - simp feval. naive_solver.
+  Qed.
+
+  Lemma f_or_equiv_st_false σ A B :
+    <! A ∨ B !> ≡_{σ} <! false !> ↔
+             A ≡_{σ} <! false !> ∧ B ≡_{σ} <! false !>.
+  Proof. unfold equiv, fequiv_st. simp feval. naive_solver. Qed.
+
 End props.
+
+Global Hint Extern 0 (<! false !> ⇛ _) => apply f_false_fent : core.
+Global Hint Extern 0 (<! false !> ⇛_{_} _) => apply f_false_fent_st : core.
+Global Hint Extern 0 (_ ⇛ <! true !>) => apply f_fent_true : core.
+Global Hint Extern 0 (_ ⇛_{_} <! true !>) => apply f_fent_st_true : core.

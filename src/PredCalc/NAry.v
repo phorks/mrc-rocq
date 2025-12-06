@@ -1004,7 +1004,6 @@ Section semantic.
   Proof with auto.
     intros A B Hent xs1 xs2 Hperm. unfold subst_initials. rewrite Hent.
     do 2 rewrite fold_subst_initials. rewrite subst_initials_perm with (xs':=xs2)...
-    reflexivity.
   Qed.
 
   Global Instance subst_initials_proper :

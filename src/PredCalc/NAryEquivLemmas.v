@@ -344,14 +344,14 @@ Section n_ary_lemmas.
     B ∈ Bs →
     <! B ∧ (∧* Bs) !> ≡ <! ∧* Bs !>.
   Proof with auto.
-    intros. apply f_and_andlist_redundant_l with (B:=B)... reflexivity.
+    intros. apply f_and_andlist_redundant_l with (B:=B)...
   Qed.
 
   Lemma f_and_andlist_redundant_r' B Bs :
     B ∈ Bs →
     <! (∧* Bs) ∧ B !> ≡ <! ∧* Bs !>.
   Proof with auto.
-    intros. apply f_and_andlist_redundant_r with (B:=B)... reflexivity.
+    intros. apply f_and_andlist_redundant_r with (B:=B)...
   Qed.
 
   Lemma f_or_orlist_redundant_l B Bs B' :
@@ -374,14 +374,14 @@ Section n_ary_lemmas.
     B ∈ Bs →
     <! B ∨ (∨* Bs) !> ≡ <! ∨* Bs !>.
   Proof with auto.
-    intros. apply f_or_orlist_redundant_l with (B:=B)... reflexivity.
+    intros. apply f_or_orlist_redundant_l with (B:=B)...
   Qed.
 
   Lemma f_or_orlist_redundant_r' B Bs :
     B ∈ Bs →
     <! (∨* Bs) ∨ B !> ≡ <! ∨* Bs !>.
   Proof with auto.
-    intros. apply f_or_orlist_redundant_r with (B:=B)... reflexivity.
+    intros. apply f_or_orlist_redundant_r with (B:=B)...
   Qed.
 
   (* FEq comm *)

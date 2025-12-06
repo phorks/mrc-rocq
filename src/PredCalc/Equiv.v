@@ -304,6 +304,9 @@ Infix "⇚" := (flip fent) (at level 70, no associativity) : refiney_scope.
 Notation "(⇚)" := (flip fent) (only parsing) : refiney_scope.
 Notation "(⇚ₗ@{ M } )" := (flip (@fent M)) (only parsing) : refiney_scope.
 
+Global Hint Extern 0 (?A ⇛ ?A) => reflexivity : core.
+Global Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
+
 Section lemmas.
   Context {M : model}.
   Local Notation term := (term (value M)).
@@ -320,7 +323,7 @@ Section lemmas.
     split; intros.
     - intros σ. specialize (H σ). simp feval in H. intros. pose proof (feval_lem σ B) as []...
       apply H in H1. contradiction.
-    - rewrite H... reflexivity.
+    - rewrite H...
   Qed.
 
   Lemma f_ent_reverse_direction A B :
@@ -328,4 +331,5 @@ Section lemmas.
   Proof with auto.
     unfold flip. rewrite f_ent_contrapositive...
   Qed.
+
 End lemmas.
