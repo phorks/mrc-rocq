@@ -294,12 +294,13 @@ Section refinement.
     pre ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
-    intros. intros A Hfinal. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
+    intros. intros A. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
     f_simpl. rewrite <- (f_subst_initials_final_formula pre w)...
     rewrite <- simpl_subst_initials_and. unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
     rewrite H0. rewrite f_impl_elim. rewrite f_foralllist_one_point...
     rewrite fold_subst_initials. rewrite f_subst_initials_final_formula...
+    reflexivity.
   Qed.
 
   (* Law 5.3 *)
@@ -307,13 +308,13 @@ Section refinement.
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ pre !> ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
-    intros. intros A Hfinal. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
+    intros. intros A. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
     f_simpl. rewrite <- (f_subst_initials_final_formula pre w)...
     rewrite <- simpl_subst_initials_and. unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
     rewrite f_impl_dup_hyp. rewrite f_and_assoc. rewrite H0. rewrite f_impl_elim.
     rewrite f_foralllist_one_point... rewrite fold_subst_initials.
-    rewrite f_subst_initials_final_formula...
+    rewrite f_subst_initials_final_formula... reflexivity.
   Qed.
 
   (* Law 3.3 *)
@@ -409,144 +410,161 @@ Section refinement.
     destruct (feval_lem σ A); naive_solver.
   Qed.
 
-  Lemma f_true_in_st {σ A} :
-    feval σ A →
-    A ≡_{σ} <! true !>.
-  Proof. intros. split; intros; [constructor | assumption]. Qed.
+  (* Lemma f_true_in_st {σ A} : *)
+  (*   feval σ A → *)
+  (*   A ≡_{σ} <! true !>. *)
+  (* Proof. intros. split; intros; [constructor | assumption]. Qed. *)
 
   Lemma f_or_elim_Prop A B (P : state → Prop) :
     (∀ σ, <! A ∨ B !> ≡_{σ} <! A !> → P σ) →
     (∀ σ, <! A ∨ B !> ≡_{σ} <! B !> → P σ) →
     ∀ σ, P σ.
   Proof.
-    intros. specialize (H σ). specialize (H0 σ). destruct (feval_lem σ A). Admitted.
+    intros. specialize (H σ). specialize (H0 σ).
+    destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
+  Qed.
 
-  (*   - pose proof (f_true_in_st H1). *)
-  (*   - i *)
-  (*   destruct (feval_lem σ A). *)
-  (*   - apply H in H2. *)
-  (* Qed. *)
+Ltac fRewrite'' E tac :=
+  match goal with
+  | |- _ ⇛_{?σ} _ =>
+      idtac "hello"
+      (* let HE := fresh in *)
+      (* opose proof E as HE; *)
+      (* match type of HE with *)
+      (* | _ ≡ _ => rewrite fequiv_fequiv_st in HE; specialize (HE σ) *)
+      (* | _ ⇛ _ => rewrite fent_fent_st in HE; specialize (HE σ) *)
+      (* end; tac HE; clear HE *)
+  end.
 
-  (* Lemma f_or_elim_Prop A B C (P : formula → state → Prop) : *)
-  (*   Proper ((≡) ==> (=) ==> iff) P → *)
-  (*   (∀ σ, P A σ ∨ P A σ → P <! A ∨ B !> σ) → *)
-  (*   (∀ σ, P A σ) → *)
-  (*   (∀ σ, P B σ) → *)
-  (*   ∀ σ, P <! A ∨ B !> σ. *)
-  (* Proof. *)
-  (*   intros. destruct (feval_lem σ <! A ∨ B !>). *)
-  (*   - admit. *)
-  (*     - *)
-  (*   - *)
-  (*   Admitted. *)
-  (*   intros. intros σ. specialize (H0 σ). specialize (H1 σ). intros. destruct (feval_lem σ A). *)
-  (*   -  *)
-  (*   intros. intros σ *)
-  (*   apply f_or_elim. intros σ. specialize (H σ). specialize (H0 σ). destruct (feval_lem σ A); intros. *)
-  (*   - apply H. *)
-  (*     f_or_intro_l *)
-  (*   - *)
+Hint Extern 0 (?A ⇛ ?A) => reflexivity : core.
+Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
 
-  (* Lemma f_weaken A P : *)
-  (*   (∀ σ, feval σ A → P) → *)
-  (*   (A ≡ <! true !> → P). *)
-  (* Proof. *)
-  (*   intros.  *)
+Lemma f_false_fent A :
+  <! false !> ⇛ A.
+Proof. intros σ H. inversion H. Qed.
 
-  (* Lemma f_or_elim_Prop A B C (P : formula → formula) : *)
-  (*   (P A ⇛ C) → *)
-  (*   (P B ⇛ C) → *)
-  (*   P <! A ∨ B !> ⇛ C. *)
-  (* Proof. *)
-  (*   intros. apply f_or_elim. intros σ. specialize (H σ). specialize (H0 σ). destruct (feval_lem σ A); intros. *)
-  (*   - apply H. *)
-  (*     f_or_intro_l *)
-  (*   - *)
-  (* Lemma f_destruct A C (P : formula → formula) : *)
-  (*   (P <! true !> ⇛ C) → *)
-  (*   (P <! false !> ⇛ C) → *)
-  (*   P A ⇛ C. *)
-  (* Proof. *)
-  (*   intros σ. specialize (H σ). specialize (H0 σ). destruct (feval_lem σ A). *)
-  (*   - intros. apply H. *)
-  (*   - *)
-  (*   intros. pose proof (f_lem A). *)
-  (* Lemma f_destruct_Prop A (P : state → formula → Prop) : *)
-  (*   (∀ σ, P σ <! true !>) → *)
-  (*   (∀ σ, P σ <! false !>) → *)
-  (*   ∀ σ, P σ A. *)
-  (* Proof. *)
-  (*   intros. destruct (feval_lem σ A). *)
-  (*   -  *)
-  (*   intros. pose proof (f_lem A). *)
-  (* Lemma f_destruct_Prop A (P : state → Prop) : *)
-  (*   (A ≡ <! true !> → ∀ σ, P σ) → *)
-  (*   (A ≡ <! false !> → ∀ σ, P σ) → *)
-  (*   ∀ σ, P σ. *)
-  (* Proof. *)
-  (*   intros. pose proof (f_lem A). *)
-  (* Lemma f_or_elim_Prop A B (P : state → Prop) : *)
-  (*   (<! A ∨ B !> ≡ A → ∀ σ, P σ) → *)
-  (*   (<! A ∨ B !> ≡ B → ∀ σ, P σ) → *)
-  (*   ∀ σ, P σ. *)
-  (* Proof. *)
-  (*   intros. pose proof (f_lem A). *)
-  (*   <! A ∨ B ⇒ C !> ≡ <! true !>. *)
-  (* Proof. *)
-  (*   intros. pose proof (f_lem A). intros σ. split; intros. *)
-  (*   - unfold FImpl in H1. simp feval in H1. destruct H1. *)
-  (*     + destruct  *)
-  (*   intros HA HB.  *)
-  (*   (∀ σ, C ≡ <! B !> → P σ) → *)
-  (*   ∀ σ, C ≡ <! A ∨ B !> → P σ. *)
-  (* Proof. *)
+Lemma f_false_fent_st A σ :
+  <! false !> ⇛_{σ} A.
+Proof. intros H. inversion H. Qed.
 
-  (* Lemma f_or_elim_Prop A B C (P : state → Prop) : *)
-  (*   (∀ σ, C ≡ <! A !> → P σ) → *)
-  (*   (∀ σ, C ≡ <! B !> → P σ) → *)
-  (*   ∀ σ, C ≡ <! A ∨ B !> → P σ. *)
-  (* Proof. *)
-  (*   intros. destruct (feval_lem σ A). *)
-  (*   - apply H. rewrite H1. intros σ'. *)
-  (*   intros.  *)
-  (* Lemma f_or_elim_Prop A P : *)
-  (*   P <! true !> → *)
-  (*   P <! false !> → *)
-  (*   P A. *)
-  (* Proof. *)
-  (*   intros. pose proof  *)
-  (*   (A ≡ <! true !> → P) → *)
-  (*   (A ≡ <! false !> → P) → *)
-  (*   P. *)
-  (* Proof. *)
-  (*   intros. pose proof (f_lem A).  *)
+Lemma f_fent_true A :
+  A ⇛ <! true !>.
+Proof. intros σ H. constructor. Qed.
 
-  Lemma f_destruct A (P : ∀ σ : state, Prop) :
-    (∀ σ, A ≡_{σ} <! true !> → P σ) →
-    (∀ σ, A ≡_{σ} <! false !> → P σ) →
-    ∀ σ, P σ.
-  Proof. Admitted.
+Lemma f_fent_st_true A σ :
+  A ⇛_{σ} <! true !>.
+Proof. intros H. constructor. Qed.
+
+Hint Extern 0 (?A ⇛ ?A) => reflexivity : core.
+Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
+Hint Extern 0 (<! false !> ⇛ _) => apply f_false_fent : core.
+Hint Extern 0 (<! false !> ⇛_{_} _) => apply f_false_fent_st : core.
+Hint Extern 0 (_ ⇛ <! true !>) => apply f_fent_true : core.
+Hint Extern 0 (_ ⇛_{_} <! true !>) => apply f_fent_st_true : core.
+
+Lemma f_split A B C :
+  A ⇛ <! B ∧ C !> ↔ A ⇛ B ∧ A ⇛ C.
+Proof.
+  unfold fent. split; intros.
+  - split; intros σ; specialize (H σ); simp feval in H; naive_solver.
+  - simp feval. naive_solver.
+Qed.
+
+Lemma f_split_st A B C σ :
+  A ⇛_{σ} <! B ∧ C !> ↔ A ⇛_{σ} B ∧ A ⇛_{σ} C.
+Proof.
+  unfold fent_st. simp feval. naive_solver.
+Qed.
+
+Lemma f_left A B C :
+  A ⇛ B → A ⇛ <! B ∨ C !>.
+Proof.
+  unfold fent. intros H σ. simp feval. naive_solver.
+Qed.
+
+Lemma f_left_st A B C σ :
+  A ⇛_{σ} B → A ⇛_{σ} <! B ∨ C !>.
+Proof.
+  unfold fent_st. intros H. simp feval. naive_solver.
+Qed.
+
+Lemma f_right A B C :
+  A ⇛ C → A ⇛ <! B ∨ C !>.
+Proof.
+  unfold fent. intros H σ. simp feval. naive_solver.
+Qed.
+
+Lemma f_right_st A B C σ :
+  A ⇛_{σ} C → A ⇛_{σ} <! B ∨ C !>.
+Proof.
+  unfold fent_st. intros H. simp feval. naive_solver.
+Qed.
+
+Ltac fSplit :=
+  match goal with
+  | |- _ ⇛ <! _ ∧ _ !> => apply f_split; split
+  | |- _ ⇛_{_} <! _ ∧ _ !> => apply f_split_st; split
+  end.
+
+Lemma f_lem_elim_st_Prop A (P : Prop) σ :
+  (A ≡_{σ} <! true !> → P) →
+  (A ≡_{σ} <! false !> → P) →
+  P.
+Proof.
+  intros. destruct (feval_lem σ A); [apply H | apply H0]; split; simp feval; naive_solver.
+Qed.
+
+Ltac fLem_parametric C :=
+  (match goal with
+  | |- ∀ σ, ?P => apply (f_lem_elim_Prop C (λ σ, P))
+  end);
+  intros σ.
+
+Ltac fLem' C :=
+  match goal with
+  | |- _ ⇛ _ => rewrite fent_fent_st; fLem_parametric C
+  | |- _ ≡ _ => rewrite fequiv_fequiv_st; fLem_parametric C
+  | |- _ ⇛_{?σ} _ => apply (f_lem_elim_st_Prop C _ σ)
+  | |- _ ≡_{?σ} _ => apply (f_lem_elim_st_Prop C _ σ)
+  end;
+  let H := fresh in
+  intros H; try rewrite H in *.
+
+Lemma f_or_equiv_false A B :
+  <! A ∨ B !> ≡ <! false !> ↔
+  A ≡ <! false !> ∧ B ≡ <! false !>.
+Proof.
+  unfold equiv, fequiv. split; intros.
+  - split; intros σ; specialize (H σ); simp feval in *; naive_solver.
+  - simp feval. naive_solver.
+Qed.
+
+Lemma f_or_equiv_st_false σ A B :
+  <! A ∨ B !> ≡_{σ} <! false !> ↔
+  A ≡_{σ} <! false !> ∧ B ≡_{σ} <! false !>.
+Proof. unfold equiv, fequiv_st. simp feval. naive_solver. Qed.
 
   Lemma r_alternation w pre post gs `{FormulaFinal _ pre} :
     pre ⇛ <! ∨* ⤊ gs !> →
     <{ *w : [pre, post] }> ⊑ <{ if | g : gs → *w : [g ∧ pre, post] fi }>.
   Proof with auto.
-    intros proviso A. simpl. rewrite proviso. clear proviso. induction gs as [|g gs IH].
-    - simpl. f_simpl. reflexivity.
-    - simpl. fold (@fmap list _ final_formula formula).
+    intros proviso A. simpl. rewrite fent_fent_st. intros σ.
+    rewrite fent_fent_st in proviso. specialize (proviso σ).
+    induction gs as [|g gs IH].
+    - rewrite proviso. simpl. f_simpl...
+    - simpl in *. fold (@fmap list _ final_formula formula) in *.
       fold (@fmap list _ (final_formula * prog)).
-      unfold fent.
-      match goal with
-      | |- ∀ s, ?P => apply (f_destruct g (λ s, P)) end.
-      + intros σ H'. fold (fent_st σ). intros.
-      apply (f_destruct g).
-
-      + intros. assert (σ0 = σ) by admit.
-      forward IH.
-      { rewrite proviso. simpl. fold (@fmap list _ final_formula). f_or_intro_l
-      (* replace (list_fmap final_formula formula as_formula) with *)
-      (*   (@fmap list _ final_formula _ as_formula)... *)
-      (*   with (⤊ gs) by reflexivity. *)
+      fLem' g.
+      + f_simpl. fSplit... fLem' pre.
+        2:{ f_simpl... }
+        fLem' <! ∨* ⤊ gs !>.
+        * forward IH... f_simpl. rewrite IH. intros ?. simp feval in H3. destruct H3 as [].
+          assumption.
+        * clear IH proviso H0 H1 g. induction gs as [|g gs IH]; simpl...
+          simpl in *. apply f_or_equiv_st_false in H2 as []. rewrite H0. f_simpl.
+          rewrite IH...
+      + f_simpl. forward IH...
+  Qed.
 
 
   Lemma r_iteration w (I : formula) (v : variable) gcs :

@@ -1,5 +1,5 @@
 From Equations Require Import Equations.
-From stdpp Require Import fin_maps.
+From stdpp Require Import base tactics.
 From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 From MRC Require Import Model.
@@ -7,6 +7,8 @@ From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.Basic.
 
 Section equiv.
+  Close Scope stdpp_scope.
+
   Context {M : model}.
   Local Notation term := (term (value M)).
   Local Notation formula := (formula (value M)).
@@ -16,202 +18,261 @@ Section equiv.
   Implicit Types t : term.
   Implicit Types σ : state.
 
-  (* ******************************************************************* *)
-  (* term equivalence under a fixed state                                *)
-  (* ******************************************************************* *)
+  (** * Two notions of equivalence for [term]s: [≡] and [≡_{σ}]  *)
   Definition tequiv_st σ t1 t2 := ∀ v, teval σ t1 v ↔ teval σ t2 v.
-
-  Global Instance tequiv_st_refl σ : Reflexive (tequiv_st σ).
-  Proof with auto. intros ? ?... Qed.
-
-  Global Instance tequiv_st_sym σ : Symmetric (tequiv_st σ).
-  Proof with auto. intros ? ? ? ?. symmetry... Qed.
-
-  Global Instance tequiv_st_trans σ : Transitive (tequiv_st σ).
-  Proof with auto. intros ? ? ? ? ? ?... unfold tequiv_st in *. naive_solver. Qed.
-
-  Global Instance tequiv_st_equiv σ : Equivalence (tequiv_st σ).
-  Proof. split; [apply tequiv_st_refl | apply tequiv_st_sym | apply tequiv_st_trans]. Qed.
-
-  (* ******************************************************************* *)
-  (* term equivalence under all states                                   *)
-  (* ******************************************************************* *)
   Global Instance tequiv : Equiv term := λ t1 t2, ∀ σ v, teval σ t1 v ↔ teval σ t2 v.
 
-  Global Instance tequiv_refl : Reflexive tequiv.
+  Local Notation "(≡ₜ_{ σ } )" := (tequiv_st σ).
+  Local Notation "(≡ₜ)" := (@equiv term).
+
+  (** [≡] is a subrelation of [≡_{σ}] *)
+  Global Instance tequiv_subrelation_tequiv_st {σ} : subrelation (≡ₜ) (≡ₜ_{σ}).
+  Proof. intros ? ? ?. specialize (H σ). auto. Qed.
+
+  (** ** [≡_{σ}] is an equivalence relation  *)
+  Global Instance tequiv_st_refl {σ} : Reflexive (≡ₜ_{σ}).
+  Proof with auto. intros ? ?... Qed.
+
+  Global Instance tequiv_st_sym {σ} : Symmetric (≡ₜ_{σ}).
+  Proof with auto. intros ? ? ? ?. symmetry... Qed.
+
+  Global Instance tequiv_st_trans {σ} : Transitive (≡ₜ_{σ}).
+  Proof with auto. intros ? ? ? ? ? ?... unfold tequiv_st in *. naive_solver. Qed.
+
+  Global Instance tequiv_st_equiv {σ} : Equivalence (≡ₜ_{σ}).
+  Proof. split; [apply tequiv_st_refl | apply tequiv_st_sym | apply tequiv_st_trans]. Qed.
+
+  (** ** [≡ₜ] is an equivalence relation *)
+  Global Instance tequiv_refl : Reflexive (≡ₜ).
   Proof with auto. intros ? ? ?... Qed.
 
-  Global Instance tequiv_sym : Symmetric tequiv.
-  Proof with auto. intros ? ? ? ? ?. symmetry... Qed.
+  Global Instance tequiv_sym : Symmetric (≡ₜ).
+  Proof with auto. intros ? ? ? ?. symmetry. auto. Qed.
 
-  Global Instance tequiv_trans : Transitive tequiv.
-  Proof with auto. intros ? ? ? ? ? ? ?... unfold tequiv in *. naive_solver. Qed.
+  Global Instance tequiv_trans : Transitive (≡ₜ).
+  Proof with auto. intros ? ? ? ? ? ? ?... unfold equiv, tequiv, tequiv_st in *. naive_solver. Qed.
 
-  Global Instance tequiv_equiv : Equivalence tequiv.
+  Global Instance tequiv_equiv : Equivalence (≡ₜ).
   Proof. split; [exact tequiv_refl | exact tequiv_sym | exact tequiv_trans]. Qed.
 
-  (* ******************************************************************* *)
-  (* ⇛ and ≡ under a specific state                                      *)
-  (* ******************************************************************* *)
+  (** * [formula] entailment and equivalence *)
+  (** ** Two notions of entailment: [⇛] and [⇛_{σ}]  **)
   Definition fent_st σ A B := feval σ A → feval σ B.
-  Definition fequiv_st σ A B := feval σ A ↔ feval σ B.
+  Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B.
 
-  Global Instance fent_st_refl σ : Reflexive (fent_st σ).
+  Local Notation "(⇛_{ σ } )" := (fent_st σ).
+  Local Notation "(⇛)" := (fent).
+  Local Notation "(⇚_{ σ } )" := (flip (fent_st σ)).
+  Local Notation "(⇚)" := (flip fent).
+
+  (** [⇛] is a subrelation of [⇛_{σ}] *)
+  Instance fent_subrelation_fent_st {σ} : subrelation (⇛) (⇛_{σ}).
+  Proof. intros ? ? ?. specialize (H σ). auto. Qed.
+
+  (** *** [⇛_{σ}] is reflexive and transitive *)
+  Global Instance fent_st_refl {σ} : Reflexive (⇛_{σ}).
   Proof with auto. intros ? ?... Qed.
 
-  Global Instance fent_st_trans σ : Transitive (fent_st σ).
+  Global Instance fent_st_trans {σ} : Transitive (⇛_{σ}).
   Proof with auto. intros ? ? ? ? ? ?... Qed.
 
-  Global Instance fequiv_st_refl σ : Reflexive (fequiv_st σ).
-  Proof with auto. intros ?. unfold fequiv_st... Qed.
-
-  Global Instance fequiv_st_sym σ : Symmetric (fequiv_st σ).
-  Proof with auto. intros A B H. destruct H as [H1 H2]. split; [apply H2|apply H1]... Qed.
-
-  Global Instance fequiv_st_trans σ : Transitive (fequiv_st σ).
-  Proof with auto. intros A B C H H'. unfold fequiv_st in *. naive_solver. Qed.
-
-  Global Instance fequiv_st_equiv σ : Equivalence (fequiv_st σ).
-  Proof. split; [apply fequiv_st_refl | apply fequiv_st_sym | apply fequiv_st_trans]. Qed.
-
-  Global Instance fent_st_antisym σ : Antisymmetric formula (fequiv_st σ) (fent_st σ).
-  Proof. intros A B H1 H2. unfold fent_st, fequiv_st in *. naive_solver. Qed.
-
-  Global Instance fent_st_proper_fequiv_st σ
-    : Proper ((fequiv_st σ) ==> (fequiv_st σ) ==> iff) (fent_st σ).
-  Proof with auto. intros A B HAB C D HCD. unfold fent_st, fequiv_st in *. naive_solver. Qed.
-
-  Global Instance feval_proper_fent_st σ : Proper ((fent_st σ) ==> impl) (feval σ).
-  Proof with auto. intros A B H. apply H. Qed.
-
-  Global Instance feval_proper_fequiv_st σ : Proper ((fequiv_st σ) ==> iff) (feval σ).
-  Proof with auto. intros A B H. apply H. Qed.
-
-  (* ******************************************************************* *)
-  (* ⇛ and ≡ under all states                                            *)
-  (* ******************************************************************* *)
-
-  Definition fent A B : Prop := ∀ σ, feval σ A → feval σ B.
-  Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
-
-  Global Instance fent_refl : Reflexive fent.
+  (** *** [⇛] is reflexive and transitive *)
+  Global Instance fent_refl : Reflexive (⇛).
   Proof with auto. intros ? ? ?... Qed.
 
-  Global Instance fent_trans : Transitive fent.
+  Global Instance fent_trans : Transitive (⇛).
   Proof with auto. intros ? ? ? ? ? ? ?... Qed.
 
-  Global Instance fequiv_refl : Reflexive (≡@{formula}).
-  Proof with auto. intros ? ?... Qed.
+  (** ** Two notions of equivalence: [≡] and [≡_{σ}]  *)
+  Definition fequiv_st σ A B := feval σ A ↔ feval σ B.
+  Global Instance fequiv : Equiv formula := λ A B, ∀ σ, feval σ A ↔ feval σ B.
 
-  Global Instance fequiv_sym : Symmetric (≡@{formula}).
-  Proof with auto. intros A B H σ. destruct (H σ) as [H1 H2]. naive_solver. Qed.
+  (* a local tactic for solving formula equivalences *)
+  Local Ltac solve_equiv :=
+    hnf; unfold FIff, FImpl, tequiv_st, tequiv, fent_st, fent, equiv, fequiv, fequiv_st,
+      respectful, impl; intros; simpl in *; simp feval in *; naive_solver.
 
-  Global Instance fequiv_trans : Transitive (≡@{formula}).
-  Proof with auto. intros A B C H H' σ. unfold equiv, fequiv in *. naive_solver. Qed.
+  Local Notation "(≡_{ σ } )" := (fequiv_st σ).
+  Local Notation "(≡)" := (@equiv formula).
 
-  Global Instance fequiv_equiv : Equivalence (≡@{formula}).
+  (** [≡] is a subrelation of [≡_{σ}] *)
+  Instance fequiv_subrelation_fequiv_st {σ} : subrelation (≡) (≡_{σ}).
+  Proof. solve_equiv. Qed.
+
+  (** *** [≡_{σ}] is an equivalence relation *)
+  Global Instance fequiv_st_refl {σ} : Reflexive (≡_{σ}).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_st_sym {σ} : Symmetric (≡_{σ}).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_st_trans {σ} : Transitive (≡_{σ}).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_st_equiv {σ} : Equivalence (≡_{σ}).
+  Proof. split; [apply fequiv_st_refl | apply fequiv_st_sym | apply fequiv_st_trans]. Qed.
+
+  (** *** [≡] is an equivalence relation *)
+  Global Instance fequiv_refl : Reflexive (≡).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_sym : Symmetric (≡).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_trans : Transitive (≡).
+  Proof. solve_equiv. Qed.
+
+  Global Instance fequiv_equiv : Equivalence (≡).
   Proof. split; [exact fequiv_refl | exact fequiv_sym | exact fequiv_trans]. Qed.
 
-  Global Instance fent_antisym : Antisymmetric formula (≡@{formula}) fent.
-  Proof. intros A B H1 H2 σ. specialize (H1 σ). specialize (H2 σ). naive_solver. Qed.
+  (** ** Connections between entailment and equivalence *)
+  (** [⇛] is antisymmetric with respect to [≡] *)
+  Global Instance fent_st_antisym {σ} : Antisymmetric formula (≡_{σ}) (⇛_{σ}).
+  Proof. solve_equiv. Qed.
 
-  Global Instance fent_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> iff) fent.
-  Proof with auto.
-    intros A B HAB C D HCD. split; intros Hent σ; specialize (HAB σ); specialize (HCD σ);
-      naive_solver.
-  Qed.
+  Global Instance fent_antisym : Antisymmetric formula (≡) (⇛).
+  Proof. solve_equiv. Qed.
 
-  Global Instance feval_proper_fent : Proper ((=) ==> fent ==> impl) feval.
-  Proof with auto. intros σ ? <- A B H. exact (H σ). Qed.
+  (** [≡] is subrelation of [⇛] and [⇚]: although technically this is true, but adding the
+      subrelation instances causes [rewrite]s to be very slow. *)
+  (* Global Instance fequiv_st_subrelation_fent_st {σ} : subrelation (≡_{σ}) (⇛_{σ}). *)
+  (* Proof. solve_equiv. Qed. *)
 
-  Global Instance feval_proper : Proper ((=) ==> (≡@{formula}) ==> iff) feval.
-  Proof with auto. intros σ ? <- A B H. split; intros; apply H... Qed.
+  (* Global Instance fequiv_st_subrelation_flip_fent_st {σ} : subrelation (≡_{σ}) (⇚_{σ}). *)
+  (* Proof. solve_equiv. Qed. *)
 
-  (* ******************************************************************* *)
-  (* ⇛_σ and ≡_σ proper under ⇛ and ≡                                    *)
-  (* ******************************************************************* *)
-  Global Instance fent_st_proper σ : Proper ((≡@{formula}) ==> (≡@{formula}) ==> iff) (fent_st σ).
-  Proof.
-    intros A B HAB C D HCD. unfold fent_st in *. split; intros Himpl H; apply HAB in H;
-      apply HCD; apply (Himpl H).
-  Qed.
+  (* Global Instance fequiv_subrelation_fent : subrelation (≡) (⇛). *)
+  (* Proof. solve_equiv. Qed. *)
 
-  Global Instance fent_st_proper_fent σ : Proper ((flip fent) ==> fent ==> impl) (fent_st σ).
-  Proof.
-    intros A B HAB C D HCD HAC HB. apply HAB in HB. apply HAC in HB. apply HCD. apply HB.
-  Qed.
+  (* Global Instance fequiv_subrelation_flip_fent : subrelation (≡) (⇚). *)
+  (* Proof. solve_equiv. Qed. *)
 
-  (* ******************************************************************* *)
-  (* ⇛_{σ} and ≡_{σ} proper formula constructors                         *)
-  (* ******************************************************************* *)
-  Global Instance ATEq_proper : Proper ((≡@{term}) ==> (≡@{term}) ==> (≡@{formula})) AT_Eq.
-  Proof with auto.
-    intros t1 t1' H1 t2 t2' H2 σ. simp feval. simpl. split; intros (v&?&?); exists v;
-      (split; [apply H1 | apply H2])...
-  Qed.
+  (** [⇛] respects [⇛] in left and [⇚] in right *)
+  Global Instance fent_st_proper_fent_st {σ} : Proper ((⇚_{σ}) ==> (⇛_{σ}) ==> impl) (⇛_{σ}).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FNot_proper : Proper ((≡@{formula}) ==> (≡@{formula})) FNot.
-  Proof with auto.
-    intros A B Hequiv σ. simp feval. split; intros H contra; apply H; apply Hequiv...
-  Qed.
+  Global Instance fent_proper_fent : Proper ((⇚) ==> (⇛) ==> impl) (⇛).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FAnd_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FAnd.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
-    split; intros [? ?]; (split; [apply Heq1 | apply Heq2])...
-  Qed.
+  Global Instance fent_st_proper_fequiv_st {σ} : Proper ((≡_{σ}) ==> (≡_{σ}) ==> iff) (⇛_{σ}).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FOr_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FOr.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
-    split; (intros [|]; [left; apply Heq1 | right; apply Heq2])...
-  Qed.
+  Global Instance fent_proper : Proper ((≡) ==> (≡) ==> iff) (⇛).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FImpl_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FImpl.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FImpl. rewrite Heq1. rewrite Heq2...
-  Qed.
+  (** [feval σ] respects [⇛_{σ}] and [⇚_{σ}] *)
+  Global Instance feval_proper_fent_st {σ} : Proper ((⇛_{σ}) ==> impl) (feval σ).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FIff_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FIff.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
-  Qed.
+  Global Instance feval_proper_flip_fent_st {σ} : Proper ((⇚_{σ}) ==> flip impl) (feval σ).
+  Proof. solve_equiv. Qed.
 
-  (* ******************************************************************* *)
-  (* ⇛ and ≡ proper formula constructors                                 *)
-  (* ******************************************************************* *)
-  Global Instance ATEq_proper : Proper ((≡@{term}) ==> (≡@{term}) ==> (≡@{formula})) AT_Eq.
-  Proof with auto.
-    intros t1 t1' H1 t2 t2' H2 σ. simp feval. simpl. split; intros (v&?&?); exists v;
-      (split; [apply H1 | apply H2])...
-  Qed.
+  Global Instance feval_proper_st {σ} : Proper ((≡_{σ}) ==> iff) (feval σ).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FNot_proper : Proper ((≡@{formula}) ==> (≡@{formula})) FNot.
-  Proof with auto.
-    intros A B Hequiv σ. simp feval. split; intros H contra; apply H; apply Hequiv...
-  Qed.
+  Global Instance feval_proper_fent {σ} : Proper ((⇛) ==> impl) (feval σ).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FAnd_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FAnd.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
-    split; intros [? ?]; (split; [apply Heq1 | apply Heq2])...
-  Qed.
+  Global Instance feval_proper_flip_fent {σ} : Proper ((⇚) ==> flip impl) (feval σ).
+  Proof. solve_equiv. Qed.
 
-  Global Instance FOr_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FOr.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. simp feval.
-    split; (intros [|]; [left; apply Heq1 | right; apply Heq2])...
-  Qed.
+  Global Instance feval_proper : Proper (eq ==> (≡) ==> iff) feval.
+  Proof. solve_equiv. Qed.
 
-  Global Instance FImpl_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FImpl.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FImpl. rewrite Heq1. rewrite Heq2...
-  Qed.
+  (** ** [formula] constructors respect [≡], [⇛], and the state-specific variants *)
 
-  Global Instance FIff_proper : Proper ((≡@{formula}) ==> (≡@{formula}) ==> (≡@{formula})) FIff.
-  Proof with auto.
-    intros A1 A2 Heq1 B1 B2 Heq2 σ. unfold FIff, FImpl. rewrite Heq1. rewrite Heq2...
-  Qed.
+  (** *** [FAtomic AT_Eq] *)
+
+  Global Instance ATEq_proper_st {σ} : Proper ((≡ₜ_{σ}) ==> (≡ₜ_{σ}) ==> (≡_{σ})) AT_Eq.
+  Proof. solve_equiv. Qed.
+
+  Global Instance ATEq_proper : Proper ((≡ₜ) ==> (≡ₜ) ==> (≡)) AT_Eq.
+  Proof. solve_equiv. Qed.
+
+  (** *** [FNot] *)
+  Global Instance FNot_proper_fent_st {σ} : Proper ((⇚_{σ}) ==> (⇛_{σ})) FNot.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FNot_proper_st {σ} : Proper ((≡_{σ}) ==> (≡_{σ})) FNot.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FNot_proper_fent : Proper ((⇚) ==> (⇛)) FNot.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FNot_proper : Proper ((≡) ==> (≡)) FNot.
+  Proof. solve_equiv. Qed.
+
+  (** *** [FAnd] *)
+  Global Instance FAnd_proper_fent_st {σ} :
+    Proper ((⇛_{σ}) ==> (⇛_{σ}) ==> (⇛_{σ})) FAnd.
+  Proof. solve_equiv. Qed.
+
+  (* Global Instance FAnd_proper_flip_fent {σ} : *)
+  (*   Proper ((⇚_{σ}) ==> (⇚_{σ}) ==> (⇚_{σ})) FAnd. *)
+  (* Proof. solve_equiv. Qed. *)
+
+  Global Instance FAnd_proper_st {σ} :
+    Proper ((≡_{σ}) ==> (≡_{σ}) ==> (≡_{σ})) FAnd.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FAnd_proper_fent :
+    Proper ((⇛) ==> (⇛) ==> (⇛)) FAnd.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FAnd_proper :
+    Proper ((≡) ==> (≡) ==> (≡)) FAnd.
+  Proof. solve_equiv. Qed.
+
+  (** *** [FOr] *)
+  Global Instance FOr_proper_fent_st {σ} :
+    Proper ((⇛_{σ}) ==> (⇛_{σ}) ==> (⇛_{σ})) FOr.
+  Proof. solve_equiv. Qed.
+
+  (* Global Instance FOr_proper_flip_fent {σ} : *)
+  (*   Proper ((⇚_{σ}) ==> (⇚_{σ}) ==> (⇚_{σ})) FOr. *)
+  (* Proof. solve_equiv. Qed. *)
+
+  Global Instance FOr_proper_st {σ} :
+    Proper ((≡_{σ}) ==> (≡_{σ}) ==> (≡_{σ})) FOr.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FOr_proper_fent :
+    Proper ((⇛) ==> (⇛) ==> (⇛)) FOr.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FOr_proper :
+    Proper ((≡) ==> (≡) ==> (≡)) FOr.
+  Proof. solve_equiv. Qed.
+
+  (** *** [FImpl] *)
+  Global Instance FImpl_proper_fent_st {σ} :
+    Proper ((⇚_{σ}) ==> (⇛_{σ}) ==> (⇛_{σ})) FImpl.
+  Proof. solve_equiv. Qed.
+
+  (* Global Instance FImpl_proper_flip_fent {σ} : *)
+  (*   Proper ((⇚_{σ}) ==> (⇚_{σ}) ==> (⇚_{σ})) FImpl. *)
+  (* Proof. solve_equiv. Qed. *)
+
+  Global Instance FImpl_proper_st {σ} :
+    Proper ((≡_{σ}) ==> (≡_{σ}) ==> (≡_{σ})) FImpl.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FImpl_proper_fent :
+    Proper ((⇚) ==> (⇛) ==> (⇛)) FImpl.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FImpl_proper :
+    Proper ((≡) ==> (≡) ==> (≡)) FImpl.
+  Proof. solve_equiv. Qed.
+
+  (** *** [FIff] *)
+  Global Instance FIff_proper_st {σ} :
+    Proper ((≡_{σ}) ==> (≡_{σ}) ==> (≡_{σ})) FIff.
+  Proof. solve_equiv. Qed.
+
+  Global Instance FIff_proper :
+    Proper ((≡) ==> (≡) ==> (≡)) FIff.
+  Proof. solve_equiv. Qed.
 
 End equiv.
 
@@ -220,6 +281,19 @@ Infix "≡_{ σ }@{ M }" := (@fequiv_st M σ) (at level 70, only parsing, no ass
     : refiney_scope.
 Notation "(≡_{ σ } )" := (fequiv_st σ) (only parsing, no associativity) : refiney_scope.
 Notation "(≡_{ σ }@{ M } )" := (@fequiv_st M σ) (only parsing, no associativity) : refiney_scope.
+
+Infix "⇛_{ σ }" := (fent_st σ) (at level 70, no associativity) : refiney_scope.
+Infix "⇛_{ σ }@{ M }" := (@fent_st M σ) (at level 70, only parsing, no associativity)
+    : refiney_scope.
+Notation "(⇛_{ σ } )" := (fent_st σ) (only parsing, no associativity) : refiney_scope.
+Notation "(⇛_{ σ }@{ M } )" := (@fent_st M σ) (only parsing, no associativity) : refiney_scope.
+
+Infix "≡ₜ_{ σ }" := (tequiv_st σ) (at level 70, no associativity) : refiney_scope.
+Infix "≡ₜ_{ σ }@{ M }" := (@tequiv_st M σ) (at level 70, only parsing, no associativity)
+    : refiney_scope.
+Notation "(≡ₜ_{ σ } )" := (tequiv_st σ) (only parsing, no associativity) : refiney_scope.
+Notation "(≡ₜ_{ σ }@{ M } )" := (@tequiv_st M σ) (only parsing, no associativity) : refiney_scope.
+
 Infix "≡ₗ@{ M }" := (@equiv (formula M) _) (at level 70, only parsing, no associativity)
     : refiney_scope.
 Notation "(≡ₗ@{ M } )" := ((≡@{formula M})) (only parsing) : refiney_scope.
@@ -230,30 +304,15 @@ Infix "⇚" := (flip fent) (at level 70, no associativity) : refiney_scope.
 Notation "(⇚)" := (flip fent) (only parsing) : refiney_scope.
 Notation "(⇚ₗ@{ M } )" := (flip (@fent M)) (only parsing) : refiney_scope.
 
-Section ent.
+Section lemmas.
   Context {M : model}.
-  Implicit Types A B C : formula (value M).
+  Local Notation term := (term (value M)).
+  Local Notation formula := (formula (value M)).
+  Local Notation state := (state M).
 
-  Lemma flip_fent A B :
-    A ⇛ B ↔ B ⇚ A.
-  Proof with auto.
-    unfold flip...
-  Qed.
-
-  Lemma fequiv_fent A B :
-    A ≡ B ↔ A ⇛ B ∧ B ⇛ A.
-  Proof.
-    split.
-    - intros H. rewrite H. split; reflexivity.
-    - intros []. split.
-      + apply H.
-      + apply H0.
-  Qed.
-
-  Global Instance FNot_proper_fent : Proper ((⇛ₗ@{M}) --> (⇛)) FNot.
-  Proof with auto.
-    intros A B Hent σ. simp feval. intros H contra. apply H. apply Hent...
-  Qed.
+  Implicit Types A B C : formula.
+  Implicit Types t : term.
+  Implicit Types σ : state.
 
   Lemma f_ent_contrapositive A B :
     <! ¬ B !> ⇛ <! ¬ A !> ↔ <! A !> ⇛ <! B !>.
@@ -269,23 +328,4 @@ Section ent.
   Proof with auto.
     unfold flip. rewrite f_ent_contrapositive...
   Qed.
-
-  Global Instance FAnd_proper_fent : Proper ((⇛ₗ@{M}) ==> (⇛) ==> (⇛)) FAnd.
-  Proof with auto.
-    intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
-    intros [? ?]; split; [apply Hent1 | apply Hent2]...
-  Qed.
-
-  Global Instance FOr_proper_fent : Proper ((⇛ₗ@{M}) ==> (⇛) ==> (⇛)) FOr.
-  Proof with auto.
-    intros A1 A2 Hent1 B1 B2 Hent2 σ. simp feval.
-    intros [|]; [left; apply Hent1 | right; apply Hent2]...
-  Qed.
-
-  Global Instance FImpl_proper_fent : Proper ((⇛ₗ@{M}) --> (⇛) ==> (⇛)) FImpl.
-  Proof with auto.
-    intros A1 A2 Hent1 B1 B2 Hent2. unfold FImpl. rewrite f_ent_reverse_direction in Hent1.
-    rewrite Hent1. rewrite Hent2. reflexivity.
-  Qed.
-
-End ent.
+End lemmas.

@@ -349,32 +349,38 @@ Section subst.
     <! A[x \ x] !> ≡ A.
   Proof with auto. apply fequiv_subst_and_diag. Qed.
 
-  Global Instance subst_proper : Proper ((≡@{formula}) ==> (=) ==> (≡@{term}) ==> (≡)) subst_formula.
+  Global Instance subst_proper :
+    Proper ((≡@{formula}) ==> (=) ==> (≡@{term}) ==> (≡)) subst_formula.
   Proof with auto.
     intros A B H x ? <- t t' Ht σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)... apply Ht...
   Qed.
 
-  Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{@formula})) FExists.
-  Proof with auto.
-    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v. rewrite H...
-  Qed.
-
-  Global Instance fforall_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForall.
-  Proof with auto.
-    intros x ? <- A B H σ. unfold FForall. rewrite H...
-  Qed.
+  (** substitution doesn't respect [≡_{σ}].
+      For example, [x = 0 ≡ y = 0] holds in σ = (x ↦ 0, y ↦ 0), yet
+      [x=0 [x \ 5] ≡ y=0 [x \ 5]] doesn't hold in σ. Since [5 = 0 ≡ false] and [y = 0 ≡ true] *)
 
   Global Instance subst_proper_fent : Proper ((⇛ₗ@{M}) ==> (=) ==> (≡@{term}) ==> (⇛)) subst_formula.
   Proof with auto.
-    intros A B Hent x ? <- t t' <- σ. pose proof (teval_total σ t) as [v Hv].
+    intros A B Hent x ? <- t t' H σ. rewrite <- H. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
+
+  Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExists.
+  Proof with auto.
+    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v. rewrite H...
   Qed.
 
   Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FExists.
   Proof with auto.
     intros x ? <- A B Hent σ H. simp feval. simp feval in H. destruct H as [v Hv].
     exists v. revert Hv. rewrite (feval_subst v)... rewrite (feval_subst v)...
+  Qed.
+
+  Global Instance fforall_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForall.
+  Proof with auto.
+    intros x ? <- A B H σ. unfold FForall. rewrite H...
   Qed.
 
   Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FForall.
