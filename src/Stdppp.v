@@ -153,6 +153,13 @@ Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list 
                               (H : OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
 Proof. unfold OfSameLength in *. simpl in H. lia. Defined.
 
+Hint Extern 5 (OfSameLength ?xs1 ?xs2) =>
+  match goal with
+  | H : OfSameLength (?x1 :: xs1) (?x2 :: xs2) |- _ =>
+      apply of_same_length_rest in H; exact H
+  | _ => fail 1
+  end : core.
+
 Definition of_same_length_eq_l {A B} {l1 l1' : list A} {l2 : list B} (H : OfSameLength l1 l2) :
   l1 = l1' →
   OfSameLength l1' l2.
@@ -228,6 +235,30 @@ Proof.
   intros. unfold OfSameLength in H. rewrite length_app in H. simpl in H.
   rewrite Nat.add_1_r in H. apply length_nonzero_iff_snoc in H. exact H.
 Qed.
+
+Lemma of_same_length_ind {A B}
+  (P : ∀ (xs1 : list A) (xs2 : list B), OfSameLength xs1 xs2 → Prop) :
+  (∀ (H : OfSameLength [] []), P [] [] H) →
+  (∀ x1 xs1 x2 xs2 (H' : OfSameLength (x1 :: xs1) (x2 :: xs2)),
+      (∀ H : OfSameLength xs1 xs2, P xs1 xs2 H) → P (x1 :: xs1) (x2 :: xs2) H') →
+  ∀ xs1 xs2 (H: OfSameLength xs1 xs2), P xs1 xs2 H.
+Proof.
+  intros Hnil Hcons. induction xs1 as [|x1 xs1 IH]; intros; assert (Hl:=H).
+  - apply of_same_length_nil_inv_l in Hl as ->. apply Hnil.
+  - apply of_same_length_cons_inv_l in Hl as (x2&xs2'&->&?). rename xs2' into xs2.
+    eapply Hcons. apply IH.
+Qed.
+
+Tactic Notation "induction_same_length" hyp(xs1) hyp(xs2) "as" ident(x1) ident(x2) :=
+  match goal with
+  | H : OfSameLength xs1 xs2 |- ?P =>
+      generalize dependent xs2; generalize dependent xs1;
+      match goal with
+      | |- ∀ xs1, ∀ xs2, ∀ H, ?P => apply (of_same_length_ind (λ xs1 xs2 H, P))
+      end;
+      [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH]
+  end.
+
 
 Lemma elem_of_zip_with_indexed {A B C} (c : C) (xs : list A) (ys : list B) (f : A → B → C)
     `{OfSameLength _ _ xs ys} :

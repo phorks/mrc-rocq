@@ -30,7 +30,7 @@ Section refinement.
 
   (* TODO: reorder laws *)
   (* 1.8 *)
-  Lemma r_absorb_assumption pre' w pre post `{FormulaFinal _ pre'} `{FormulaFinal _ pre} :
+  Lemma r_absorb_assumption pre' w pre post `{!FormulaFinal pre'} `{!FormulaFinal pre} :
     <{ {pre'}; *w : [pre, post] }> ≡ <{ *w : [pre' ∧ pre, post] }>.
   Proof.
     split; intros A; simpl.
@@ -39,7 +39,7 @@ Section refinement.
   Qed.
 
   (* Law 1.1 *)
-  Lemma r_strengthen_post w pre post post' `{FormulaFinal _ pre} :
+  Lemma r_strengthen_post w pre post post' `{!FormulaFinal pre} :
     post' ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
   Proof with auto.
@@ -48,28 +48,28 @@ Section refinement.
 
 
   (* Law 5.1 *)
-  Lemma r_strengthen_post_with_initials w pre post post' `{FormulaFinal _ pre} :
+  Lemma r_strengthen_post_with_initials w pre post post' `{!FormulaFinal pre} :
     <! pre[; ↑ₓ w \ ⇑₀ w ;] ∧ post' !> ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
   Proof with auto.
     intros Hent A. simpl.
     rewrite <- Hent. rewrite <- f_impl_curry. rewrite -> f_foralllist_impl_unused_l.
-    2: { intros x ? ?. apply (fvars_seqsubst_vars_not_free_in_terms_superset) in H1...
+    2: { intros x ? ?. apply (fvars_seqsubst_vars_not_free_in_terms_superset) in H0...
          set_solver. }
-    rewrite simpl_subst_initials_impl. rewrite subst_initials_inverse_l...
+    rewrite simpl_subst_initials_impl. rewrite subst_initials_inverse_l by set_solver...
     rewrite <- (f_and_idemp pre) at 1. rewrite <- f_and_assoc. fSimpl.
     reflexivity.
   Qed.
 
   (* Law 1.2 *)
-  Lemma r_weaken_pre w pre pre' post `{FormulaFinal _ pre} `{FormulaFinal _ pre'} :
+  Lemma r_weaken_pre w pre pre' post `{!FormulaFinal pre} `{!FormulaFinal pre'} :
     pre ⇛ pre' ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre', post] }>.
   Proof.
     intros Hent A. simpl. fSimpl. assumption.
   Qed.
 
-  Lemma r_permute_frame w w' pre post `{FormulaFinal _ pre} :
+  Lemma r_permute_frame w w' pre post `{!FormulaFinal pre} :
     w ≡ₚ w' →
     <{ *w : [pre, post] }> ≡ <{ *w' : [pre, post] }>.
   Proof with auto.
@@ -78,16 +78,16 @@ Section refinement.
       rewrite f_foralllist_permute with (xs':=(fmap as_var w')).
       + reflexivity.
       + apply Permutation_map...
-    - symmetry in H0. simpl. fSimpl. rewrite subst_initials_perm with (xs':=w)... f_equiv.
+    - symmetry in H. simpl. fSimpl. rewrite subst_initials_perm with (xs':=w)... f_equiv.
       rewrite f_foralllist_permute with (xs':=(fmap as_var w)).
       + reflexivity.
       + apply Permutation_map...
   Qed.
 
   (* Law 5.4 *)
-  Lemma r_contract_frame w xs pre post `{FormulaFinal _ pre} :
+  Lemma r_contract_frame w xs pre post `{!FormulaFinal pre} :
     w ## xs →
-    <{ *w, *xs : [pre, post] }> ⊑ <{ *w : [pre, post[_₀\ xs] ] }>.
+    <{ *w, *xs : [pre, post] }> ⊑ <{ *w : [pre, post[_₀\ xs]] }>.
   Proof with auto.
     intros Hdisjoint A. simpl. fSimpl.
     rewrite fmap_app. rewrite f_foralllist_app. rewrite f_foralllist_comm.
@@ -97,8 +97,59 @@ Section refinement.
     fSimpl. rewrite f_subst_initials_final_formula...
   Qed.
 
+  Lemma fequiv_st_lem σ A B :
+    A ≡_{σ} B ∨ ¬ A ≡_{σ} B.
+  Proof with auto.
+    destruct (feval_lem σ A); destruct (feval_lem σ B).
+    - left. done.
+    - right. intros []...
+    - right. intros []...
+    - left. done.
+  Qed.
+
+  Lemma r_expand_frame_1 xs w pre post `{!FormulaFinal pre} :
+    w ## xs →
+    <! post[_₀\ xs] !> ≡ post →
+    <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>.
+  Proof with auto.
+    intros Hdisjoint H A. simpl. fSimpl.
+    unfold subst_initials.
+    rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
+    erewrite (@eqlist_rewrite _ (⇑₀ (w ++ xs))). Unshelve.
+    4:{ do 2 rewrite fmap_app. reflexivity. }
+    3:{ do 2 rewrite fmap_app. reflexivity. }
+    rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
+    rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).
+    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
+    f_equiv. f_equiv.
+    rewrite f_and_comm. rewrite <- f_impl_curry.
+    rewrite fmap_app. rewrite foralllist_app.
+    rewrite f_foralllist_comm.
+    rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>).
+    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
+    setoid_rewrite (f_foralllist_one_point (↑ₓ xs))...
+    2:{ intros i j x y1 y2 Hij ??.
+        rewrite elem_of_zip_pair_indexed in H0. rewrite elem_of_zip_pair_indexed in H1.
+        destruct H0 as []. destruct H1 as [].
+        apply list_lookup_fmap_inv in H0 as (x1&?&?).
+        apply list_lookup_fmap_inv in H1 as (x2&?&?).
+        apply list_lookup_fmap_inv in H2 as (x3&?&?).
+        apply list_lookup_fmap_inv in H3 as (x4&?&?).
+        Set Printing Coercions. subst. apply as_var_inj in H1. subst.
+        apply list_lookup_fmap_inv in H6 as (y1&?&?).
+        apply list_lookup_fmap_inv in H7 as (y2&?&?).
+        subst. rewrite H4 in H1. inversion H1. subst. rewrite H5 in H3. inversion H3. subst... }
+    rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials.
+    rewrite subst_initials_inverse_l...
+    1: { rewrite H... }
+    intros x ??. set_unfold. destruct H1. clear H2.
+    destruct H1 as [[[] |] |]; [set_solver|set_solver|].
+    apply formula_is_final in H1. naive_solver.
+    Unshelve. typeclasses eauto.
+  Qed.
+
   (* Law 3.2 *)
-  Lemma r_skip w pre post `{FormulaFinal _ pre} :
+  Lemma r_skip w pre post `{!FormulaFinal pre} :
     pre ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
@@ -111,7 +162,7 @@ Section refinement.
   Qed.
 
   (* Law 5.3 *)
-  Lemma r_skip_with_initials w pre post `{FormulaFinal _ pre} :
+  Lemma r_skip_with_initials w pre post `{!FormulaFinal pre} :
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ pre !> ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
@@ -125,7 +176,7 @@ Section refinement.
   Qed.
 
   (* Law 3.3 *)
-  Lemma r_seq w pre mid post `{FormulaFinal _ pre} `{FormulaFinal _ mid} `{FormulaFinal _ post} :
+  Lemma r_seq w pre mid post `{!FormulaFinal pre} `{!FormulaFinal mid} `{!FormulaFinal post} :
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, mid]; *w : [mid, post] }>.
   Proof with auto.
     intros A. simpl. fSimpl. rewrite f_impl_and_r. fSimpl.
@@ -137,7 +188,7 @@ Section refinement.
   Qed.
 
   (* Law B.2 *)
-  Lemma r_seq_frame w xs pre mid post `{FormulaFinal _ pre} `{FormulaFinal _ mid} :
+  Lemma r_seq_frame w xs pre mid post `{!FormulaFinal pre} `{!FormulaFinal mid} :
     w ## xs →
     list_to_set (↑₀ xs) ## formula_fvars post →
     <{ *w, *xs : [pre, post] }> ⊑ <{ *xs : [pre, mid]; *w, *xs : [mid, post] }>.
@@ -155,7 +206,7 @@ Section refinement.
   Qed.
 
   (* Law 5.2 *)
-  Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
+  Lemma r_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} :
     length xs ≠ 0 →
     NoDup xs →
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ ⎡⇑₀ xs =* ⇑ₓ xs⎤ ∧ pre !> ⇛ <! post[[ ↑ₓ xs \ ⇑ₜ ts ]] !> ->
@@ -187,7 +238,7 @@ Section refinement.
   Qed.
 
   (* Law 4.1 *)
-  Lemma r_alternation w pre post gs `{FormulaFinal _ pre} :
+  Lemma r_alternation w pre post gs `{!FormulaFinal pre} :
     pre ⇛ <! ∨* ⤊ gs !> →
     <{ *w : [pre, post] }> ⊑ <{ if | g : gs → *w : [g ∧ pre, post] fi }>.
   Proof with auto.

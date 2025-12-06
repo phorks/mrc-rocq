@@ -22,6 +22,8 @@ Section set_solver.
   Local Notation final_formula := (final_formula value).
 
   Implicit Types A B C : formula.
+  Implicit Types xs : list variable.
+  Implicit Types ts : list term.
 
   Global Instance set_unfold_elem_of_term_fvars x ts P1 P2 :
     (∀ t, SetUnfoldElemOf x (@term_fvars value t) (P1 t)) →
@@ -164,16 +166,22 @@ Section set_solver.
     intros. constructor. rewrite fvars_orlist. rewrite elem_of_union_list. set_solver.
   Qed.
 
-  Global Instance set_unfold_elem_of_fvars_FExistsList x (xs : list variable) A Q1 Q2 :
+  Global Instance set_unfold_elem_of_fvars_FExistsList x xs A Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A) Q1 →
     SetUnfoldElemOf x (list_to_set xs : gset variable) Q2 →
     SetUnfoldElemOf x (formula_fvars <! ∃* xs, A !>) (Q1 ∧ ¬Q2).
   Proof with auto. intros. constructor. rewrite fvars_existslist. set_solver. Qed.
 
-  Global Instance set_unfold_elem_of_fvars_FForallList x (xs : list variable) A Q1 Q2 :
+  Global Instance set_unfold_elem_of_fvars_FForallList x xs A Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A) Q1 →
     SetUnfoldElemOf x (list_to_set xs : gset variable) Q2 →
     SetUnfoldElemOf x (formula_fvars <! ∀* xs, A !>) (Q1 ∧ ¬Q2).
   Proof with auto. intros. constructor. rewrite fvars_foralllist. set_solver. Qed.
+
+  Global Instance set_unfold_elem_of_fvars_FEqList x ts1 ts2 Hsl Q1 Q2 :
+    SetUnfoldElemOf x (⋃ (term_fvars <$> ts1)) Q1 →
+    SetUnfoldElemOf x (⋃ (term_fvars <$> ts2)) Q2 →
+    SetUnfoldElemOf x (formula_fvars (@FEqList _ ts1 ts2 Hsl)) (Q1 ∨ Q2).
+  Proof with auto. intros. constructor. rewrite fvars_eqlist. set_solver. Qed.
 
 End set_solver.

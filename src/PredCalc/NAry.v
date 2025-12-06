@@ -53,10 +53,10 @@ Section syntactic.
     | x :: xs => <! ∀ x, $(FForallList xs A) !>
     end.
 
-  Definition FEqList ts1 ts2 `{OfSameLength _ _ ts1 ts2} : formula :=
+  Definition FEqList ts1 ts2 `{!OfSameLength ts1 ts2} : formula :=
     FAndList (zip_with (λ t1 t2, <! ⌜t1 = t2⌝ !>) ts1 ts2).
 
-  Definition seqsubst A xs ts `{OfSameLength _ _ xs ts} : formula :=
+  Definition seqsubst A xs ts `{!OfSameLength xs ts} : formula :=
     of_same_length_rect id (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
 
   Definition subst_initials A (w : list final_variable) : formula :=
@@ -78,7 +78,15 @@ Section syntactic.
     formula_fvars (FForallList xs A) = formula_fvars A ∖ list_to_set xs.
   Proof with auto. induction xs; simpl; set_solver. Qed.
 
-  Lemma fvars_seqsubst_superset A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma fvars_eqlist ts1 ts2 `{!OfSameLength ts1 ts2} :
+    formula_fvars (FEqList ts1 ts2) = (⋃ (term_fvars <$> ts1)) ∪ (⋃ (term_fvars <$> ts2)).
+  Proof with auto.
+    induction_same_length ts1 ts2 as t1 t2; [set_solver|].
+    simpl. unfold FEqList in IH. rewrite IH; [set_solver|]...
+  Qed.
+
+
+  Lemma fvars_seqsubst_superset A xs ts `{!OfSameLength xs ts} :
     formula_fvars (seqsubst A xs ts) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
   Proof.
     generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl.
@@ -89,7 +97,7 @@ Section syntactic.
       set_solver.
   Qed.
 
-  Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{!OfSameLength xs ts} :
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     formula_fvars (seqsubst A xs ts) ⊆ (formula_fvars A ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
@@ -279,49 +287,34 @@ Section syntactic.
     simpl. rewrite (seqsubst_app A xs ts [x] [t]). f_equal.
   Qed.
 
-  Lemma simpl_seqsubst_not A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_not A xs ts `{H: !OfSameLength xs ts} :
     seqsubst <! ¬ A !> xs ts = <! ¬ $(seqsubst A xs ts) !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in H as H'. subst. simpl...
-    - apply of_same_length_cons_inv_l in H as H'. destruct H' as (t&ts'&->&?).
-      rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_not...
+    induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_not...
   Qed.
 
-  Lemma simpl_seqsubst_and A B xs ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_and A B xs ts `{!OfSameLength xs ts} :
     seqsubst <! A ∧ B !> xs ts = <! $(seqsubst A xs ts) ∧ $(seqsubst B xs ts) !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in H as H'. subst. simpl...
-    - apply of_same_length_cons_inv_l in H as H'. destruct H' as (t&ts'&->&?).
-      rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_and...
+    induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_and...
   Qed.
 
-  Lemma simpl_seqsubst_or A B xs ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_or A B xs ts `{!OfSameLength xs ts} :
     seqsubst <! A ∨ B !> xs ts = <! $(seqsubst A xs ts) ∨ $(seqsubst B xs ts) !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in H as H'. subst. simpl...
-    - apply of_same_length_cons_inv_l in H as H'. destruct H' as (t&ts'&->&?).
-      rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_or...
+    induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_or...
   Qed.
 
-  Lemma simpl_seqsubst_impl A B xs ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_impl A B xs ts `{!OfSameLength xs ts} :
     seqsubst <! A ⇒ B !> xs ts = <! $(seqsubst A xs ts) ⇒ $(seqsubst B xs ts) !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in H as H'. subst. simpl...
-    - apply of_same_length_cons_inv_l in H as H'. destruct H' as (t&ts'&->&?).
-      rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_impl...
+    induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_impl...
   Qed.
 
-  Lemma simpl_seqsubst_iff A B xs ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_iff A B xs ts `{!OfSameLength xs ts} :
     seqsubst <! A ⇔ B !> xs ts = <! $(seqsubst A xs ts) ⇔ $(seqsubst B xs ts) !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in H as H'. subst. simpl...
-    - apply of_same_length_cons_inv_l in H as H'. destruct H' as (t&ts'&->&?).
-      rename ts' into ts. simpl. rewrite IH. rewrite simpl_subst_iff...
+    induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_iff...
   Qed.
 
   Lemma simpl_subst_initials_not A (xs : list final_variable) :
@@ -726,40 +719,41 @@ Section semantic.
 
   (** [seqsubst] facts **)
 
-  Lemma seqsubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
+(* Tactic Notation "induction_same_length" hyp(xs1) hyp(xs2) "as" ident(x1) ident(x2) := *)
+(*   match goal with *)
+(*   | H : OfSameLength xs1 xs2 |- ?P => *)
+(*       generalize dependent xs2; generalize dependent xs1; *)
+(*       apply of_same_length_ind; [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH] *)
+(*   end. *)
+  Lemma seqsubst_non_free A xs ts `{!OfSameLength xs ts} :
     list_to_set xs ## formula_fvars A →
     <! A[; *xs \ *ts ;] !> ≡ A.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
-    - apply of_same_length_nil_inv_l in Hl as ->. simpl...
-    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts. simpl...
-      rewrite IH.
-      2:{ set_solver. }
-      rewrite fequiv_subst_non_free... set_solver.
+    induction_same_length xs ts as x t... intros. simpl. rewrite IH by set_solver.
+    rewrite fequiv_subst_non_free... set_solver.
   Qed.
 
-  Lemma seqsubst_ssubst A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma seqsubst_ssubst A xs ts `{!OfSameLength xs ts} :
     zip_pair_functional xs ts →
     list_to_set xs ## ⋃ (term_fvars <$> ts) →
     <! A [; *xs \ *ts ;] !> ≡ <! A [[ *xs \ *ts ]] !>.
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
-    - apply of_same_length_nil_inv_l in Hl as ->. simpl. rewrite ssubst_empty...
-    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts. simpl.
-      apply zip_pair_functional_cons_inv in H0 as H3.
-      destruct (decide (x ∈ xs)).
-      + rewrite fequiv_subst_non_free.
-        2:{ intros contra.
-            apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver. }
-        rewrite IH... 2:{ set_solver. } f_equiv. unfold to_var_term_map.
-        apply map_eq. intros x'. destruct (decide (x = x')).
-        * subst. simpl. rewrite lookup_insert. symmetry in H2.
-          rewrite (list_to_map_zip_lookup_zip_pair_functional H0 H2 e)...
-        * simpl. rewrite lookup_insert_ne...
-      + etrans.
-        * rewrite IH; [| apply zip_pair_functional_cons_inv in H0; auto | set_solver].
-          rewrite <- ssubst_extract_r; [| set_solver | set_solver]. reflexivity.
-        * simpl. reflexivity.
+    induction_same_length xs ts as x t; intros.
+    1:{ rewrite ssubst_empty... }
+    simpl. apply zip_pair_functional_cons_inv in H as H1. destruct (decide (x ∈ xs)).
+    - rewrite fequiv_subst_non_free.
+      2:{ intros contra.
+          apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver. }
+      rewrite IH by set_solver... f_equiv. unfold to_var_term_map. apply map_eq.
+      intros x'. destruct (decide (x = x')).
+      + subst. simpl. rewrite lookup_insert. unfold OfSameLength in H'.
+        simpl in H'. inversion H'.
+        rewrite (list_to_map_zip_lookup_zip_pair_functional H H3 e)...
+      + simpl. rewrite lookup_insert_ne...
+    - etrans.
+      + rewrite IH; [| apply zip_pair_functional_cons_inv in H; auto | set_solver].
+        rewrite <- ssubst_extract_r; [| set_solver | set_solver]. reflexivity.
+      + simpl. reflexivity.
   Qed.
 
   (**  Proper Instances  **)
@@ -967,9 +961,7 @@ Section semantic.
     induction xs as [|x xs IH]; intros.
     - apply of_same_length_nil_inv_l in Hinv as ->. simpl...
     - apply of_same_length_cons_inv_l in Hinv as (t&ts'&->&?). rename ts' into ts.
-      simpl. f_equiv. rewrite IH...
-      + reflexivity.
-      + apply of_same_length_rest in Hl1 as ?...
+      simpl. f_equiv. rewrite IH... reflexivity.
   Qed.
 
   (** [subst_initials] facts *)
@@ -1014,15 +1006,12 @@ Section semantic.
   Qed.
 
   (** simplification lemmas for {subst, seqsusbt} × {∃, ∃*, ∀, ∀*} *)
-  Lemma simpl_seqsubst_exists y A xs ts
-    `{OfSameLength _ _ xs ts} :
+  Lemma simpl_seqsubst_exists y A xs ts `{!OfSameLength xs ts} :
     y ∉ xs →
     y ∉ ⋃ (term_fvars <$> ts) →
     <! (∃ y, A)[; *xs \ *ts ;] !> ≡ <! ∃ y, (A [; *xs \ *ts ;]) !>.
   Proof with auto.
-    intros. generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
-    - apply of_same_length_nil_inv_l in Hl as ->...
-    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?)... rename ts' into ts. simpl.
+    induction_same_length xs ts as x t; intros... simpl.
       rewrite IH; [| set_solver | set_solver]. rewrite simpl_subst_exists...
       set_solver.
   Qed.
@@ -1037,7 +1026,7 @@ Section semantic.
   Qed.
 
   Lemma simpl_seqsubst_existslist ys A xs ts
-    `{OfSameLength _ _ xs ts} :
+    `{!OfSameLength xs ts} :
     (list_to_set ys : gset variable) ## list_to_set xs →
     list_to_set ys ## ⋃ (term_fvars <$> ts) →
     <! (∃* ys, A)[; *xs \ *ts ;] !> ≡ <! ∃* ys, (A [; *xs \ *ts ;]) !>.
@@ -1050,16 +1039,13 @@ Section semantic.
   Qed.
 
   Lemma simpl_seqsubst_forall y A xs ts
-    `{OfSameLength _ _ xs ts} :
+    `{!OfSameLength xs ts} :
     y ∉ xs →
     y ∉ ⋃ (term_fvars <$> ts) →
     <! (∀ y, A)[; *xs \ *ts ;] !> ≡ <! ∀ y, (A [; *xs \ *ts ;]) !>.
   Proof with auto.
-    intros. generalize dependent ts. induction xs as [|x xs IH]; intros; assert (Hl:=H).
-    - apply of_same_length_nil_inv_l in Hl as ->...
-    - apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?)... rename ts' into ts. simpl.
-      rewrite IH; [| set_solver | set_solver]. rewrite simpl_subst_forall...
-      set_solver.
+    induction_same_length xs ts as x t... intros. simpl.
+    rewrite IH; [| set_solver | set_solver]. rewrite simpl_subst_forall... set_solver.
   Qed.
 
   Lemma simpl_subst_foralllist ys A x t :
@@ -1072,7 +1058,7 @@ Section semantic.
   Qed.
 
   Lemma simpl_seqsubst_foralllist ys A xs ts
-    `{OfSameLength _ _ xs ts} :
+    `{!OfSameLength xs ts} :
     (list_to_set ys : gset variable) ## list_to_set xs →
     list_to_set ys ## ⋃ (term_fvars <$> ts) →
     <! (∀* ys, A)[; *xs \ *ts ;] !> ≡ <! ∀* ys, (A [; *xs \ *ts ;]) !>.

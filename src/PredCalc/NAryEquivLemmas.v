@@ -1262,10 +1262,11 @@ Section n_ary_lemmas.
     list_to_set (↑₀ w) ## formula_fvars A.
   Proof. intros x ? ?. apply H in H1. set_solver. Qed.
 
-  Lemma subst_initials_inverse_l A w `{FormulaFinal _ A} :
+  Lemma subst_initials_inverse_l A w :
+    list_to_set (↑₀ w) ## formula_fvars A →
     <! A [; ↑ₓ w \ ⇑₀ w ;][_₀\ w] !> ≡ A.
   Proof with auto.
-    rename H into Hfinal. induction w as [|x w IH].
+    intros Hfree. induction w as [|x w IH].
     - simpl. rewrite subst_initials_nil...
     - simpl. erewrite (seqsubst_rewrite _ _ (↑ₓ w) _ (⇑₀ w)). Unshelve.
       2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
@@ -1276,16 +1277,17 @@ Section n_ary_lemmas.
             - apply H0. apply var_final_as_var.
             - rewrite to_final_var_as_var in H0. contradiction. }
         rewrite subst_initials_cons. rewrite fequiv_subst_non_free.
-        1:{ rewrite <- IH at 2. f_equiv. f_equiv. apply OfSameLength_pi. }
+        1:{ rewrite <- IH at 2 by set_solver. f_equiv. f_equiv. apply OfSameLength_pi. }
         set_solver.
       + rewrite subst_initials_perm with (xs':=w ++ [x]).
         2: { replace (x :: w) with ([x] ++ w) by auto. apply Permutation_app_comm. }
         rewrite subst_initials_snoc. rewrite fequiv_subst_trans.
-        1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2. f_equiv. f_equiv.
+        1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2 by set_solver. f_equiv. f_equiv.
             apply OfSameLength_pi. }
         intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
         set_unfold. destruct contra as [[] | []].
-        * apply Hfinal in H... apply var_final_initial_var_of in H as [].
+        * apply Hfree in H... split... rewrite to_final_var_initial_var_of...
         * rewrite to_final_var_initial_var_of in H0. contradiction.
   Qed.
+
 End n_ary_lemmas.
