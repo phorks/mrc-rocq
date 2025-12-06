@@ -53,8 +53,6 @@ Section final_elements.
     ¬ var_final (initial_var_of x).
   Proof. cbv. discriminate. Qed.
 
-
-
   Class TermFinal (t : term) := term_is_final : term_final t.
   Class TermListFinal (ts : list term) := term_list_is_final : term_list_final ts.
 
@@ -190,6 +188,13 @@ Section final_elements.
     initial_var_of x ∈ formula_fvars A →
     ¬ formula_final A.
   Proof. intros. intros contra. apply contra in H. cbv in H. discriminate. Qed.
+
+  Lemma elem_of_fvars_final_formula_inv A x `{FormulaFinal A} :
+    x ∈ formula_fvars A →
+    var_final x.
+  Proof. intros. apply H in H0. assumption. Qed.
+
+
 
   (* Axiom v : V. *)
   (* Axiom x : final_variable. *)

@@ -6,5 +6,6 @@ From MRC Require Export PredCalc.FinalElements.
 From MRC Require Export PredCalc.EquivLemmas.
 From MRC Require Export PredCalc.SimultSubst.
 From MRC Require Export PredCalc.NAry.
+From MRC Require Export PredCalc.SetSolver.
 From MRC Require Export PredCalc.NAryEquivLemmas.
 From MRC Require Export PredCalc.Tactics.

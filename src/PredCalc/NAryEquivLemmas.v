@@ -11,9 +11,10 @@ From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
-From MRC Require Import PredCalc.NAry.
 From MRC Require Import PredCalc.SimultSubst.
 From MRC Require Import PredCalc.FinalElements.
+From MRC Require Import PredCalc.NAry.
+From MRC Require Import PredCalc.SetSolver.
 
 Section n_ary_lemmas.
   Context {M : model}.
@@ -1246,11 +1247,7 @@ Section n_ary_lemmas.
   Lemma f_subst_initials_final_formula' A w :
     formula_final A →
     <! A[_₀\ w] !> ≡ A.
-  Proof.
-    intros. unfold subst_initials. apply seqsubst_non_free. intros x0 ? ?.
-    set_unfold. destruct H0 as (x&?&?). apply H in H1. unfold var_final in H1.
-    rewrite H0 in H1. simpl in H1. discriminate.
-  Qed.
+  Proof. intros. unfold subst_initials. apply seqsubst_non_free. set_solver. Qed.
 
   Lemma f_subst_initials_final_formula A w `{FormulaFinal _ A} :
     <! A[_₀\ w] !> ≡ A.
@@ -1263,9 +1260,32 @@ Section n_ary_lemmas.
 
   Lemma final_formula_disjoint_initial_vars A w `{FormulaFinal _ A} :
     list_to_set (↑₀ w) ## formula_fvars A.
-  Proof.
-    intros x ? ?. apply H in H1. set_unfold. destruct H0 as (x'&?&?).
-    unfold var_final in H1. rewrite H0 in H1. simpl in H1. discriminate.
-  Qed.
+  Proof. intros x ? ?. apply H in H1. set_solver. Qed.
 
+  Lemma subst_initials_inverse_l A w `{FormulaFinal _ A} :
+    <! A [; ↑ₓ w \ ⇑₀ w ;][_₀\ w] !> ≡ A.
+  Proof with auto.
+    rename H into Hfinal. induction w as [|x w IH].
+    - simpl. rewrite subst_initials_nil...
+    - simpl. erewrite (seqsubst_rewrite _ _ (↑ₓ w) _ (⇑₀ w)). Unshelve.
+      2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
+      + rewrite fequiv_subst_non_free.
+        2:{ intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
+            set_unfold in contra. destruct contra as [[] |]; [|set_solver].
+            apply not_and_l in H0 as [].
+            - apply H0. apply var_final_as_var.
+            - rewrite to_final_var_as_var in H0. contradiction. }
+        rewrite subst_initials_cons. rewrite fequiv_subst_non_free.
+        1:{ rewrite <- IH at 2. f_equiv. f_equiv. apply OfSameLength_pi. }
+        set_solver.
+      + rewrite subst_initials_perm with (xs':=w ++ [x]).
+        2: { replace (x :: w) with ([x] ++ w) by auto. apply Permutation_app_comm. }
+        rewrite subst_initials_snoc. rewrite fequiv_subst_trans.
+        1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2. f_equiv. f_equiv.
+            apply OfSameLength_pi. }
+        intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
+        set_unfold. destruct contra as [[] | []].
+        * apply Hfinal in H... apply var_final_initial_var_of in H as [].
+        * rewrite to_final_var_initial_var_of in H0. contradiction.
+  Qed.
 End n_ary_lemmas.

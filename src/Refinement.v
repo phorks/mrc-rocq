@@ -46,187 +46,6 @@ Section refinement.
     intros Hent A. simpl. fSimpl. rewrite <- Hent. reflexivity.
   Qed.
 
-  (* Global Instance elem_of_ *)
-
-  Global Instance set_unfold_elem_of_term_fvars x ts P1 P2 :
-    (∀ t, SetUnfoldElemOf x (@term_fvars value t) (P1 t)) →
-    (∀ t, SetUnfoldElemOf t ts (P2 t)) →
-    SetUnfoldElemOf x
-      (⋃ (term_fvars <$> ts))
-      (∃ t, P1 t ∧ P2 t) | 10.
-  Proof with auto.
-    intros. constructor. rewrite elem_of_union_list. set_solver.
-  Qed.
-
-  Global Instance set_unfold_elem_of_term_fvars_of_initial_vars x w Q :
-    SetUnfoldElemOf (to_final_var x) w Q →
-    SetUnfoldElemOf x
-      (⋃ (term_fvars <$> (@TVar value <$> (initial_var_of <$> w))))
-      (¬ var_final x ∧ Q).
-  Proof with auto.
-    constructor. set_unfold. split.
-    - intros (t&?&tx&->&x'&->&?). set_unfold in H0. subst x. split... apply H.
-      rewrite to_final_var_initial_var_of...
-    - intros []. exists x. simpl. split; [set_solver|]. exists x. split...
-      exists (to_final_var x). apply H in H1. split... unfold var_final in H0.
-      apply not_false_is_true in H0. unfold initial_var_of. destruct x. simpl. f_equal...
-  Qed.
-
-  Global Instance set_unfold_elem_of_term_fvars_of_vars x w Q :
-    SetUnfoldElemOf (to_final_var x) w Q →
-    SetUnfoldElemOf x
-      (⋃ (term_fvars <$> (@TVar value <$> (as_var <$> w))))
-      (var_final x ∧ Q).
-  Proof with auto.
-    constructor. set_unfold. split.
-    - intros (t&?&tx&->&x'&->&?). set_unfold in H0. subst x. split... apply H.
-      rewrite to_final_var_as_var...
-    - intros []. exists x. simpl. split; [set_solver|]. exists x. split...
-      exists (to_final_var x). apply H in H1. split... unfold var_final in H0.
-      unfold to_final_var, as_var. destruct x. simpl. f_equal...
-  Qed.
-
-  Global Instance set_unfold_elem_of_list_to_set_as_var_final_vars x w Q :
-    SetUnfoldElemOf (to_final_var x) w Q →
-    SetUnfoldElemOf x
-      (list_to_set (as_var <$> w) : gset variable)
-      (var_final x ∧ Q).
-  Proof with auto.
-    constructor. set_unfold. split.
-    - intros (x'&?&?). subst. split; [apply var_final_as_var |]... apply H.
-      rewrite to_final_var_as_var...
-    - intros []. exists (to_final_var x). set_unfold. split... unfold var_final in H.
-      destruct x. cbv. f_equal...
-  Qed.
-
-  Global Instance set_unfold_elem_of_subst_initials_var_fvars x A w P1 P2 :
-    (∀ x', SetUnfoldElemOf x' w (P1 x')) →
-    (∀ x', SetUnfoldElemOf (initial_var_of x') (formula_fvars A) (P2 x')) →
-    SetUnfoldElemOf x
-                      (subst_initials_var_fvars A w)
-                      (∃ x' : final_variable, x = as_var x' ∧ P1 x' ∧ P2 x').
-  Proof. constructor. rewrite <- elem_of_subst_initials_var_fvars. set_solver. Qed.
-
-  Global Instance set_unfold_elem_of_fvars_subst_initials x A w Q1 Q2 Q3 :
-    SetUnfoldElemOf x (formula_fvars A) Q1 →
-    SetUnfoldElemOf x (list_to_set (initial_var_of <$> w) : gset variable) Q2 →
-    SetUnfoldElemOf x (subst_initials_var_fvars A w) Q3 →
-    SetUnfoldElemOf x (formula_fvars <! A[_₀\ w] !>)
-                      ((Q1 ∧ ¬Q2) ∨ Q3).
-  Proof. constructor. rewrite fvars_subst_initials. set_solver. Qed.
-
-  Global Instance set_unfold_initial_var_of_elem_of_formula_fvars_subst_initials x A w Q1 Q2 :
-    SetUnfoldElemOf (initial_var_of x) (formula_fvars A) Q1 →
-    SetUnfoldElemOf x w Q2 →
-    SetUnfoldElemOf (initial_var_of x)
-        (formula_fvars <! A[_₀\ w] !>)
-        (Q1 ∧ ¬Q2).
-  Proof with auto.
-    constructor. split; intros.
-    - set_unfold in H. set_unfold in H1. destruct H1 as [[] | ].
-      + split... intros ?. apply H2. exists x. set_solver.
-      + destruct H1 as (x'&?&?&?). set_solver.
-    - destruct H1. rewrite <- (@set_unfold_elem_of _ _ _ _ _ _ H) in H1.
-      rewrite <- (@set_unfold_elem_of _ _ _ _ _ _ H0) in H2. clear H. clear H0.
-      set_solver.
-  Qed.
-
-  Global Instance set_unfold_elem_of_list_to_set_intials_of_final_variables x w Q :
-    SetUnfoldElemOf (to_final_var x) w Q →
-    SetUnfoldElemOf x
-        (list_to_set (initial_var_of <$> w) : gset variable)
-        (¬ var_final x ∧ Q).
-  Proof with auto.
-    constructor. set_unfold. split.
-    - intros (x'&?&?). subst. split; [apply var_final_initial_var_of|]. apply H.
-      rewrite to_final_var_initial_var_of...
-    - intros []. exists (to_final_var x). set_unfold. split... unfold var_final in H0.
-      apply not_false_is_true in H0. destruct x. simpl in H0. rewrite H0. f_equal.
-  Qed.
-
-  Global Instance set_unfold_elem_of_fvars_FAnd x A1 A2 Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A1) Q1 →
-    SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ∧ A2 !>) (Q1 ∨ Q2).
-  Proof with auto. intros. constructor. set_solver. Qed.
-  Global Instance set_unfold_elem_of_fvars_FOr x A1 A2 Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A1) Q1 →
-    SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ∨ A2 !>) (Q1 ∨ Q2).
-  Proof with auto. intros. constructor. set_solver. Qed.
-  Global Instance set_unfold_elem_of_fvars_FImpl x A1 A2 Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A1) Q1 →
-    SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ⇒ A2 !>) (Q1 ∨ Q2).
-  Proof with auto. intros. constructor. set_solver. Qed.
-  Global Instance set_unfold_elem_of_fvars_FIff x A1 A2 Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A1) Q1 →
-    SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ⇔ A2 !>) (Q1 ∨ Q2).
-  Proof with auto. intros. constructor. set_solver. Qed.
-  Global Instance set_unfold_elem_of_fvars_FExists x y A Q :
-    SetUnfoldElemOf x (formula_fvars A) Q →
-    SetUnfoldElemOf x (@formula_fvars value <! ∃ y, A !>) (x ≠ y ∧ Q).
-  Proof with auto. intros. constructor. simpl. set_solver. Qed.
-  Global Instance set_unfold_elem_of_fvars_FForall x y A Q :
-    SetUnfoldElemOf x (formula_fvars A) Q →
-    SetUnfoldElemOf x (@formula_fvars value <! ∀ y, A !>) (x ≠ y ∧ Q).
-  Proof with auto. intros. constructor. simpl. set_solver. Qed.
-
-  Global Instance set_unfold_elem_of_fvars_FAndList x Bs P1 P2 :
-    (∀ A, SetUnfoldElemOf A Bs (P1 A)) →
-    (∀ A, SetUnfoldElemOf x (formula_fvars A) (P2 A)) →
-    SetUnfoldElemOf x (@formula_fvars value <! ∧* Bs !>) (∃ A, P1 A ∧ P2 A).
-  Proof with auto.
-    intros. constructor. rewrite fvars_andlist. rewrite elem_of_union_list. set_solver.
-  Qed.
-
-  Global Instance set_unfold_elem_of_fvars_FOrList x Bs P1 P2 :
-    (∀ A, SetUnfoldElemOf A Bs (P1 A)) →
-    (∀ A, SetUnfoldElemOf x (formula_fvars A) (P2 A)) →
-    SetUnfoldElemOf x (@formula_fvars value <! ∨* Bs !>) (∃ A, P1 A ∧ P2 A).
-  Proof with auto.
-    intros. constructor. rewrite fvars_orlist. rewrite elem_of_union_list. set_solver.
-  Qed.
-
-  Global Instance set_unfold_elem_of_fvars_FExistsList x (xs : list variable) A Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A) Q1 →
-    SetUnfoldElemOf x (list_to_set xs : gset variable) Q2 →
-    SetUnfoldElemOf x (formula_fvars <! ∃* xs, A !>) (Q1 ∧ ¬Q2).
-  Proof with auto. intros. constructor. rewrite fvars_existslist. set_solver. Qed.
-
-  Global Instance set_unfold_elem_of_fvars_FForallList x (xs : list variable) A Q1 Q2 :
-    SetUnfoldElemOf x (formula_fvars A) Q1 →
-    SetUnfoldElemOf x (list_to_set xs : gset variable) Q2 →
-    SetUnfoldElemOf x (formula_fvars <! ∀* xs, A !>) (Q1 ∧ ¬Q2).
-  Proof with auto. intros. constructor. rewrite fvars_foralllist. set_solver. Qed.
-
-  Lemma subst_initials_inverse_l A w `{FormulaFinal _ A} :
-    <! A [; ↑ₓ w \ ⇑₀ w ;][_₀\ w] !> ≡ A.
-  Proof with auto.
-    rename H into Hfinal. induction w as [|x w IH].
-    - simpl. rewrite subst_initials_nil...
-    - simpl. erewrite (seqsubst_rewrite _ _ (↑ₓ w) _ (⇑₀ w)). Unshelve.
-      2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
-      + rewrite fequiv_subst_non_free.
-        2:{ intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
-            set_unfold in contra. destruct contra as [[] |]; [|set_solver].
-            apply not_and_l in H0 as [].
-            - apply H0. apply var_final_as_var.
-            - rewrite to_final_var_as_var in H0. contradiction. }
-        rewrite subst_initials_cons. rewrite fequiv_subst_non_free.
-        1:{ rewrite <- IH at 2. f_equiv. f_equiv. apply OfSameLength_pi. }
-        set_solver.
-      + rewrite subst_initials_perm with (xs':=w ++ [x]).
-        2: { replace (x :: w) with ([x] ++ w) by auto. apply Permutation_app_comm. }
-        rewrite subst_initials_snoc. rewrite fequiv_subst_trans.
-        1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2. f_equiv. f_equiv.
-            apply OfSameLength_pi. }
-        intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
-        set_unfold. destruct contra as [[] | []].
-        * apply Hfinal in H... apply var_final_initial_var_of in H as [].
-        * rewrite to_final_var_initial_var_of in H0. contradiction.
-  Qed.
 
   (* Law 5.1 *)
   Lemma r_strengthen_post_with_initials w pre post post' `{FormulaFinal _ pre} :
@@ -264,17 +83,6 @@ Section refinement.
       + reflexivity.
       + apply Permutation_map...
   Qed.
-  Hint Rewrite to_final_var_initial_var_of : set_solver.
-
-
-  (* Instance simpl_something w xs :  *)
-  (* list_to_set ↑ₓ w ## ⋃ (term_fvars <$> ⇑ₓ xs) *)
-  (* Global Instance simpl_something x P : SetUnfoldSimpl (P (to_final_var (as_var x))) (P x). *)
-  (* Proof. rewrite to_final_var_as_var. constructor. constructor. reflexivity. Qed. *)
-  (* Global Instance simpl_something_l x (X : list final_variable) P : *)
-  (*   SetUnfoldElemOf x X P → *)
-  (*   SetUnfoldElemOf (to_final_var (as_var x)) X P. *)
-  (* Proof. rewrite to_final_var_as_var. auto. Qed. *)
 
   (* Law 5.4 *)
   Lemma r_contract_frame w xs pre post `{FormulaFinal _ pre} :
@@ -328,12 +136,6 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
-  (* TODO: move it *)
-  Lemma elem_of_fvars_final_formula_inv (A : formula) (x : variable) `{FormulaFinal _ A} :
-    x ∈ formula_fvars A →
-    var_final x.
-  Proof. intros. apply H in H0. assumption. Qed.
-
   (* Law B.2 *)
   Lemma r_seq_frame w xs pre mid post `{FormulaFinal _ pre} `{FormulaFinal _ mid} :
     w ## xs →
@@ -352,6 +154,7 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
+  (* Law 5.2 *)
   Lemma r_assignment w xs pre post ts `{FormulaFinal _ pre} `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
     NoDup xs →
@@ -383,6 +186,7 @@ Section refinement.
     Unshelve. typeclasses eauto.
   Qed.
 
+  (* Law 4.1 *)
   Lemma r_alternation w pre post gs `{FormulaFinal _ pre} :
     pre ⇛ <! ∨* ⤊ gs !> →
     <{ *w : [pre, post] }> ⊑ <{ if | g : gs → *w : [g ∧ pre, post] fi }>.
