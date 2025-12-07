@@ -736,12 +736,6 @@ Section semantic.
 
   (** [seqsubst] facts **)
 
-(* Tactic Notation "induction_same_length" hyp(xs1) hyp(xs2) "as" ident(x1) ident(x2) := *)
-(*   match goal with *)
-(*   | H : OfSameLength xs1 xs2 |- ?P => *)
-(*       generalize dependent xs2; generalize dependent xs1; *)
-(*       apply of_same_length_ind; [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH] *)
-(*   end. *)
   Lemma seqsubst_non_free A xs ts `{!OfSameLength xs ts} :
     list_to_set xs ## formula_fvars A →
     <! A[; *xs \ *ts ;] !> ≡ A.
