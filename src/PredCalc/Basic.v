@@ -826,6 +826,12 @@ Section pred_calc_semantics.
   (* ******************************************************************* *)
   (* LEM and decidability of feval                                       *)
   (* ******************************************************************* *)
+  (* Note: The following axiom is equivalent to the general case of excluded middle.
+           For each [P] in [Prop], one can always design a model whose only predicate
+           symbol is "P" which corresponds to [P]. Then [feval_lem ∅ (FAtom (AT_Pred "P"))]
+           is exactly [excluded_middle P]. Nevertheless, we only directly assume it for
+           [feval] to use it as little as possible and always be conscious when we do so.
+  *)
   Axiom feval_lem : ∀ σ A, feval σ A ∨ ¬ feval σ A.
 
   Lemma feval_dec : ∀ σ A, Decidable.decidable (feval σ A).

@@ -281,6 +281,10 @@ Section syntax.
 
 End syntax.
 
+Notation "t [ [ₜ xs \ ts ] ]" := (simult_subst_term t (to_var_term_map xs ts))
+                            (in custom formula at level 74, left associativity,
+                              xs custom var_seq,
+                              ts custom term_seq) : refiney_scope.
 Notation "A [ [ xs \ ts ] ]" := (simult_subst A (to_var_term_map xs ts))
                             (in custom formula at level 74, left associativity,
                               xs custom var_seq,
@@ -523,6 +527,12 @@ Section semantics.
       + subst. rewrite (insert_insert (mv ∪ σ)). rewrite <- feval_subst with (t:=TConst v)...
       + rewrite (insert_commute (mv ∪ σ))... destruct H3; [contradiction|].
         rewrite feval_delete_state_var_head... rewrite feval_subst with (v:=v)...
+  Qed.
+
+  Global Instance ssubst_proper : Proper((≡@{formula}) ==> (=) ==> (≡)) simult_subst.
+  Proof with auto.
+    intros A B H m ? <- σ. destruct (teval_var_term_map_total σ m) as [mv ?].
+    split; repeat rewrite feval_simult_subst with (mv:=mv); auto; intros; apply H...
   Qed.
 
   Lemma teval_delete_state_var_term_map_head σ t m mv v :
