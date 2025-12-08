@@ -193,6 +193,34 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
+  Lemma ssubst_trans A (xs1 xs2 : list variable) (ts : list term) `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts} `{!OfSameLength xs1 ts} :
+    list_to_set xs1 ## formula_fvars A →
+    <! A [[*xs1 \ ⇑ₓ₊ xs2]] [[*xs2 \ *ts]] !> ≡ <! A[[*xs1 \ *ts]] !>.
+  Proof.
+    (* exfalso. *)
+    (* assert (xs1 = xs1) by reflexivity. *)
+    (* repeat match goal with *)
+    (* | H : context[xs1], H' : OfSameLength xs1 xs2 |- _ => clear dependent H end. *)
+
+      (* generalize dependent xs2; generalize dependent xs1; *)
+      repeat match goal with
+      | H : context[xs2], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
+      | H : context[xs1], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
+      end;
+      generalize dependent xs2; generalize dependent xs1;
+      match goal with
+      | |- ∀ xs1 : list variable, ∀ xs2 : list variable, ∀ H, ?P => pose proof (of_same_length_ind (λ xs1 xs2 H, P))
+      end.
+      intros. apply H.
+      [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH].
+    generalize dependent xs2.
+    generalize dependent xs1.
+    induction_same_length xs1 xs2 as y1 y2. hyp as ident ident
+    intros.
+
+
+
+
   Lemma r_leading_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!FormulaFinal <! pre[[↑ₓ xs \ ⇑ₜ ts]] !>} :
     w ## xs →
     let ts₀ := fmap (λ t : final_term, <! t[[ₜ ↑ₓ w, ↑ₓ xs \ ⇑₀ w, ⇑₀ xs]] !>) ts in
@@ -204,8 +232,8 @@ Section refinement.
     (* -  *)
     intros ?? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and. fSimpl.
     unfold subst_initials at 1. rewrite subst_initials_app_comm.
-    rewrite subst_initials_app. rewrite fold_subst_initials.
-    (* sketch: trans xs₀ → xs → ts (probably works b/c there is no xs₀ in (...)[_₀\w]) *))
+    rewrite subst_initials_app. rewrite subst_initials_ssubst.
+    (* sketch: trans xs₀ → xs → ts (probably works b/c there is no xs₀ in (...)[_₀\w]) *)
     fold (subst_initials .
     seqsubst_ssubst
     rewrite subst_initials_app_comm.

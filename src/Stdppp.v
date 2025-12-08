@@ -250,28 +250,50 @@ Proof.
 Qed.
 
 Tactic Notation "induction_same_length" hyp(xs1) hyp(xs2) "as" ident(x1) ident(x2) :=
+  repeat match goal with
+    | H : context[xs2], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
+    | H : context[xs1], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
+    end;
+  generalize dependent xs2; generalize dependent xs1;
   match goal with
-  | H : OfSameLength xs1 xs2 |- ?P =>
-      generalize dependent xs2; generalize dependent xs1;
-      match goal with
-      | |- ∀ xs1, ∀ xs2, ∀ H, ?P => apply (of_same_length_ind (λ xs1 xs2 H, P))
-      end;
-      [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH]
-  end.
+  | |- ∀ xs1, ∀ xs2, ∀ H, ?P => apply (of_same_length_ind (λ xs1 xs2 H, P))
+  end;
+  [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH].
 
+Lemma lookup_of_same_length_l {A B} {i} {x1 : A} {xs1 : list A} (xs2 : list B)
+    `{!OfSameLength xs1 xs2} :
+  xs1 !! i = Some x1 → ∃ x2, xs2 !! i = Some x2.
+Proof.
+  intros. generalize dependent i.
+  induction_same_length xs1 xs2 as x1' x2'; [set_solver|]. intros.
+  apply lookup_cons_Some in H as [|[]]; [set_solver|].
+  apply of_same_length_rest in H'. destruct (IH H' (i-1) H0) as (x2&?).
+  exists x2. rewrite lookup_cons_ne_0; [| lia]. replace (Init.Nat.pred i) with (i-1) by lia.
+  auto.
+Qed.
+
+Lemma lookup_of_same_length_r {A B} {i} {x2 : B} (xs1 : list A) {xs2 : list B}
+    `{!OfSameLength xs1 xs2} :
+  xs2 !! i = Some x2 → ∃ x1, xs1 !! i = Some x1.
+Proof.
+  intros. generalize dependent i.
+  induction_same_length xs1 xs2 as x1' x2'; [set_solver|]. intros.
+  apply lookup_cons_Some in H as [|[]]; [set_solver|].
+  apply of_same_length_rest in H'. destruct (IH H' (i-1) H0) as (x1&?).
+  exists x1. rewrite lookup_cons_ne_0; [| lia]. replace (Init.Nat.pred i) with (i-1) by lia.
+  auto.
+Qed.
 
 Lemma elem_of_zip_with_indexed {A B C} (c : C) (xs : list A) (ys : list B) (f : A → B → C)
     `{OfSameLength _ _ xs ys} :
   c ∈ zip_with f xs ys ↔ ∃ i x y, xs !! i = Some x ∧ ys !! i = Some y ∧ c = f x y.
 Proof with auto.
   split; intros.
-  - generalize dependent ys. induction xs as [| x xs IH]; simpl; intros.
-    + apply of_same_length_nil_inv_l in H as ->. apply elem_of_nil in H0 as [].
-    + assert (Hl:=H). apply of_same_length_cons_inv_l in H as (y&ys'&->&?).
-      rename ys' into ys. apply of_same_length_rest in Hl. apply elem_of_cons in H0 as [].
-      * exists 0, x, y. split_and!...
-      * apply (IH _ Hl) in H0 as (i&x'&y'&?&?&?). exists (S i), x', y'. simpl.
-        split_and!...
+  - induction_same_length xs ys as x y; [set_solver|]. simpl. intros.
+    apply of_same_length_rest in H'. apply elem_of_cons in H0 as [].
+    + exists 0, x, y. split_and!...
+    + apply (IH H') in H as (i&x'&y'&?&?&?). exists (S i), x', y'. simpl.
+      split_and!...
   - destruct H0 as (i&x&y&?&?&?). apply elem_of_list_split_length in H0 as (xs0&xs1&->&?).
     apply elem_of_list_split_length in H1 as (ys0&ys1&->&?). subst i. rewrite zip_with_app...
     apply elem_of_app. right. simpl. apply elem_of_cons. left...
@@ -294,35 +316,40 @@ Lemma lookup_list_to_map_zip_None {K A} `{Countable K}
     (ks : list K) (xs : list A) (k : K) `{OfSameLength K A ks xs} :
   (list_to_map (zip ks xs) : gmap K A) !! k = None ↔ k ∉ ks.
 Proof with auto.
-  remember (length ks) as n eqn:E. symmetry in E. generalize dependent xs.
-  generalize dependent ks. induction n; intros.
-  - simpl. apply length_zero_iff_nil in E. subst. simpl. rewrite lookup_empty.
-    rewrite elem_of_nil. split...
-  - assert (E1:=E). rewrite of_same_length in E1.
-    apply length_nonzero_iff_cons in E as (k'&ks'&->&?).
-    apply length_nonzero_iff_cons in E1 as (x'&xs'&->&?). subst. simpl.
-    destruct (decide (k' = k)).
-    + subst. rewrite lookup_insert. rewrite not_elem_of_cons. naive_solver.
-    + rewrite lookup_insert_ne... rewrite not_elem_of_cons. naive_solver.
+  induction_same_length ks xs as k' x'; [set_solver|]. simpl. destruct (decide (k' = k)).
+  - subst. rewrite lookup_insert. rewrite not_elem_of_cons. naive_solver.
+  - rewrite lookup_insert_ne... rewrite not_elem_of_cons. naive_solver.
 Qed.
 
 Lemma lookup_list_to_map_zip_Some {K A} `{Countable K}
-    (ks : list K) (xs : list A) (k : K) (x : A) `{OfSameLength K A ks xs} :
-  (list_to_map (zip ks xs) : gmap K A) !! k = Some x → ∃ i, ks !! i = Some k ∧ xs !! i = Some x.
+    (ks : list K) (xs : list A) (k : K) (x : A) `{!OfSameLength ks xs} :
+  (list_to_map (zip ks xs) : gmap K A) !! k = Some x ↔
+    ∃ i, ks !! i = Some k ∧ xs !! i = Some x ∧ ∀ j, ks !! j = Some k → i ≤ j.
 Proof with auto.
-  remember (length ks) as n eqn:E. symmetry in E. generalize dependent xs.
-  generalize dependent ks. induction n; intros.
-  - simpl. apply length_zero_iff_nil in E. subst. simpl in H1. rewrite lookup_empty in H1.
-    discriminate.
-  - assert (E1:=E). rewrite of_same_length in E1.
-    apply length_nonzero_iff_cons in E as (k'&ks'&->&?).
-    apply length_nonzero_iff_cons in E1 as (x'&xs'&->&?). subst. simpl in H1.
-    destruct (decide (k' = k)).
-    + subst. rewrite lookup_insert in H1. exists 0. simpl. split...
-    + forward (IHn ks') by reflexivity. forward (IHn xs').
-      { unfold OfSameLength... }
-      rewrite lookup_insert_ne in H1... destruct (IHn H1) as (i&?&?).
-      exists (S i). simpl. split...
+  induction_same_length ks xs as k' x'; [set_solver|].
+  simpl. split.
+  - intros. destruct (decide (k' = k)).
+    + subst. rewrite lookup_insert in H0. exists 0. simpl. split_and!... lia.
+    + apply of_same_length_rest in H'. specialize (IH H').
+      rewrite lookup_insert_ne in H0... apply IH in H0 as (i&?&?&?).
+      exists (S i). simpl. split_and!... intros. specialize (H2 (Init.Nat.pred j)).
+      assert (j ≠ 0).
+      { intros contra. subst. simpl in H3. inversion H3. contradiction. }
+      forward H2.
+      { rewrite lookup_cons_ne_0 in H3... }
+      lia.
+  - intros (i&?&?&?). destruct (decide (k' = k)).
+    + subst. forward (H2 0) by reflexivity. assert (i = 0) by lia. subst.
+      simpl in H1. inversion H1. subst. rewrite lookup_insert...
+    + rewrite lookup_insert_ne... apply IH.
+      { apply of_same_length_rest in H'... }
+      assert (i ≠ 0).
+      { intros contra. subst. simpl in H0. inversion H0. contradiction. }
+      rewrite lookup_cons_ne_0 in H0... rewrite lookup_cons_ne_0 in H1...
+      exists (Init.Nat.pred i). split_and!... intros. specialize (H2 (S j)).
+      forward H2.
+      { erewrite lookup_cons_ne_0... }
+      lia.
 Qed.
 
 Definition universal_relation {A} (_ _ : A) := True.
@@ -420,32 +447,10 @@ Lemma list_to_map_zip_lookup_zip_pair_functional {A B} `{Countable A} {x y} {xs 
 Proof with auto.
   intros.
   destruct (list_to_map (zip xs ys) !! x) as [y'|] eqn:E.
-  - apply lookup_list_to_map_zip_Some in E as (i&?&?)... enough (y = y') by (subst; auto).
+  - apply lookup_list_to_map_zip_Some in E as (i&?&?&?)... enough (y = y') by (subst; auto).
     unfold zip_pair_functional in H0. apply (H0 0 (S i) x).
     + lia.
     + apply elem_of_zip_pair_hd_indexed. split...
     + apply elem_of_zip_pair_tl_indexed. apply elem_of_zip_pair_indexed...
   - exfalso. apply lookup_list_to_map_zip_None in E...
 Qed.
-
-(* HACK: These are not currently used. I will keep them as reference.
-   I should delete them at some point. *)
-(* Section sets. *)
-(*   Context `{Set_ A C}. *)
-(*   Implicit Types x y : A. *)
-(*   Implicit Types X Y : C. *)
-
-(*   Lemma difference_singleton_not_elem_of : forall X x, *)
-(*     x ∉ X → *)
-(*     X ∖ {[x]} ≡ X. *)
-(*   Proof. set_solver. Qed. *)
-
-(*   Section leibniz. *)
-(*     Context `{!LeibnizEquiv C}. *)
-
-(*     Lemma difference_singleton_not_elem_of_L : forall X x, *)
-(*       x ∉ X → *)
-(*       X ∖ {[x]} = X. *)
-(*     Proof. set_solver. Qed. *)
-(*   End leibniz. *)
-(* End sets. *)

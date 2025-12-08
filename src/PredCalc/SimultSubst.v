@@ -217,7 +217,7 @@ Section syntax.
   Proof with auto.
     induction t; simpl; [set_solver| | ].
     - destruct (to_var_term_map xs ts !! x) eqn:E.
-      + unfold to_var_term_map in E. apply lookup_list_to_map_zip_Some in E as (i&?&?)...
+      + unfold to_var_term_map in E. apply lookup_list_to_map_zip_Some in E as (i&?&?&_)...
         apply elem_of_list_lookup_2 in H1. set_unfold. intros x0 ?. right.
         apply elem_of_union_list. exists (term_fvars t). set_solver.
       + simpl. set_solver.
@@ -538,7 +538,7 @@ Section semantics.
   Lemma teval_delete_state_var_term_map_head σ t m mv v :
     teval_var_term_map σ m mv →
     dom mv ## term_fvars t →
-    teval σ t v ↔ teval (mv ∪ σ) t v.
+    teval (mv ∪ σ) t v ↔ teval σ t v.
   Proof with auto.
     intros. rewrite <- teval_simult_subst with (m:=m)...
     rewrite simult_subst_term_id... rewrite <- (proj1 H)...
@@ -547,20 +547,21 @@ Section semantics.
   Lemma afeval_delete_state_var_term_map_head σ af m mv :
     teval_var_term_map σ m mv →
     dom mv ## af_fvars af →
-    afeval σ af ↔ afeval (mv ∪ σ) af.
+    afeval (mv ∪ σ) af ↔ afeval σ af.
   Proof with auto.
     intros. rewrite <- afeval_simult_subst with (m:=m)...
     rewrite simult_subst_af_id... rewrite <- (proj1 H)...
   Qed.
 
-  Lemma feval_delete_state_var_term_map_head σ A m mv :
-    teval_var_term_map σ m mv →
+  Lemma feval_delete_state_var_term_map_head σ A mv :
+    (* teval_var_term_map σ m mv → (* this is not required  *) error *)
     dom mv ## formula_fvars A →
-    feval σ A ↔ feval (mv ∪ σ) A.
+    feval (mv ∪ σ) A ↔ feval σ A.
   Proof with auto.
-    intros. rewrite <- feval_simult_subst with (m:=m)...
-    rewrite simult_subst_id... rewrite <- (proj1 H)...
-  Qed.
+  Admitted.
+  (*   intros. rewrite <- feval_simult_subst with (m:=m)... *)
+  (*   rewrite simult_subst_id... rewrite <- (proj1 H)... *)
+  (* Qed. *)
 
   Lemma simult_subst_empty A :
     simult_subst A ∅ ≡ A.
@@ -622,7 +623,7 @@ Section semantics.
     rewrite feval_simult_subst with (mv:=<[x:=v]> (delete x mv))...
     rewrite feval_simult_subst with (mv:=delete x mv)...
     assert (Hv':=Hv).
-    rewrite teval_delete_state_var_term_map_head with (m:=delete x m) (mv:=delete x mv) in Hv'...
+    rewrite <- teval_delete_state_var_term_map_head with (m:=delete x m) (mv:=delete x mv) in Hv'...
     2: { rewrite (proj1 H2)... }
     rewrite feval_subst with (v:=v)... rewrite (insert_union_l (delete x mv))...
   Qed.
@@ -699,7 +700,7 @@ Section semantics.
       apply H1. apply elem_of_union_list. exists (term_fvars t0). split...
       rewrite delete_insert in H2...
       2:{ apply lookup_list_to_map_zip_None... }
-      apply elem_of_list_fmap. apply lookup_list_to_map_zip_Some in H2 as (i&?&?)...
+      apply elem_of_list_fmap. apply lookup_list_to_map_zip_Some in H2 as (i&?&?&_)...
       exists t0. split... apply elem_of_list_lookup. exists i...
   Qed.
 
@@ -820,6 +821,50 @@ Section semantics.
         * rewrite H1...
           2:{ rewrite fvars_subst_non_free... set_solver. }
           rewrite (fexists_alpha_equiv x x' A)...
+  Qed.
+
+
+  Lemma ssubst_trans A xs1 xs2 ts `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts} `{!OfSameLength xs1 ts} :
+    xs1 ## xs2 →
+    NoDup xs2 →
+    list_to_set xs2 ## formula_fvars A →
+    <! A [[*xs1 \ ⇑ₓ₊ xs2]] [[*xs2 \ *ts]] !> ≡ <! A[[*xs1 \ *ts]] !>.
+  Proof with auto.
+    intros ? Hnodup ?. intros σ.
+    opose proof (teval_var_term_map_total σ (to_var_term_map xs1 ts)) as [mv ?].
+    opose proof (teval_var_term_map_total σ _) as [mvx2t ?].
+    rewrite feval_simult_subst with (mv:=mvx2t) by exact H2.
+    rewrite feval_simult_subst with (mv:=mv).
+    2:{ unfold to_var_term_map in *. destruct H1 as [], H2 as [].
+        split.
+        - rewrite dom_list_to_map_zip_L in *... typeclasses eauto.
+        - intros x1 tx2 v ??. apply lookup_list_to_map_zip_Some in H5 as (i&?&?&?)...
+          2:{ typeclasses eauto. }
+          apply list_lookup_fmap_Some in H7 as (x2&?&?).
+          rewrite H9. clear dependent tx2.
+          destruct (lookup_of_same_length_l ts H5) as (t&?).
+          ospecialize (H3 x1 t v _ H6).
+          { apply lookup_list_to_map_zip_Some... exists i... }
+          assert (x2 ∈ dom mvx2t).
+          { rewrite H2. rewrite dom_list_to_map_zip_L... apply elem_of_list_to_set.
+            apply elem_of_list_lookup_2 in H7... }
+          apply elem_of_dom in H10 as [v' ?].
+          ospecialize (H4 x2 t v' _ H10).
+          { apply lookup_list_to_map_zip_Some... exists i. split_and!... intros. apply H8.
+            enough (i = j) by (subst; assumption).
+            eapply NoDup_lookup; [exact Hnodup | exact H7 | exact H11].
+          }
+          pose proof (teval_det _ _ _ H3 H4) as <-.
+          constructor. apply (lookup_total_union_l' _ σ)... }
+    rewrite map_union_assoc. rewrite (map_union_comm mv).
+    2:{ destruct H1 as (?&?), H2 as (?&?). apply map_disjoint_dom. rewrite H1.
+        rewrite H2. unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        rewrite dom_list_to_map_zip_L...
+        set_solver. }
+    rewrite <- map_union_assoc. rewrite feval_delete_state_var_term_map_head.
+    2:{ unfold teval_var_term_map in H2. destruct H2 as [-> _]. unfold to_var_term_map.
+        rewrite dom_list_to_map_zip_L... }
+    rewrite feval_simult_subst with (mv:=mv)...
   Qed.
 
 End semantics.

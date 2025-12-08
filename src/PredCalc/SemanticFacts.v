@@ -471,11 +471,7 @@ Section subst.
       x2 ∉ formula_fvars A →
       <! A[x1 \ x2][x2 \ t] !> ≡ <! A[x1 \ t] !>.
   Proof with auto.
-    intros.
-    destruct (decide (x1 ∈ formula_fvars A)).
-    2:{ rewrite fequiv_subst_non_free with (x:=x1)... rewrite fequiv_subst_non_free...
-        rewrite fequiv_subst_non_free... }
-    destruct (decide (x1 = x2)).
+    intros. destruct (decide (x1 = x2)).
     1:{ subst. rewrite fequiv_subst_diag... }
     intros σ. pose proof (teval_total σ t) as [v Hv].
     rewrite (feval_subst v)... rewrite (feval_subst v).
