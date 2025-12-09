@@ -195,33 +195,52 @@ Section refinement.
 
   Lemma r_leading_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!FormulaFinal <! pre[[↑ₓ xs \ ⇑ₜ ts]] !>} :
     w ## xs →
+    NoDup w →
     NoDup xs →
     let ts₀ := (λ t : final_term, <! t[[ₜ ↑ₓ w, ↑ₓ xs \ ⇑₀ w, ⇑₀ xs]] !>) <$> ts in
     <{ *w, *xs : [pre[[↑ₓ xs \ ⇑ₜ ts]], post[[↑₀ xs \ *ts₀]]] }> ⊑
       <{ *xs := *(FinalRhsTerm <$> ts); *w, *xs : [pre, post] }>.
   Proof with auto.
-    intros ??? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and. fSimpl.
-    unfold subst_initials at 1. rewrite subst_initials_app_comm.
+    intros Hdisjoint Hnodup1 Hnodup2 ? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and.
+    fSimpl. unfold subst_initials at 1. rewrite subst_initials_app_comm.
     rewrite subst_initials_app. rewrite subst_initials_ssubst.
     setoid_rewrite (ssubst_trans _ (↑₀ xs) (↑ₓ xs) (⇑ₜ ts)); [| set_solver | |].
     2:{ apply NoDup_fmap... apply as_var_inj. }
-    2:{ intros x ??. set_unfold. destruct H2 as [|]; [set_solver|].
-        destruct H1. destruct H2 as (x'&?&?&_&_). subst.
-        rewrite to_final_var_as_var in H3. set_solver. }
+    2:{ intros x ??. set_unfold. destruct H0 as [|]; [set_solver|].
+        destruct H. destruct H0 as (x'&?&?&_&_). subst.
+        rewrite to_final_var_as_var in H1. set_solver. }
     assert (zip_pair_functional ↑₀ xs ⇑ₜ ts).
     { apply NoDup_zip_pair_functional. apply NoDup_fmap... apply initial_var_of_inj. }
     assert (list_to_set ↑₀ xs ## ⋃ (term_fvars <$> ⇑ₜ ts)).
-    { intros x ??. set_unfold in H2. set_unfold in H3. destruct H3 as (t&?&t'&?&?).
-      subst. destruct H2 as []. apply final_term_final in H3. done. }
-    rewrite <- (seqsubst_ssubst _ (↑₀ xs) (⇑ₜ ts))...
+    { intros x ??. set_unfold in H0. set_unfold in H1. destruct H1 as (t&?&t'&?&?).
+      subst. destruct H0 as []. apply final_term_final in H1. done. }
+    (* rewrite <- (seqsubst_ssubst _ (↑₀ xs) (⇑ₜ ts))... *)
     assert (as_formula A ≡ <! A [[↑₀ xs \ *ts₀]] !>).
     { admit. }
-    rewrite H3 at 1. clear H3. rewrite <- simpl_ssubst_impl.
+    rewrite H1 at 1. clear H1. rewrite <- simpl_ssubst_impl.
     assert (<! (∀* ↑ₓ (w ++ xs), (post ⇒ A) [ [↑₀ xs \ * ts₀] ]) !> ≡
               <! (∀* ↑ₓ (w ++ xs), (post ⇒ A)) [ [↑₀ xs \ * ts₀] ] !>).
     { admit. }
-    rewrite H3. clear H3.
+    rewrite H1. clear H1.
     rewrite fold_subst_initials. rewrite subst_initials_app.
+    rewrite (subst_initials_ssubst xs). rewrite msubst_msubst_eq.
+    2:{ apply NoDup_fmap... apply initial_var_of_inj. }
+    rewrite subst_initials_ssubst. rewrite msubst_msubst_ne.
+    2:{ set_solver. }
+    2-3: apply NoDup_fmap; auto; apply initial_var_of_inj.
+    2:{ set_solver. }
+    rewrite <- subst_initials_ssubst.
+    assert
+  ((fmap (λ t : term, <! t [ [ₜ↑₀ w \ ⇑ₓ w] ] !>) ((λ t : term, <! t [ [ₜ↑₀ xs \ ⇑ₓ xs] ] !>) <$> ts₀)) = ⇑ₜ ts).
+
+    { apply list_eq. intros i. unfold ts₀. do 2 rewrite <- list_fmap_compose. admit. }
+    ssubst_rewrite
+      admit. }
+    apply ssubst_proper_fent.
+    setoid_rewrite H1.
+    setoid_rewrite fold_subst_initials.
+    2:{  }
+             .
     rewrite
     ssubst_comm
     (** * ts = ts[w, xs \ w₀, xs₀][w₀, xs₀ \ w, xs] *)
