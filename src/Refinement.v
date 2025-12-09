@@ -184,7 +184,7 @@ Section refinement.
     intros. intros A. simpl. fSimpl. rewrite f_impl_and_r. fSimpl.
     rewrite (subst_initials_app _ w xs).
     assert (formula_fvars <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> ## list_to_set (↑₀ xs)).
-    { intros x ? ?. set_unfold in H1. destruct H1 as ([|]&?); [set_solver|].
+    { intros x ??. set_unfold in H1. destruct H1 as ([|]&?); [set_solver|].
       set_unfold. destruct H2 as [? _]. apply elem_of_fvars_final_formula_inv in H1... }
     rewrite (f_subst_initials_no_initials <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> xs) at 1...
     rewrite (f_subst_initials_no_initials <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> xs) at 1...
@@ -193,68 +193,72 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
-  Lemma ssubst_trans A (xs1 xs2 : list variable) (ts : list term) `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts} `{!OfSameLength xs1 ts} :
-    list_to_set xs1 ## formula_fvars A →
-    <! A [[*xs1 \ ⇑ₓ₊ xs2]] [[*xs2 \ *ts]] !> ≡ <! A[[*xs1 \ *ts]] !>.
-  Proof.
-    (* exfalso. *)
-    (* assert (xs1 = xs1) by reflexivity. *)
-    (* repeat match goal with *)
-    (* | H : context[xs1], H' : OfSameLength xs1 xs2 |- _ => clear dependent H end. *)
-
-      (* generalize dependent xs2; generalize dependent xs1; *)
-      repeat match goal with
-      | H : context[xs2], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
-      | H : context[xs1], _ : OfSameLength xs1 xs2 |- _ => generalize dependent H
-      end;
-      generalize dependent xs2; generalize dependent xs1;
-      match goal with
-      | |- ∀ xs1 : list variable, ∀ xs2 : list variable, ∀ H, ?P => pose proof (of_same_length_ind (λ xs1 xs2 H, P))
-      end.
-      intros. apply H.
-      [intros | let IH := fresh "IH" in  intros x1 xs1 x2 xs2 ? IH].
-    generalize dependent xs2.
-    generalize dependent xs1.
-    induction_same_length xs1 xs2 as y1 y2. hyp as ident ident
-    intros.
-
-
-
-
   Lemma r_leading_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!FormulaFinal <! pre[[↑ₓ xs \ ⇑ₜ ts]] !>} :
     w ## xs →
-    let ts₀ := fmap (λ t : final_term, <! t[[ₜ ↑ₓ w, ↑ₓ xs \ ⇑₀ w, ⇑₀ xs]] !>) ts in
+    NoDup xs →
+    let ts₀ := (λ t : final_term, <! t[[ₜ ↑ₓ w, ↑ₓ xs \ ⇑₀ w, ⇑₀ xs]] !>) <$> ts in
     <{ *w, *xs : [pre[[↑ₓ xs \ ⇑ₜ ts]], post[[↑₀ xs \ *ts₀]]] }> ⊑
       <{ *xs := *(FinalRhsTerm <$> ts); *w, *xs : [pre, post] }>.
   Proof with auto.
-    (* etrans. *)
-    (* - apply r_seq_frame... admit. *)
-    (* -  *)
-    intros ?? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and. fSimpl.
+    intros ??? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and. fSimpl.
     unfold subst_initials at 1. rewrite subst_initials_app_comm.
     rewrite subst_initials_app. rewrite subst_initials_ssubst.
-    (* sketch: trans xs₀ → xs → ts (probably works b/c there is no xs₀ in (...)[_₀\w]) *)
-    fold (subst_initials .
-    seqsubst_ssubst
-    rewrite subst_initials_app_comm.
-    do 2 rewrite subst_initials_app.
+    setoid_rewrite (ssubst_trans _ (↑₀ xs) (↑ₓ xs) (⇑ₜ ts)); [| set_solver | |].
+    2:{ apply NoDup_fmap... apply as_var_inj. }
+    2:{ intros x ??. set_unfold. destruct H2 as [|]; [set_solver|].
+        destruct H1. destruct H2 as (x'&?&?&_&_). subst.
+        rewrite to_final_var_as_var in H3. set_solver. }
+    assert (zip_pair_functional ↑₀ xs ⇑ₜ ts).
+    { apply NoDup_zip_pair_functional. apply NoDup_fmap... apply initial_var_of_inj. }
+    assert (list_to_set ↑₀ xs ## ⋃ (term_fvars <$> ⇑ₜ ts)).
+    { intros x ??. set_unfold in H2. set_unfold in H3. destruct H3 as (t&?&t'&?&?).
+      subst. destruct H2 as []. apply final_term_final in H3. done. }
+    rewrite <- (seqsubst_ssubst _ (↑₀ xs) (⇑ₜ ts))...
+    assert (as_formula A ≡ <! A [[↑₀ xs \ *ts₀]] !>).
+    { admit. }
+    rewrite H3 at 1. clear H3. rewrite <- simpl_ssubst_impl.
+    assert (<! (∀* ↑ₓ (w ++ xs), (post ⇒ A) [ [↑₀ xs \ * ts₀] ]) !> ≡
+              <! (∀* ↑ₓ (w ++ xs), (post ⇒ A)) [ [↑₀ xs \ * ts₀] ] !>).
+    { admit. }
+    rewrite H3. clear H3.
+    rewrite fold_subst_initials. rewrite subst_initials_app.
+    rewrite
+    ssubst_comm
+    (** * ts = ts[w, xs \ w₀, xs₀][w₀, xs₀ \ w, xs] *)
+    (** * ts₀ = ts[w, xs \ w₀, xs₀] *)
+    (** * ts  = ts₀[w₀, xs₀ \ w, xs] *)
+    (* X[xs₀ \ ts[w, xs \ w₀, xs₀][w₀, xs₀ \ w, xs]] [w, xs \ w₀, xs₀] *)
+    (* === X[w, xs \ w₀, xs₀][xs₀ \ ts₀] *)
+    (* if X = post[w₀, xs₀ \ w, xs] then  *)
+    (* rewrite f_foralllist_elim_binders. rewrite fold_subst_initials. *)
+    (* rewrite simpl_subst_initials_impl. rewrite (f_subst_initials_no_initials A). *)
+    (* 2:{ admit. } *)
+    (* assert (<! post [ [↑₀ xs \ * ts₀] ] [_₀\w ++ xs] !> ≡ <! post [_₀\w ++ xs] [[↑₀ xs \ ⇑ₜ ts]] !>). *)
+    (* { admit. } *)
+    (* rewrite H3. unfold subst_initials at 1. rewrite <- f_foralllist_one_point. *)
+    (* rewrite simpl_seqsubst_impl. rewrite subst_initials *)
+    rewrite <- f_foralllist_one_point...
+    rewrite <- f_foralllist_one_point...
+    unfold subst_initials.
+    rewrite <- f_foralllist_one_point...
+    rewrite <- (f_foralllist_impl_unused_l (↑₀ w)).
+    2:{ intros x ??. set_unfold. destruct H4; [set_solver|]. destruct H4 as (t&?&t'&?&?).
+        subst. apply final_term_final in H4. set_solver. }
+    rewrite f_foralllist_comm. rewrite <- f_foralllist_app.
+    rewrite <- (fmap_app initial_var_of w xs).
+    seqsubst_app
+
+    (*     destruct H4. destruct H3 as (x'&?&?&_&_). subst. *)
+    (*     rewrite to_final_var_as_var in H3. set_solver. } *)
+    rewrite fold_subst_initials. rewrite <- f_foralllist_one_point...
+    unfold subst_initials at 2. rewrite <- f_foralllist_one_point...
     unfold subst_initials at 1. rewrite <- f_foralllist_one_point...
-    intros σ ?.
-    odestruct (teval_var_term_map_total σ _) as [mv ?].
-    rewrite feval_simult_subst with (mv:=mv).
-    2:{ exact H1. }
-    odestruct (teval_var_term_map_total σ _) as [mv' ?].
-    rewrite subst_initials_ssubst in H0. rewrite feval_simult_subst with (mv:=mv') in H0.
-    2:{ exact H2. }
-    odestruct (teval_var_term_map_total _ _) as [mv'' ?].
-    rewrite subst_initials_ssubst. rewrite feval_simult_subst with (mv:=mv'').
-    2:{ exact H3. }
-    apply simpl_feval_foralllist. intros vwxs ?.
-    rewrite simpl_feval_foralllist in H0.
-    specialize (H0 vwxs H4).
+    rewrite subst_initials_app.
+    unfold subst_initials at 3. rewrite fequiv_subst_comm
+    rewrite subst_initials_app. unfold subst_initials at 1.
+    rewrite <- f_foralllist_one_point...
+    Set Printing Parentheses.
 
-
-    apply r_seq_frame. simpl. rewrite wp_asgn.
 
   (* Law 5.2 *)
   Lemma r_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} :

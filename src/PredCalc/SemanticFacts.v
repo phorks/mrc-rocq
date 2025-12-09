@@ -480,7 +480,7 @@ Section subst.
     rewrite (feval_delete_state_var_head x2)...
   Qed.
 
-  Lemma fequiv_subst_commute A x1 t1 x2 t2 :
+  Lemma fequiv_subst_comm A x1 t1 x2 t2 :
     x1 ≠ x2 →
     x1 ∉ term_fvars t2 →
     x2 ∉ term_fvars t1 →

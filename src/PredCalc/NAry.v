@@ -89,27 +89,21 @@ Section syntactic.
   Lemma fvars_seqsubst_superset A xs ts `{!OfSameLength xs ts} :
     formula_fvars (seqsubst A xs ts) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
   Proof.
-    generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl.
-    - assert (Hl':=Hl). apply of_same_length_nil_inv_l in Hl' as ->. set_solver.
-    - assert (Hl':=Hl). apply of_same_length_cons_inv_l in Hl' as (t&ts'&->&?).
-      rename ts' into ts. simpl.
-      pose proof (fvars_subst_superset (@seqsubst A xs ts (of_same_length_rest Hl)) x t).
-      set_solver.
+    induction_same_length xs ts as x t; [set_solver|]. intros.
+    pose proof (fvars_subst_superset (@seqsubst A xs ts (of_same_length_rest _)) x t).
+    set_solver.
   Qed.
 
   Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{!OfSameLength xs ts} :
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     formula_fvars (seqsubst A xs ts) ⊆ (formula_fvars A ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
-    generalize dependent ts. induction xs as [|x xs IH]; intros ts Hl H.
-    - assert (Hl':=Hl). apply of_same_length_nil_inv_l in Hl' as ->. set_solver.
-    - assert (Hl':=Hl). apply of_same_length_cons_inv_l in Hl' as (t&ts'&->&?).
-      rename ts' into ts. simpl.
-      destruct (decide (x ∈ formula_fvars (@seqsubst A xs ts (of_same_length_rest Hl)))).
-      + rewrite fvars_subst_free... specialize (IH ts (of_same_length_rest Hl)).
-        forward IH by set_solver. set_solver.
-      + rewrite fvars_subst_non_free... specialize (IH ts (of_same_length_rest Hl)).
-        forward IH by set_solver. set_solver.
+    induction_same_length xs ts as x t; [set_solver|]. simpl. intros.
+    destruct (decide (x ∈ formula_fvars (@seqsubst A xs ts (of_same_length_rest _)))).
+    - rewrite fvars_subst_free... ospecialize (IH (of_same_length_rest _)).
+      forward IH by set_solver. set_solver.
+    - rewrite fvars_subst_non_free... specialize (IH (of_same_length_rest _)).
+      forward IH by set_solver. set_solver.
   Qed.
 
   Definition subst_initials_var_fvars A (w : list final_variable) : gset variable :=
@@ -362,7 +356,7 @@ Section syntactic.
     @FEqList ts1 ts2 H = @FEqList ts1' ts2' (of_same_length_eq H Heq1 Heq2).
   Proof. intros. subst. f_equiv. apply OfSameLength_pi. Qed.
 
-  Lemma eqlist_nil `{H : OfSameLength _ _ [] [] } :
+  Lemma eqlist_nil {H : OfSameLength [] [] } :
     @FEqList [] [] H = <! true !>.
   Proof. unfold FEqList. reflexivity. Qed.
 
@@ -968,11 +962,8 @@ Section semantic.
               (λ xs, forall_relation (λ ts, universal_relation ==> (⇛))))
            seqsubst.
   Proof with auto.
-    intros A B Hequiv xs ts Hl1 Hl2 _. assert (Hinv:=Hl1). generalize dependent ts.
-    induction xs as [|x xs IH]; intros.
-    - apply of_same_length_nil_inv_l in Hinv as ->. simpl...
-    - apply of_same_length_cons_inv_l in Hinv as (t&ts'&->&?). rename ts' into ts.
-      simpl. f_equiv. rewrite IH... reflexivity.
+    intros A B Hequiv xs ts Hl1 Hl2 _. induction_same_length xs ts as x t... intros.
+    simpl. f_equiv. rewrite IH... reflexivity.
   Qed.
 
   (** [subst_initials] facts *)
@@ -1120,14 +1111,12 @@ Section semantic.
         apply IH in Hv as (vs&Hl&?). exists (v :: vs), of_same_length_cons.
         simpl. rewrite feval_subst with (v:=v)...
         eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
-    - generalize dependent σ. induction xs as [|x xs' IH]; intros.
-      + destruct H as (vs&Hl&?). apply of_same_length_nil_inv_l in Hl as ?. subst. simpl in H...
-      + destruct H as (vs&Hl&?). apply of_same_length_cons_inv_l in Hl as ?.
-        destruct H0 as (v&vs'&?&?). subst. simpl. simp feval.
-        simpl in H. rewrite feval_subst with (v:=v) in H... exists v.
-        rewrite feval_subst with (v:=v)... apply IH. exists vs'.
-        apply of_same_length_rest in Hl as ?. exists H0.
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
+    - intros. destruct H as (vs&?&?). generalize dependent σ.
+      induction_same_length xs vs as x v; simpl... intros.
+      rewrite feval_subst with (v:=v) in H... simp feval. exists v.
+      rewrite feval_subst with (v:=v)... eapply IH.
+      eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
+      Unshelve. exact (of_same_length_rest H').
   Qed.
 
   Lemma simpl_feval_foralllist σ xs A :
@@ -1136,15 +1125,11 @@ Section semantic.
       feval σ (@seqsubst _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
-    - generalize dependent σ. generalize dependent vs.
-      induction xs as [|x xs IH]; simpl in *; intros.
-      + apply of_same_length_nil_inv_l in H0 as ?. subst. simpl in H...
-      + apply of_same_length_cons_inv_l in H0 as ?.
-        destruct H1 as (v&vs'&?&?). subst. simpl. rewrite feval_subst with (v:=v)...
-        rewrite simpl_feval_fforall in H. specialize (H v).
-        rewrite feval_subst with (v:=v) in H...
-        apply (IH vs' (@of_same_length_rest _ _ _ _ _ _ H0)) in H.
-        eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
+    - intros. generalize dependent σ. induction_same_length xs vs as x v...
+      simpl. intros σ. rewrite feval_subst with (v:=v)... intros.
+      rewrite simpl_feval_fforall in H. specialize (H v).
+      rewrite feval_subst with (v:=v) in H... apply (IH (of_same_length_rest _)) in H.
+      eapply feval_proper; [reflexivity| | apply H]. apply seqsubst_proper...
     - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
       + specialize (H [] of_same_length_nil). simpl in H...
       + rewrite simpl_feval_fforall. intros. rewrite feval_subst with (v:=v)...

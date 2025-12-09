@@ -394,37 +394,36 @@ Section semantics.
     ∃ v mv', teval σ t v ∧ mv = {[x := v]} ∪ mv' ∧ x ∉ dom mv'
              ∧ teval_var_term_map σ (to_var_term_map xs ts) mv'.
   Proof with auto.
-    intros. generalize dependent mv. generalize dependent ts. generalize dependent t.
-    generalize dependent x. induction xs as [|x' xs' IH]; intros; assert (Hl:=H).
-    - apply of_same_length_nil_inv_l in Hl as ->. unfold to_var_term_map in H1. simpl in H1.
+    intros. generalize dependent mv. generalize dependent t.
+    generalize dependent x. induction_same_length xs ts as x' t'.
+    - unfold to_var_term_map in H1. simpl in H1.
       destruct H1 as []. rewrite insert_empty in H1. rewrite dom_singleton_L in H1.
       apply dom_singleton_inv_L in H1 as [v ->]. exists v, ∅. split_and!.
       + eapply H2; [apply lookup_insert|apply lookup_singleton].
       + rewrite map_union_empty...
       + apply not_elem_of_empty.
       + hnf. cbn. split... intros. apply lookup_empty_Some in H1 as [].
-    - apply of_same_length_cons_inv_l in Hl as (t'&ts'&->&?).
-      apply NoDup_cons in H0 as []. forward (IH x')...
-      apply of_same_length_rest in H as Hl. specialize (IH t' ts' Hl).
+    - intros. apply NoDup_cons in H0 as []. assert (Hl:=H').
+      apply of_same_length_rest in Hl. ospecialize (IH Hl x' _ t')...
       destruct H1 as []. unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1.
       2:{ typeclasses eauto. } rewrite list_to_set_cons in H1.
       apply dom_union_inv_L in H1 as (m1&m2&?&?&?&?).
       2: { set_solver. }
-      apply dom_singleton_inv_L in H6 as [v Hv]. subst m1.
+      apply dom_singleton_inv_L in H4 as [v Hv]. subst m1.
       rewrite <- insert_union_singleton_l in H1. subst mv. rename m2 into mv.
-      assert (teval_var_term_map σ (to_var_term_map (x' :: xs') (t' :: ts')) mv).
+      assert (teval_var_term_map σ (to_var_term_map (x' :: xs) (t' :: ts)) mv).
       { split.
         - unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
         - intros. assert (x0 ≠ x).
-          { intros contra. subst. apply elem_of_dom_2 in H6. rewrite H7 in H6.
-            apply elem_of_list_to_set in H6. contradiction. }
-          apply (H4 x0)...
+          { intros contra. subst. apply elem_of_dom_2 in H4. rewrite H5 in H4.
+            apply elem_of_list_to_set in H4. contradiction. }
+          apply (H2 x0)...
           ++ unfold to_var_term_map. simpl. rewrite lookup_insert_ne...
           ++ rewrite lookup_insert_ne...
       }
       destruct (IH mv) as (v'&mv'&?&?&?&?)...
       exists v, mv. split_and!...
-      + apply (H4 x).
+      + apply (H2 x).
           * unfold to_var_term_map. simpl. rewrite lookup_insert...
           * rewrite lookup_insert...
         + rewrite insert_union_singleton_l...
@@ -865,6 +864,47 @@ Section semantics.
     2:{ unfold teval_var_term_map in H2. destruct H2 as [-> _]. unfold to_var_term_map.
         rewrite dom_list_to_map_zip_L... }
     rewrite feval_simult_subst with (mv:=mv)...
+  Qed.
+
+  Lemma msubst_msubst_eq A xs ts1 ts2 `{!OfSameLength xs ts1} `{!OfSameLength xs ts2} :
+    NoDup xs →
+    <! A [[*xs \ *ts1]][[*xs \ *ts2]] !> ≡ <! A [[*xs \ *$((λ t, <! t[[ₜ *xs \ *ts2]] !>) <$> ts1)]] !>.
+  Proof with auto.
+    intros Hnodup σ.
+    opose proof (teval_var_term_map_total σ _) as [mv1 ?].
+    rewrite feval_simult_subst with (mv:=mv1) by exact H.
+    opose proof (teval_var_term_map_total _ _) as [mv2 ?].
+    rewrite feval_simult_subst with (mv:=mv2) by exact H0.
+    opose proof (teval_var_term_map_total _ _) as [mv3 ?].
+    rewrite feval_simult_subst with (mv:=mv3) by exact H1.
+    rewrite map_union_assoc. f_equiv. f_equiv. apply (map_eq _ mv3).
+    intros x. destruct H as [], H0 as [], H1 as [].
+    destruct (decide (x ∈ xs)).
+    2:{ enough (x ∉ dom mv3 ∧ x ∉ dom (mv2 ∪ mv1)).
+        - destruct H5. apply not_elem_of_dom in H5, H6. rewrite H5, H6...
+        - rewrite dom_union. rewrite H, H0, H1. unfold to_var_term_map.
+          rewrite dom_list_to_map_zip_L; [|apply of_same_length_fmap_r].
+          rewrite dom_list_to_map_zip_L; [|auto]. rewrite dom_list_to_map_zip_L; [|auto].
+          rewrite union_idemp_L. split; set_solver. }
+    assert (is_Some (mv2 !! x)).
+    { apply elem_of_dom. rewrite H0. unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+      set_solver. }
+    rewrite lookup_union_l'... destruct H5 as [v2 ?].
+    assert (is_Some (mv3 !! x)) as (v3&?).
+    { apply elem_of_dom. rewrite H1. unfold to_var_term_map. rewrite dom_list_to_map_zip_L;
+        [set_solver|]. apply of_same_length_fmap_r. }
+    rewrite H5, H6. f_equal. apply elem_of_list_lookup in e as (i&?).
+    destruct (lookup_of_same_length_l ts1 H7) as (t1&?).
+    eapply (@teval_det _ (mv1 ∪ σ)) with (t:=t1).
+    - apply H3 with (x:=x)... unfold to_var_term_map. apply lookup_list_to_map_zip_Some...
+      exists i. split_and!... intros. eapply NoDup_lookup with (i:=i) in H9... lia.
+    - specialize (H4 x <! t1 [[ₜ *xs \ *ts2]] !> v3).
+      rewrite <- teval_simult_subst; [apply H4| split; auto]... unfold to_var_term_map.
+      apply lookup_list_to_map_zip_Some.
+      { apply of_same_length_fmap_r. }
+      exists i. split_and!...
+      + apply list_lookup_fmap_Some. exists t1. split...
+      + intros. apply NoDup_lookup with (i:=i) in H9... lia.
   Qed.
 
 End semantics.
