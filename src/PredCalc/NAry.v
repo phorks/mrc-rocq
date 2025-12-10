@@ -94,7 +94,7 @@ Section syntactic.
     set_solver.
   Qed.
 
-  Lemma fvars_seqsubst_vars_not_free_in_terms_superset A xs ts `{!OfSameLength xs ts} :
+  Lemma fvars_seqsubst_superset_vars_not_free_in_terms A xs ts `{!OfSameLength xs ts} :
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     formula_fvars (seqsubst A xs ts) ⊆ (formula_fvars A ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
@@ -748,7 +748,7 @@ Section semantic.
     simpl. apply zip_pair_functional_cons_inv in H as H1. destruct (decide (x ∈ xs)).
     - rewrite fequiv_subst_non_free.
       2:{ intros contra.
-          apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver. }
+          apply fvars_seqsubst_superset_vars_not_free_in_terms in contra; set_solver. }
       rewrite IH by set_solver... f_equiv. unfold to_var_term_map. apply map_eq.
       intros x'. destruct (decide (x = x')).
       + subst. simpl. rewrite lookup_insert. unfold OfSameLength in H'.

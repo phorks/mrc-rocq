@@ -76,8 +76,6 @@ Proof with auto.
   intros. unfold lookup_total, map_lookup_total. rewrite lookup_union_r...
 Qed.
 
-
-
 (** Facts about [list] *)
 Lemma length_nonzero_iff_cons {A} (l : list A) n :
   length l = S n ↔ ∃ x xs, l = x :: xs ∧ length xs = n.
@@ -106,10 +104,53 @@ Proof with auto.
     + simpl. rewrite IHl. split; lia.
 Qed.
 
+Lemma lookup_app_l_Some_disjoint {A : Type} (l1 l2 : list A) (x : A) i :
+  l1 ## l2 →
+  x ∈ l1 →
+  (l1 ++ l2) !! i = Some x →
+  l1 !! i = Some x.
+Proof with auto.
+  intros. rewrite lookup_app in H1. destruct (l1 !! i)... apply elem_of_list_lookup_2 in H1.
+  exfalso. apply (H x)...
+Qed.
+
+Lemma lookup_app_l_Some_disjoint' {A : Type} (l1 l2 : list A) (x : A) i :
+  l1 ## l2 →
+  x ∉ l2 →
+  (l1 ++ l2) !! i = Some x →
+  l1 !! i = Some x.
+Proof with auto.
+  intros. rewrite lookup_app in H1. destruct (l1 !! i)... apply elem_of_list_lookup_2 in H1.
+  contradiction.
+Qed.
+
+Lemma lookup_app_r_Some_disjoint {A : Type} (l1 l2 : list A) (x : A) i :
+  l1 ## l2 →
+  x ∈ l2 →
+  (l1 ++ l2) !! i = Some x →
+  length l1 ≤ i ∧ l2 !! (i - length l1) = Some x.
+Proof with auto.
+  intros. rewrite lookup_app in H1. destruct (l1 !! i) as [x'|] eqn:E...
+  - inversion H1. subst. apply elem_of_list_lookup_2 in E. exfalso. apply (H x)...
+  - split... destruct (decide (length l1 ≤ i))... apply not_le in n.
+    apply list_lookup_None in E. lia.
+Qed.
+
+Lemma lookup_app_r_Some_disjoint' {A : Type} (l1 l2 : list A) (x : A) i :
+  l1 ## l2 →
+  x ∉ l1 →
+  (l1 ++ l2) !! i = Some x →
+  length l1 ≤ i ∧ l2 !! (i - length l1) = Some x.
+Proof with auto.
+  intros. rewrite lookup_app in H1. destruct (l1 !! i) as [x'|] eqn:E...
+  - inversion H1. subst. apply elem_of_list_lookup_2 in E. contradiction.
+  - split... destruct (decide (length l1 ≤ i))... apply not_le in n.
+    apply list_lookup_None in E. lia.
+Qed.
 
 (** [OfSameLength] type class provides a compositional way to limit pairs of lists
     to those of the same length. It uses the power of instance synthesization to
-    deduce length equality of lists based on syntatic structure of lists.
+    deduce length equality of lists based on syntactic structures of lists.
     The main use case for this is in zip pairs. We can prove more intersting facts
     about the zipped result of two lists, if we know they are of the same length. *)
 Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=

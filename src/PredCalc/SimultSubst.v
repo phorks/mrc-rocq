@@ -108,10 +108,16 @@ Section syntax.
   Definition to_var_term_map (xs : list variable) (ts : list term)
     `{OfSameLength variable term xs ts}: gmap variable term := list_to_map (zip xs ts).
 
-  Local Notation "A [[ xs \ ts ]]" := (simult_subst A (to_var_term_map xs ts))
-                                        (in custom formula at level 74, left associativity,
-                                            xs custom var_seq,
-                                            ts custom term_seq) : refiney_scope.
+  Local Notation "t [ [ₜ xs \ ts ] ]" := (simult_subst_term t (to_var_term_map xs ts))
+                                           (in custom formula at level 74, left associativity,
+                                               xs custom var_seq,
+                                               ts custom term_seq) : refiney_scope.
+
+  Local Notation "A [ [ xs \ ts ] ]" := (simult_subst A (to_var_term_map xs ts))
+                                          (in custom formula at level 74, left associativity,
+                                              xs custom var_seq,
+                                              ts custom term_seq) : refiney_scope.
+
 
   Local Tactic Notation "generalize_fresh_var_for_simult_subst"
     ident(y) constr(A) constr(m) "as" ident(y') :=
@@ -212,7 +218,7 @@ Section syntax.
       + forward IHargs by set_solver. inversion IHargs... rewrite H2...
   Qed.
 
-  Lemma fvars_ssubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma fvars_msubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
     term_fvars (simult_subst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     induction t; simpl; [set_solver| | ].
@@ -229,23 +235,44 @@ Section syntax.
         set_solver.
   Qed.
 
-  Lemma fvars_ssubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
+  Lemma fvars_msubst_term_superset_vars_not_free_in_terms t xs ts `{!OfSameLength xs ts} :
+    NoDup xs →
+    (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
+    term_fvars (<! t [[ₜ *xs \ *ts ]] !>) ⊆
+      (term_fvars t ∖ list_to_set xs) ∪ ⋃ (term_fvars <$> ts).
+  Proof with auto.
+    intros Hnodup ?. induction t; simpl; [set_solver | |].
+    - destruct (decide (x ∈ xs)).
+      + apply elem_of_list_lookup in e as (i&?). destruct (lookup_of_same_length_l ts H0) as (t&?).
+        * replace (to_var_term_map xs ts !! x) with (Some t).
+          -- intros x' ?. set_unfold. right. apply elem_of_union_list. exists (term_fvars t).
+             split... apply elem_of_list_fmap. exists t. split...
+             apply elem_of_list_lookup_2 in H1...
+          -- symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some...
+             exists i. split_and!... intros. apply NoDup_lookup with (i:=i) in H2...
+             lia.
+      + replace (to_var_term_map xs ts !! x) with (@None term); [set_solver|].
+        symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None...
+    - induction args; simpl; [set_solver|]. set_solver.
+  Qed.
+
+  Lemma fvars_msubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
     af_fvars (simult_subst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     destruct af; simpl; [set_solver|set_solver | | ].
-    - pose proof (fvars_ssubst_term_superset t1 xs ts).
-      pose proof (fvars_ssubst_term_superset t2 xs ts). set_solver.
+    - pose proof (fvars_msubst_term_superset t1 xs ts).
+      pose proof (fvars_msubst_term_superset t2 xs ts). set_solver.
     - induction args.
       + simpl. set_solver.
-      + simpl. pose proof (fvars_ssubst_term_superset a xs ts). set_solver.
+      + simpl. pose proof (fvars_msubst_term_superset a xs ts). set_solver.
   Qed.
 
-  Lemma fvars_ssubst_superset A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma fvars_msubst_superset A xs ts `{OfSameLength _ _ xs ts} :
     formula_fvars (<! A [[*xs \ *ts]] !>) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     induction A; simp simult_subst; simpl.
     2-4: set_solver.
-    - apply fvars_ssubst_af_superset.
+    - apply fvars_msubst_af_superset.
     - generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
       forward (H0 <! A [x \ x'] !>)...  clear H3 H4 H5.
       destruct (decide (x ∈ formula_fvars A)).
@@ -273,10 +300,198 @@ Section syntax.
       `{FormulaFinal _ A} `{OfSameLength _ _ xs ts} :
     FormulaFinal <! A[[*xs \ ⇑ₜ ts]] !>.
   Proof with auto.
-    intros x ?. apply fvars_ssubst_superset in H1. set_unfold. destruct H1 as [|].
+    intros x ?. apply fvars_msubst_superset in H1. set_unfold. destruct H1 as [|].
     - apply H in H1...
     - apply elem_of_union_list in H1 as (fvars&?&?). set_unfold. destruct H1 as (?&->&t&->&?).
       apply (final_term_final t) in H2...
+  Qed.
+
+  Lemma msubst_term_trans t xs1 xs2 ts `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts}
+      `{!OfSameLength xs1 ts} :
+    xs1 ## xs2 →
+    NoDup xs1 →
+    NoDup xs2 →
+    list_to_set xs2 ## term_fvars t →
+    <! t [[ₜ *xs1 \ ⇑ₓ₊ xs2]] [[ₜ *xs2 \ *ts]] !> = <! t [[ₜ *xs1 \ *ts]] !>.
+  Proof with auto.
+    intros Hdisjoint Hnodup1 Hnodup2 Hfree. induction t...
+    - simpl. destruct (decide (x ∈ xs1 ∨ x ∈ xs2)).
+      2:{ apply Decidable.not_or in n as [].
+          simpl. replace (to_var_term_map xs1 (@TVar value <$> xs2) !! x) with (@None term).
+          2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None...
+              typeclasses eauto. }
+          replace (to_var_term_map xs1 ts !! x) with (@None term).
+          2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+          simpl. replace (to_var_term_map xs2 ts !! x) with (@None term)...
+          symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+      destruct o.
+      + pose proof (Hdisjoint x H).
+        apply elem_of_list_lookup in H as [i ?].
+        destruct (lookup_of_same_length_l ts H) as [t ?].
+        destruct (lookup_of_same_length_l xs2 H) as [x' ?].
+        replace (to_var_term_map xs1 (@TVar value <$> xs2) !! x) with (Some (@TVar value x')).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!...
+            - apply list_lookup_fmap_Some. exists x'. split...
+            - intros. apply NoDup_lookup with (i:=i) in H3... lia. }
+        simpl. replace (to_var_term_map xs2 ts !! x') with (Some t).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!...
+            intros. apply NoDup_lookup with (i:=i) in H3... lia. }
+        replace (to_var_term_map xs1 ts !! x) with (Some t)...
+        symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+          [typeclasses eauto|]. exists i. split_and!...
+        intros. apply NoDup_lookup with (i:=i) in H3... lia.
+      + assert (x ∉ xs1) by (intros contra; apply (Hdisjoint x); auto).
+        simpl in Hfree. set_unfold in Hfree. simpl in Hfree. apply Hfree in H as []...
+    - simpl. f_equal. apply list_eq. rewrite <- list_fmap_compose. intros i.
+      f_equal. induction args... simpl. rewrite H; [| left; auto | set_solver].
+      f_equal. apply IHargs; [intros; apply H; auto; right; auto | set_solver].
+  Qed.
+
+  Lemma msubst_term_app t xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
+    xs1 ## xs2 →
+    NoDup xs1 →
+    NoDup xs2 →
+    list_to_set xs1 ## ⋃ (term_fvars <$> ts2) →
+    list_to_set xs2 ## ⋃ (term_fvars <$> ts1) →
+    <! t[[ₜ *xs1, *xs2 \ *ts1, *ts2 ]] !> = <! t[[ₜ *xs1 \ *ts1 ]][[ₜ *xs2 \ *ts2]] !>.
+  Proof with auto.
+    intros Hdisjoint Hnodup1 Hnodup2 Hfree1 Hfree2. induction t...
+    - simpl. destruct (decide (x ∈ xs1 ∨ x ∈ xs2)).
+      2:{ apply Decidable.not_or in n as [].
+          simpl. replace (to_var_term_map (xs1 ++ xs2) (ts1 ++ ts2) !! x) with (@None term).
+          2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None...
+              - typeclasses eauto.
+              - set_solver. }
+          replace (to_var_term_map xs1 ts1 !! x) with (@None term).
+          2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+          simpl. replace (to_var_term_map xs2 ts2 !! x) with (@None term)...
+          symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+      destruct o.
+      + pose proof (Hdisjoint x H).
+        apply elem_of_list_lookup in H as [i ?].
+        destruct (lookup_of_same_length_l ts1 H) as [t ?].
+        replace (to_var_term_map (xs1 ++ xs2) (ts1 ++ ts2) !! x) with (Some t).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!...
+            - rewrite lookup_app. rewrite H...
+            - rewrite lookup_app. rewrite H1...
+            - intros. apply lookup_app_l_Some_disjoint' in H2...
+              apply NoDup_lookup with (i:=i) in H2... lia. }
+        simpl. replace (to_var_term_map xs1 ts1 !! x) with (Some t).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!...
+            intros. apply NoDup_lookup with (i:=i) in H2... lia. }
+        rewrite simult_subst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        clear dependent x. intros x ??. apply (Hfree2 _ H). apply elem_of_union_list.
+        exists (term_fvars t). split... apply elem_of_list_fmap. apply elem_of_list_lookup_2 in H1.
+        exists t...
+      + assert (x ∉ xs1) by (intros contra; apply (Hdisjoint x); auto).
+        apply elem_of_list_lookup in H as [i ?].
+        destruct (lookup_of_same_length_l ts2 H) as [t ?].
+        replace (to_var_term_map (xs1 ++ xs2) (ts1 ++ ts2) !! x) with (Some t).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists (i + length xs1).
+            opose proof (@of_same_length _ _ xs1 ts1 _)... split_and!...
+            - rewrite lookup_app. replace (xs1 !! (i + length xs1)) with (@None variable).
+              2:{ symmetry. apply list_lookup_None. lia. }
+              rewrite Nat.add_sub. rewrite H...
+            - rewrite H2. rewrite lookup_app.
+              replace (ts1 !! (i + length ts1)) with (@None term).
+              2:{ symmetry. apply list_lookup_None. lia. }
+              rewrite Nat.add_sub. rewrite H1...
+            - intros. apply lookup_app_r_Some_disjoint' in H3 as []...
+              apply NoDup_lookup with (i:=i) in H4... subst. lia. }
+        replace (to_var_term_map xs1 ts1 !! x) with (@None term).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None;
+            [typeclasses eauto|]... }
+        simpl. replace (to_var_term_map xs2 ts2 !! x) with (Some t)...
+        symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some; [typeclasses eauto|].
+        exists i. split_and!... intros. apply NoDup_lookup with (i:=i) in H2... lia.
+    - simpl. f_equal. apply list_eq. rewrite <- list_fmap_compose. intros i.
+      f_equal. induction args... simpl. rewrite H; [| left; auto].
+      f_equal. apply IHargs. intros. apply H... right...
+  Qed.
+
+  Lemma msubst_term_comm t xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
+    xs1 ## xs2 →
+    NoDup xs1 →
+    NoDup xs2 →
+    list_to_set xs1 ## ⋃ (term_fvars <$> ts2) →
+    list_to_set xs2 ## ⋃ (term_fvars <$> ts1) →
+    <! t[[ₜ *xs1 \ *ts1 ]][[ₜ *xs2 \ *ts2]] !> = <! t[[ₜ *xs2 \ *ts2 ]][[ₜ *xs1 \ *ts1]] !>.
+  Proof with auto.
+    intros Hdisjoint Hnodup1 Hnodup2 Hfree1 Hfree2. induction t...
+    - simpl. destruct (decide (x ∈ xs1 ∨ x ∈ xs2)).
+      2:{ apply Decidable.not_or in n as [].
+          simpl. assert (to_var_term_map xs1 ts1 !! x = @None term).
+          { unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+          assert (to_var_term_map xs2 ts2 !! x = @None term).
+          { unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+          rewrite H1. rewrite H2. simpl. rewrite H1. rewrite H2... }
+      destruct o.
+      + pose proof (Hdisjoint x H).
+        apply elem_of_list_lookup in H as [i ?].
+        destruct (lookup_of_same_length_l ts1 H) as [t ?].
+        assert (to_var_term_map xs1 ts1 !! x = Some t).
+        { unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!... intros.
+            apply NoDup_lookup with (i:=i) in H2... lia. }
+        rewrite H2. rewrite simult_subst_term_id.
+        2:{ unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+            clear dependent x. intros x ??. apply (Hfree2 _ H). apply elem_of_union_list.
+            exists (term_fvars t). split... apply elem_of_list_fmap.
+            apply elem_of_list_lookup_2 in H1. exists t... }
+        replace (to_var_term_map xs2 ts2 !! x) with (@None term).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+        simpl. rewrite H2...
+      + assert (x ∉ xs1) by (intros contra; apply (Hdisjoint x); auto).
+        replace (to_var_term_map xs1 ts1 !! x) with (@None term).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_None... }
+        apply elem_of_list_lookup in H as [i ?].
+        destruct (lookup_of_same_length_l ts2 H) as [t ?].
+        simpl. replace (to_var_term_map xs2 ts2 !! x) with (Some t).
+        2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
+            [typeclasses eauto|]. exists i. split_and!... intros.
+            apply NoDup_lookup with (i:=i) in H2... lia. }
+        rewrite simult_subst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        clear dependent x. intros x ??. apply (Hfree1 _ H). apply elem_of_union_list.
+        exists (term_fvars t). split... apply elem_of_list_fmap.
+        apply elem_of_list_lookup_2 in H1. exists t...
+    - simpl. f_equal. apply list_eq. rewrite <- list_fmap_compose. intros i.
+      f_equal. induction args... simpl. rewrite H; [| left; auto].
+      f_equal. apply IHargs. intros. apply H... right...
+  Qed.
+
+  Lemma msubst_term_app_comm t xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
+    xs1 ## xs2 →
+    NoDup xs1 →
+    NoDup xs2 →
+    list_to_set xs1 ## ⋃ (term_fvars <$> ts2) →
+    list_to_set xs2 ## ⋃ (term_fvars <$> ts1) →
+    <! t[[ₜ *xs1, *xs2 \ *ts1, *ts2 ]] !> = <! t[[ₜ *xs2, *xs1 \ *ts2, *ts1 ]] !>.
+  Proof with auto.
+    intros. rewrite msubst_term_app... rewrite msubst_term_comm... rewrite <- msubst_term_app...
+    set_solver.
+  Qed.
+
+  Lemma msubst_term_diag t xs :
+    NoDup xs →
+    simult_subst_term t (list_to_map (zip xs (TVar <$> xs))) = t.
+  Proof with auto.
+    intros Hnodup. induction t...
+    - simpl. destruct (decide (x ∈ xs)).
+      + apply elem_of_list_lookup in e as (i&?).
+        replace (list_to_map (zip xs (@TVar value <$> xs)) !! x) with (Some (@TVar value x))...
+        symmetry. apply lookup_list_to_map_zip_Some; [typeclasses eauto|].
+        exists i. split_and!...
+        * rewrite list_lookup_fmap. rewrite H...
+        * intros. apply NoDup_lookup with (i:=i) in H0... lia.
+      + replace (list_to_map (zip xs (@TVar value <$> xs)) !! x) with (@None term)...
+        symmetry. apply lookup_list_to_map_zip_None... typeclasses eauto.
+    - simpl. f_equal. apply list_eq. intros i. f_equal. clear i. induction args...
+      simpl. rewrite H; [| left]... f_equal. apply IHargs. intros. apply H. right...
   Qed.
 
 End syntax.
@@ -534,35 +749,47 @@ Section semantics.
     split; repeat rewrite feval_simult_subst with (mv:=mv); auto; intros; apply H...
   Qed.
 
+  Global Instance ssubst_proper_fent : Proper((⇛ₗ@{M}) ==> (=) ==> (⇛)) simult_subst.
+  Proof with auto.
+    intros A B H m ? <- σ. destruct (teval_var_term_map_total σ m) as [mv ?].
+    repeat rewrite feval_simult_subst with (mv:=mv); auto; intros; apply H...
+  Qed.
+
+  Local Lemma teval_var_term_map_total_inv σ mv :
+    ∃ m, teval_var_term_map σ m mv.
+  Proof with auto.
+    exists (TConst <$> mv). split.
+    - rewrite dom_fmap_L...
+    - intros. rewrite lookup_fmap in H. rewrite H0 in H. simpl in H. inversion H. subst.
+      constructor.
+  Qed.
+
   Lemma teval_delete_state_var_term_map_head σ t mv v :
-    (* teval_var_term_map σ m mv → *)
     dom mv ## term_fvars t →
     teval (mv ∪ σ) t v ↔ teval σ t v.
   Proof with auto.
-    Admitted.
-  (*   intros. rewrite <- teval_simult_subst with (m:=m)... *)
-  (*   rewrite simult_subst_term_id... rewrite <- (proj1 H)... *)
-  (* Qed. *)
+    destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
+    intros. rewrite <- teval_simult_subst with (m:=m)...
+    rewrite simult_subst_term_id... rewrite <- (proj1 Hm)...
+  Qed.
 
   Lemma afeval_delete_state_var_term_map_head σ af mv :
-    (* teval_var_term_map σ m mv → *)
     dom mv ## af_fvars af →
     afeval (mv ∪ σ) af ↔ afeval σ af.
   Proof with auto.
-    Admitted.
-  (*   intros. rewrite <- afeval_simult_subst with (m:=m)... *)
-  (*   rewrite simult_subst_af_id... rewrite <- (proj1 H)... *)
-  (* Qed. *)
+    destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
+    intros. rewrite <- afeval_simult_subst with (m:=m)...
+    rewrite simult_subst_af_id... rewrite <- (proj1 Hm)...
+  Qed.
 
   Lemma feval_delete_state_var_term_map_head σ A mv :
-    (* teval_var_term_map σ m mv → (* this is not required  *) error *)
     dom mv ## formula_fvars A →
     feval (mv ∪ σ) A ↔ feval σ A.
   Proof with auto.
-  Admitted.
-  (*   intros. rewrite <- feval_simult_subst with (m:=m)... *)
-  (*   rewrite simult_subst_id... rewrite <- (proj1 H)... *)
-  (* Qed. *)
+    destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
+    intros. rewrite <- feval_simult_subst with (m:=m)...
+    rewrite simult_subst_id... rewrite <- (proj1 Hm)...
+  Qed.
 
   Lemma simult_subst_empty A :
     simult_subst A ∅ ≡ A.
@@ -824,8 +1051,7 @@ Section semantics.
           rewrite (fexists_alpha_equiv x x' A)...
   Qed.
 
-
-  Lemma ssubst_trans A xs1 xs2 ts `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts} `{!OfSameLength xs1 ts} :
+  Lemma msubst_trans A xs1 xs2 ts `{!OfSameLength xs1 xs2} `{!OfSameLength xs2 ts} `{!OfSameLength xs1 ts} :
     xs1 ## xs2 →
     NoDup xs2 →
     list_to_set xs2 ## formula_fvars A →

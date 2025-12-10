@@ -885,7 +885,7 @@ Section n_ary_lemmas.
         rewrite f_exists_existslist_idemp... rewrite fequiv_subst_non_free.
         * apply IH; [| set_solver]...
         * intros contra.
-          apply fvars_seqsubst_vars_not_free_in_terms_superset in contra; set_solver.
+          apply fvars_seqsubst_superset_vars_not_free_in_terms in contra; set_solver.
       + rewrite <- f_and_assoc. rewrite f_existslist_and_unused_l by set_solver.
         rewrite IH by set_solver. rewrite f_exists_one_point by set_solver...
   Qed.
@@ -1271,7 +1271,7 @@ Section n_ary_lemmas.
     - simpl. erewrite (seqsubst_rewrite _ _ (↑ₓ w) _ (⇑₀ w)). Unshelve.
       2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
       + rewrite fequiv_subst_non_free.
-        2:{ intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
+        2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra...
             set_unfold in contra. destruct contra as [[] |]; [|set_solver].
             apply not_and_l in H0 as [].
             - apply H0. apply var_final_as_var.
@@ -1284,7 +1284,7 @@ Section n_ary_lemmas.
         rewrite subst_initials_snoc. rewrite fequiv_subst_trans.
         1:{ rewrite fequiv_subst_diag. rewrite <- IH at 2 by set_solver. f_equiv. f_equiv.
             apply OfSameLength_pi. }
-        intros contra. apply fvars_seqsubst_vars_not_free_in_terms_superset in contra...
+        intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra...
         set_unfold. destruct contra as [[] | []].
         * apply Hfree in H... split... rewrite to_final_var_initial_var_of...
         * rewrite to_final_var_initial_var_of in H0. contradiction.
