@@ -9,7 +9,7 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SemanticFacts.
-From MRC Require Import PredCalc.FinalElements.
+From MRC Require Import PredCalc.Variables.
 
 Open Scope refiney_scope.
 
@@ -27,7 +27,7 @@ Section syntax.
   Implicit Types m : gmap variable term.
   Implicit Types mv : gmap variable value.
 
-  Fixpoint simult_subst_term t m :=
+  Fixpoint msubst_term t m :=
     match t with
     | TConst v => TConst v
     | TVar x =>
@@ -35,13 +35,13 @@ Section syntax.
         | Some t' => t'
         | None => TVar x
         end
-    | TApp sym args => TApp sym (map (λ arg, simult_subst_term arg m) args)
+    | TApp sym args => TApp sym (map (λ arg, msubst_term arg m) args)
     end.
 
-  Definition simult_subst_af af m :=
+  Definition msubst_af af m :=
     match af with
-    | AT_Eq t₁ t₂ => AT_Eq (simult_subst_term t₁ m) (simult_subst_term t₂ m)
-    | AT_Pred sym args => AT_Pred sym (map (fun arg => simult_subst_term arg m) args)
+    | AT_Eq t₁ t₂ => AT_Eq (msubst_term t₁ m) (msubst_term t₂ m)
+    | AT_Pred sym args => AT_Pred sym (map (fun arg => msubst_term arg m) args)
     | _ => af
     end.
 
@@ -74,31 +74,31 @@ Section syntax.
       + right. rewrite lookup_insert_ne in H0...
   Qed.
 
-  Definition quant_simult_subst_fvars y A m :=
+  Definition quant_msubst_fvars y A m :=
     (formula_fvars A ∖ {[y]}) ∪ var_term_map_fvars m ∪ dom m.
 
-  Lemma quant_simult_subst_fvars_inv y' y A m :
-    y' ∉ quant_simult_subst_fvars y A m →
+  Lemma quant_msubst_fvars_inv y' y A m :
+    y' ∉ quant_msubst_fvars y A m →
     (y = y' ∨ y' ∉ formula_fvars A) ∧ (y' ∉ dom m) ∧ (∀ x t, m !! x = Some t → y' ∉ term_fvars t).
   Proof with auto.
-    intros. unfold quant_simult_subst_fvars in H. do 2 rewrite not_elem_of_union in H.
+    intros. unfold quant_msubst_fvars in H. do 2 rewrite not_elem_of_union in H.
     destruct_and! H. split_and!...
     - apply not_elem_of_difference in H. set_solver.
     - apply not_elem_of_var_term_map_fvars...
   Qed.
 
-  Equations? simult_subst A m : formula by wf (rank A) lt :=
-    simult_subst (FAtom af) m => FAtom (simult_subst_af af m);
-    simult_subst (FNot A) m => FNot (simult_subst A m);
-    simult_subst (FAnd A₁ A₂) m => FAnd
-                        (simult_subst A₁ m)
-                        (simult_subst A₂ m);
-    simult_subst (FOr A₁ A₂) m => FOr
-                       (simult_subst A₁ m)
-                       (simult_subst A₂ m);
-    simult_subst (FExists y A) m =>
-        let y' := fresh_var y (quant_simult_subst_fvars y A m) in
-        FExists y' (simult_subst (<! A[y \ y'] !>) m).
+  Equations? msubst A m : formula by wf (rank A) lt :=
+    msubst (FAtom af) m => FAtom (msubst_af af m);
+    msubst (FNot A) m => FNot (msubst A m);
+    msubst (FAnd A₁ A₂) m => FAnd
+                        (msubst A₁ m)
+                        (msubst A₂ m);
+    msubst (FOr A₁ A₂) m => FOr
+                       (msubst A₁ m)
+                       (msubst A₂ m);
+    msubst (FExists y A) m =>
+        let y' := fresh_var y (quant_msubst_fvars y A m) in
+        FExists y' (msubst (<! A[y \ y'] !>) m).
   Proof.
     all: try (simpl; lia).
     unfold rank. simpl. fold Nat.add. pose proof (subst_preserves_shape A y (y')).
@@ -108,31 +108,31 @@ Section syntax.
   Definition to_var_term_map (xs : list variable) (ts : list term)
     `{OfSameLength variable term xs ts}: gmap variable term := list_to_map (zip xs ts).
 
-  Local Notation "t [ [ₜ xs \ ts ] ]" := (simult_subst_term t (to_var_term_map xs ts))
+  Local Notation "t [ [ₜ xs \ ts ] ]" := (msubst_term t (to_var_term_map xs ts))
                                            (in custom formula at level 74, left associativity,
                                                xs custom var_seq,
                                                ts custom term_seq) : refiney_scope.
 
-  Local Notation "A [ [ xs \ ts ] ]" := (simult_subst A (to_var_term_map xs ts))
+  Local Notation "A [ [ xs \ ts ] ]" := (msubst A (to_var_term_map xs ts))
                                           (in custom formula at level 74, left associativity,
                                               xs custom var_seq,
                                               ts custom term_seq) : refiney_scope.
 
 
-  Local Tactic Notation "generalize_fresh_var_for_simult_subst"
+  Local Tactic Notation "generalize_fresh_var_for_msubst"
     ident(y) constr(A) constr(m) "as" ident(y') :=
     let Hfresh := fresh in
     let Heq := fresh in
     let H1 := fresh in let H2 := fresh in let H3 := fresh in
-    pose proof (Hfresh := fresh_var_fresh y (quant_simult_subst_fvars y A m));
-    apply quant_simult_subst_fvars_inv in Hfresh as (H1&H2&H3);
-    remember (fresh_var y (quant_simult_subst_fvars y A m)) as y' eqn:Heq;
+    pose proof (Hfresh := fresh_var_fresh y (quant_msubst_fvars y A m));
+    apply quant_msubst_fvars_inv in Hfresh as (H1&H2&H3);
+    remember (fresh_var y (quant_msubst_fvars y A m)) as y' eqn:Heq;
     clear Heq.
 
 
-  Lemma simult_subst_term_id t m :
+  Lemma msubst_term_id t m :
     dom m ## term_fvars t →
-    simult_subst_term t m = t.
+    msubst_term t m = t.
   Proof with auto.
     intros H. induction t; simpl...
     - simpl in H. replace (m !! x) with (@None term)... symmetry.
@@ -142,29 +142,29 @@ Section syntax.
       + apply IHargs; [naive_solver | set_solver].
   Qed.
 
-  Lemma simult_subst_af_id af m :
+  Lemma msubst_af_id af m :
     dom m ## af_fvars af →
-    simult_subst_af af m = af.
+    msubst_af af m = af.
   Proof with auto.
     intros H.
     destruct af...
-    - simpl. simpl in H. do 2 rewrite simult_subst_term_id by set_solver...
+    - simpl. simpl in H. do 2 rewrite msubst_term_id by set_solver...
     - simpl. f_equal. induction args... simpl in H. simpl in *. f_equal.
-      + rewrite simult_subst_term_id... set_solver.
+      + rewrite msubst_term_id... set_solver.
       + apply IHargs. set_solver.
   Qed.
 
-  Lemma simult_subst_term_empty t :
-    simult_subst_term t ∅ = t.
-  Proof. apply simult_subst_term_id. set_solver. Qed.
+  Lemma msubst_term_empty t :
+    msubst_term t ∅ = t.
+  Proof. apply msubst_term_id. set_solver. Qed.
 
-  Lemma simult_subst_af_empty af :
-    simult_subst_af af ∅ = af.
-  Proof. apply simult_subst_af_id. set_solver. Qed.
+  Lemma msubst_af_empty af :
+    msubst_af af ∅ = af.
+  Proof. apply msubst_af_id. set_solver. Qed.
 
-  Lemma simult_subst_term_delete_non_free t x m :
+  Lemma msubst_term_delete_non_free t x m :
     x ∉ term_fvars t →
-    simult_subst_term t m = simult_subst_term t (delete x m).
+    msubst_term t m = msubst_term t (delete x m).
   Proof with auto.
     intros. induction t; simpl...
     - simpl in H. apply not_elem_of_singleton in H. rewrite lookup_delete_ne...
@@ -175,22 +175,22 @@ Section syntax.
         * set_solver.
   Qed.
 
-  Lemma simult_subst_af_delete_non_free af x m :
+  Lemma msubst_af_delete_non_free af x m :
     x ∉ af_fvars af →
-    simult_subst_af af m = simult_subst_af af (delete x m).
+    msubst_af af m = msubst_af af (delete x m).
   Proof with auto.
     intros. destruct af; simpl...
-    - rewrite <- simult_subst_term_delete_non_free by set_solver.
-      rewrite <- simult_subst_term_delete_non_free by set_solver...
+    - rewrite <- msubst_term_delete_non_free by set_solver.
+      rewrite <- msubst_term_delete_non_free by set_solver...
     - f_equal. induction args... simpl. f_equal.
-      + rewrite <- simult_subst_term_delete_non_free... set_solver.
+      + rewrite <- msubst_term_delete_non_free... set_solver.
       + apply IHargs. set_solver.
   Qed.
 
   (* TODO: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
-  Lemma ssubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma msubst_term_non_free t xs ts `{OfSameLength _ _ xs ts} :
     list_to_set xs ## term_fvars t →
-    simult_subst_term t (to_var_term_map xs ts) = t.
+    msubst_term t (to_var_term_map xs ts) = t.
   Proof with auto.
     intros. induction t; simpl...
     - destruct (to_var_term_map xs ts !! x) eqn:E.
@@ -207,19 +207,19 @@ Section syntax.
         * set_solver.
   Qed.
 
-  Lemma ssubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
+  Lemma msubst_af_non_free af xs ts `{OfSameLength _ _ xs ts} :
     list_to_set xs ## af_fvars af →
-    simult_subst_af af (to_var_term_map xs ts) = af.
+    msubst_af af (to_var_term_map xs ts) = af.
   Proof with auto.
     intros. destruct af; simpl in *...
-    - rewrite ssubst_term_non_free by set_solver. rewrite ssubst_term_non_free by set_solver...
+    - rewrite msubst_term_non_free by set_solver. rewrite msubst_term_non_free by set_solver...
     - induction args; simpl... f_equal. f_equal.
-      + rewrite ssubst_term_non_free by set_solver...
+      + rewrite msubst_term_non_free by set_solver...
       + forward IHargs by set_solver. inversion IHargs... rewrite H2...
   Qed.
 
   Lemma fvars_msubst_term_superset t xs ts `{OfSameLength _ _ xs ts} :
-    term_fvars (simult_subst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
+    term_fvars (msubst_term t (to_var_term_map xs ts)) ⊆ term_fvars t ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     induction t; simpl; [set_solver| | ].
     - destruct (to_var_term_map xs ts !! x) eqn:E.
@@ -257,7 +257,7 @@ Section syntax.
   Qed.
 
   Lemma fvars_msubst_af_superset af xs ts `{OfSameLength _ _ xs ts} :
-    af_fvars (simult_subst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
+    af_fvars (msubst_af af (to_var_term_map xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
     destruct af; simpl; [set_solver|set_solver | | ].
     - pose proof (fvars_msubst_term_superset t1 xs ts).
@@ -270,33 +270,33 @@ Section syntax.
   Lemma fvars_msubst_superset A xs ts `{OfSameLength _ _ xs ts} :
     formula_fvars (<! A [[*xs \ *ts]] !>) ⊆ formula_fvars A ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
-    induction A; simp simult_subst; simpl.
+    induction A; simp msubst; simpl.
     2-4: set_solver.
     - apply fvars_msubst_af_superset.
-    - generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
+    - generalize_fresh_var_for_msubst x A (to_var_term_map xs ts) as x'.
       forward (H0 <! A [x \ x'] !>)...  clear H3 H4 H5.
       destruct (decide (x ∈ formula_fvars A)).
       + rewrite fvars_subst_free in H0... set_solver.
       + rewrite fvars_subst_non_free in H0... set_solver.
   Qed.
 
-  Lemma simpl_ssubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Lemma simpl_msubst_not A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     <! (¬ A) [[*xs \ *ts]] !> = <! ¬ (A [[*xs \ *ts]]) !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Proof. simp msubst. reflexivity. Qed.
+  Lemma simpl_msubst_and A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     <! (A ∧ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Proof. simp msubst. reflexivity. Qed.
+  Lemma simpl_msubst_or A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     <! (A ∨ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
-  Proof. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Proof. simp msubst. reflexivity. Qed.
+  Lemma simpl_msubst_impl A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     <! (A ⇒ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
-  Proof. unfold FImpl. simp simult_subst. reflexivity. Qed.
-  Lemma simpl_ssubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Proof. unfold FImpl. simp msubst. reflexivity. Qed.
+  Lemma simpl_msubst_iff A B (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
-  Proof. unfold FIff, FImpl. simp simult_subst. reflexivity. Qed.
+  Proof. unfold FIff, FImpl. simp msubst. reflexivity. Qed.
 
-  Global Instance ssubst_formula_final {A xs} {ts : list final_term}
+  Global Instance msubst_formula_final {A xs} {ts : list final_term}
       `{FormulaFinal _ A} `{OfSameLength _ _ xs ts} :
     FormulaFinal <! A[[*xs \ ⇑ₜ ts]] !>.
   Proof with auto.
@@ -383,7 +383,7 @@ Section syntax.
         2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
             [typeclasses eauto|]. exists i. split_and!...
             intros. apply NoDup_lookup with (i:=i) in H2... lia. }
-        rewrite simult_subst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        rewrite msubst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
         clear dependent x. intros x ??. apply (Hfree2 _ H). apply elem_of_union_list.
         exists (term_fvars t). split... apply elem_of_list_fmap. apply elem_of_list_lookup_2 in H1.
         exists t...
@@ -438,7 +438,7 @@ Section syntax.
         { unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
             [typeclasses eauto|]. exists i. split_and!... intros.
             apply NoDup_lookup with (i:=i) in H2... lia. }
-        rewrite H2. rewrite simult_subst_term_id.
+        rewrite H2. rewrite msubst_term_id.
         2:{ unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
             clear dependent x. intros x ??. apply (Hfree2 _ H). apply elem_of_union_list.
             exists (term_fvars t). split... apply elem_of_list_fmap.
@@ -455,7 +455,7 @@ Section syntax.
         2:{ symmetry. unfold to_var_term_map. apply lookup_list_to_map_zip_Some;
             [typeclasses eauto|]. exists i. split_and!... intros.
             apply NoDup_lookup with (i:=i) in H2... lia. }
-        rewrite simult_subst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
+        rewrite msubst_term_id... unfold to_var_term_map. rewrite dom_list_to_map_zip_L...
         clear dependent x. intros x ??. apply (Hfree1 _ H). apply elem_of_union_list.
         exists (term_fvars t). split... apply elem_of_list_fmap.
         apply elem_of_list_lookup_2 in H1. exists t...
@@ -478,7 +478,7 @@ Section syntax.
 
   Lemma msubst_term_diag t xs :
     NoDup xs →
-    simult_subst_term t (list_to_map (zip xs (TVar <$> xs))) = t.
+    msubst_term t (list_to_map (zip xs (TVar <$> xs))) = t.
   Proof with auto.
     intros Hnodup. induction t...
     - simpl. destruct (decide (x ∈ xs)).
@@ -496,23 +496,23 @@ Section syntax.
 
 End syntax.
 
-Notation "t [ [ₜ xs \ ts ] ]" := (simult_subst_term t (to_var_term_map xs ts))
+Notation "t [ [ₜ xs \ ts ] ]" := (msubst_term t (to_var_term_map xs ts))
                             (in custom formula at level 74, left associativity,
                               xs custom var_seq,
                               ts custom term_seq) : refiney_scope.
-Notation "A [ [ xs \ ts ] ]" := (simult_subst A (to_var_term_map xs ts))
+Notation "A [ [ xs \ ts ] ]" := (msubst A (to_var_term_map xs ts))
                             (in custom formula at level 74, left associativity,
                               xs custom var_seq,
                               ts custom term_seq) : refiney_scope.
 
-Tactic Notation "generalize_fresh_var_for_simult_subst"
+Tactic Notation "generalize_fresh_var_for_msubst"
     ident(y) constr(A) constr(m) "as" ident(y') :=
   let Hfresh := fresh in
   let Heq := fresh in
   let H1 := fresh in let H2 := fresh in let H3 := fresh in
-  pose proof (Hfresh := fresh_var_fresh y (quant_simult_subst_fvars y A m));
-  apply quant_simult_subst_fvars_inv in Hfresh as (H1&H2&H3);
-  remember (fresh_var y (quant_simult_subst_fvars y A m)) as y' eqn:Heq;
+  pose proof (Hfresh := fresh_var_fresh y (quant_msubst_fvars y A m));
+  apply quant_msubst_fvars_inv in Hfresh as (H1&H2&H3);
+  remember (fresh_var y (quant_msubst_fvars y A m)) as y' eqn:Heq;
   clear Heq.
 
 Section semantics.
@@ -645,16 +645,16 @@ Section semantics.
         + set_solver.
   Qed.
 
-  Lemma simult_subst_id A m :
+  Lemma msubst_id A m :
     dom m ## formula_fvars A →
-    simult_subst A m ≡ A.
+    msubst A m ≡ A.
   Proof with auto.
-    induction A; simp simult_subst; intros.
-    - rewrite simult_subst_af_id...
+    induction A; simp msubst; intros.
+    - rewrite msubst_af_id...
     - rewrite IHA...
     - rewrite IHA1 by set_solver. rewrite IHA2 by set_solver...
     - rewrite IHA1 by set_solver. rewrite IHA2 by set_solver...
-    - simpl. generalize_fresh_var_for_simult_subst x A m as y'.
+    - simpl. generalize_fresh_var_for_msubst x A m as y'.
       intros σ. apply feval_exists_equiv_if. intros v. rewrite H...
       + destruct H3.
         * subst. rewrite fequiv_subst_diag...
@@ -666,9 +666,9 @@ Section semantics.
           -- rewrite fvars_subst_non_free... set_solver.
   Qed.
 
-  Lemma teval_simult_subst σ t0 m v0 mv :
+  Lemma teval_msubst σ t0 m v0 mv :
     teval_var_term_map σ m mv →
-    teval σ (simult_subst_term t0 m) v0 ↔ teval (mv ∪ σ) t0 v0.
+    teval σ (msubst_term t0 m) v0 ↔ teval (mv ∪ σ) t0 v0.
   Proof with auto.
     intros. generalize dependent v0. induction t0; intros.
     - split; inversion 1; subst; constructor.
@@ -698,38 +698,38 @@ Section semantics.
           constructor... apply H0...
   Qed.
 
-  Lemma afeval_simult_subst σ af m mv :
+  Lemma afeval_msubst σ af m mv :
     teval_var_term_map σ m mv →
-    afeval σ (simult_subst_af af m) ↔ afeval (mv ∪ σ) af.
+    afeval σ (msubst_af af m) ↔ afeval (mv ∪ σ) af.
   Proof with auto.
     intros. destruct af...
     - split; inversion 1; destruct H1 as [].
-      + rewrite teval_simult_subst with (mv:=mv) in H1, H2...
+      + rewrite teval_msubst with (mv:=mv) in H1, H2...
         econstructor. split; [exact H1 | exact H2].
-      + rewrite <- teval_simult_subst with (m:=m) in H1, H2...
+      + rewrite <- teval_msubst with (m:=m) in H1, H2...
         econstructor. split; [exact H1 | exact H2].
     - split; inversion 1; destruct H1 as [].
       + rename x into vargs. exists vargs. split... clear H0 H2. generalize dependent vargs.
         induction args; intros.
         * inversion H1. subst. constructor.
-        * inversion H1; subst. constructor... rewrite <- teval_simult_subst with (m:=m)...
+        * inversion H1; subst. constructor... rewrite <- teval_msubst with (m:=m)...
       + rename x into vargs. exists vargs. split... clear H0 H2. generalize dependent vargs.
         induction args; intros.
         * inversion H1. subst. constructor.
-        * inversion H1; subst. constructor... rewrite teval_simult_subst with (mv:=mv)...
+        * inversion H1; subst. constructor... rewrite teval_msubst with (mv:=mv)...
   Qed.
 
-  Lemma feval_simult_subst σ A m mv :
+  Lemma feval_msubst σ A m mv :
     teval_var_term_map σ m mv →
-    feval σ (simult_subst A m) ↔ feval (mv ∪ σ) A.
+    feval σ (msubst A m) ↔ feval (mv ∪ σ) A.
   Proof with auto.
-    intros. generalize dependent σ. induction A; intros σ Hteval; simp simult_subst; simp feval.
-    - apply afeval_simult_subst...
+    intros. generalize dependent σ. induction A; intros σ Hteval; simp msubst; simp feval.
+    - apply afeval_msubst...
     - rewrite IHA...
     - rewrite IHA1... rewrite IHA2...
     - rewrite IHA1... rewrite IHA2...
     - apply exists_iff_exists_weaken. intros v. destruct Hteval as [H1 H2]. rename H into IH.
-      generalize_fresh_var_for_simult_subst x A m as x'. rewrite feval_subst with (v:=v)...
+      generalize_fresh_var_for_msubst x A m as x'. rewrite feval_subst with (v:=v)...
       rewrite IH...
       2: { split... intros. apply (H2 x0 t v0 H) in H0. apply H5 in H.
           rewrite teval_delete_state_var_head... }
@@ -743,16 +743,34 @@ Section semantics.
         rewrite feval_delete_state_var_head... rewrite feval_subst with (v:=v)...
   Qed.
 
-  Global Instance ssubst_proper : Proper((≡@{formula}) ==> (=) ==> (≡)) simult_subst.
+  Global Instance msubst_proper : Proper((≡@{formula}) ==> (=) ==> (≡)) msubst.
   Proof with auto.
     intros A B H m ? <- σ. destruct (teval_var_term_map_total σ m) as [mv ?].
-    split; repeat rewrite feval_simult_subst with (mv:=mv); auto; intros; apply H...
+    split; repeat rewrite feval_msubst with (mv:=mv); auto; intros; apply H...
   Qed.
 
-  Global Instance ssubst_proper_fent : Proper((⇛ₗ@{M}) ==> (=) ==> (⇛)) simult_subst.
+  Global Instance msubst_proper_fent : Proper((⇛ₗ@{M}) ==> (=) ==> (⇛)) msubst.
   Proof with auto.
     intros A B H m ? <- σ. destruct (teval_var_term_map_total σ m) as [mv ?].
-    repeat rewrite feval_simult_subst with (mv:=mv); auto; intros; apply H...
+    repeat rewrite feval_msubst with (mv:=mv); auto; intros; apply H...
+  Qed.
+
+  Lemma simpl_msubst_exists y A (xs : list variable) ts `{!OfSameLength xs ts} :
+    y ∉ (quant_msubst_fvars y A (to_var_term_map xs ts)) →
+    <! (∃ y, A)[[*xs \ *ts]] !> ≡ <! (∃ y, A [[*xs \ *ts]]) !>.
+  Proof with auto.
+    intros.
+    assert (fresh_var y (quant_msubst_fvars y A (to_var_term_map xs ts)) = y).
+    { apply fresh_var_id... }
+    simp msubst. simpl. rewrite H0. rewrite fequiv_subst_diag...
+  Qed.
+
+  Lemma simpl_msubst_forall y A (xs : list variable) ts `{!OfSameLength xs ts} :
+    y ∉ (quant_msubst_fvars y A (to_var_term_map xs ts)) →
+    <! (∀ y, A)[[*xs \ *ts]] !> ≡ <! (∀ y, A [[*xs \ *ts]]) !>.
+  Proof with auto.
+    intros. unfold FForall. rewrite simpl_msubst_not. f_equiv.
+    rewrite simpl_msubst_exists... rewrite simpl_msubst_not...
   Qed.
 
   Local Lemma teval_var_term_map_total_inv σ mv :
@@ -769,8 +787,8 @@ Section semantics.
     teval (mv ∪ σ) t v ↔ teval σ t v.
   Proof with auto.
     destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
-    intros. rewrite <- teval_simult_subst with (m:=m)...
-    rewrite simult_subst_term_id... rewrite <- (proj1 Hm)...
+    intros. rewrite <- teval_msubst with (m:=m)...
+    rewrite msubst_term_id... rewrite <- (proj1 Hm)...
   Qed.
 
   Lemma afeval_delete_state_var_term_map_head σ af mv :
@@ -778,8 +796,8 @@ Section semantics.
     afeval (mv ∪ σ) af ↔ afeval σ af.
   Proof with auto.
     destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
-    intros. rewrite <- afeval_simult_subst with (m:=m)...
-    rewrite simult_subst_af_id... rewrite <- (proj1 Hm)...
+    intros. rewrite <- afeval_msubst with (m:=m)...
+    rewrite msubst_af_id... rewrite <- (proj1 Hm)...
   Qed.
 
   Lemma feval_delete_state_var_term_map_head σ A mv :
@@ -787,17 +805,17 @@ Section semantics.
     feval (mv ∪ σ) A ↔ feval σ A.
   Proof with auto.
     destruct (teval_var_term_map_total_inv σ mv) as [m Hm].
-    intros. rewrite <- feval_simult_subst with (m:=m)...
-    rewrite simult_subst_id... rewrite <- (proj1 Hm)...
+    intros. rewrite <- feval_msubst with (m:=m)...
+    rewrite msubst_id... rewrite <- (proj1 Hm)...
   Qed.
 
-  Lemma simult_subst_empty A :
-    simult_subst A ∅ ≡ A.
-  Proof. apply simult_subst_id. set_solver. Qed.
+  Lemma msubst_empty' A :
+    msubst A ∅ ≡ A.
+  Proof. apply msubst_id. set_solver. Qed.
 
-  Lemma simult_subst_delete_non_free A x m :
+  Lemma msubst_delete_non_free A x m :
     x ∉ formula_fvars A →
-    simult_subst A m ≡ simult_subst A (delete x m).
+    msubst A m ≡ msubst A (delete x m).
   Proof with auto.
     intros H σ. destruct (m !! x) eqn:E.
     2:{ rewrite delete_notin... }
@@ -806,60 +824,60 @@ Section semantics.
     apply teval_var_term_map_delete with (x:=x) in Hmv as H1.
     pose proof (teval_total σ t) as [v Hv].
     apply (teval_var_term_map_insert x t v Hv) in H1 as H2.
-    rewrite feval_simult_subst with (mv:=(<[x:=v]> (delete x mv)))...
-    rewrite feval_simult_subst with (mv:=(delete x mv))...
+    rewrite feval_msubst with (mv:=(<[x:=v]> (delete x mv)))...
+    rewrite feval_msubst with (mv:=(delete x mv))...
     rewrite <- (insert_union_l _ σ). rewrite feval_delete_state_var_head...
   Qed.
 
-  Lemma simult_subst_term_extract t0 x t m :
+  Lemma msubst_term_extract t0 x t m :
     m !! x = Some t →
     dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
-    simult_subst_term t0 m = simult_subst_term (subst_term t0 x t) (delete x m).
+    msubst_term t0 m = msubst_term (subst_term t0 x t) (delete x m).
   Proof with auto.
     induction t0; simpl; intros...
     - destruct (decide (x0 = x)).
-      + subst. rewrite H. rewrite simult_subst_term_id...
+      + subst. rewrite H. rewrite msubst_term_id...
       + simpl. rewrite lookup_delete_ne...
     - f_equal. induction args... simpl. f_equal.
       + apply H... left...
       + apply IHargs. intros. apply H... right...
   Qed.
 
-  Lemma simult_subst_af_extract af x t m :
+  Lemma msubst_af_extract af x t m :
     m !! x = Some t →
     dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
-    simult_subst_af af m = simult_subst_af (subst_af af x t) (delete x m).
+    msubst_af af m = msubst_af (subst_af af x t) (delete x m).
   Proof with auto.
     destruct af; simpl; intros...
-    - simpl. f_equal; apply simult_subst_term_extract...
+    - simpl. f_equal; apply msubst_term_extract...
     - simpl. f_equal. induction args... simpl. f_equal...
-      apply simult_subst_term_extract...
+      apply msubst_term_extract...
   Qed.
 
-  Lemma simult_subst_extract_l A x t m :
+  Lemma msubst_extract_l' A x t m :
     m !! x = Some t →
     dom (delete x m) ## term_fvars t →
-    simult_subst A m ≡ simult_subst (<! A[x \ t] !>) (delete x m).
+    msubst A m ≡ msubst (<! A[x \ t] !>) (delete x m).
   Proof with auto.
     intros. intros σ. rewrite <- (insert_delete m x t) at 1...
     pose proof (teval_total σ t) as [v Hv].
     pose proof (teval_var_term_map_total σ (m)) as [mv Hmv].
     apply teval_var_term_map_delete with (x:=x) in Hmv as H2.
     apply (teval_var_term_map_insert x _ _ Hv) in H2 as H3.
-    rewrite feval_simult_subst with (mv:=<[x:=v]> (delete x mv))...
-    rewrite feval_simult_subst with (mv:=delete x mv)...
+    rewrite feval_msubst with (mv:=<[x:=v]> (delete x mv))...
+    rewrite feval_msubst with (mv:=delete x mv)...
     assert (Hv':=Hv).
     rewrite <- teval_delete_state_var_term_map_head with (mv:=delete x mv) in Hv'...
     2: { rewrite (proj1 H2)... }
     rewrite feval_subst with (v:=v)... rewrite (insert_union_l (delete x mv))...
   Qed.
 
-  Lemma simult_subst_extract_r A x t m :
+  Lemma msubst_extract_r' A x t m :
     m !! x = Some t →
     (x ∉ var_term_map_fvars (delete x m)) →
-    simult_subst A m ≡ <! $(simult_subst A (delete x m)) [x \ t] !>.
+    msubst A m ≡ <! $(msubst A (delete x m)) [x \ t] !>.
   Proof with auto.
     intros. intros σ. rewrite <- (insert_delete m x t) at 1...
     pose proof (teval_total σ t) as [v Hv].
@@ -867,8 +885,8 @@ Section semantics.
     pose proof (teval_var_term_map_total σ (m)) as [mv Hmv].
     apply teval_var_term_map_delete with (x:=x) in Hmv as H2.
     apply (teval_var_term_map_insert x _ _ Hv) in H2 as H3.
-    rewrite feval_simult_subst with (mv:=<[x:=v]> (delete x mv))...
-    rewrite feval_simult_subst with (mv:=delete x mv)...
+    rewrite feval_msubst with (mv:=<[x:=v]> (delete x mv))...
+    rewrite feval_msubst with (mv:=delete x mv)...
     2:{ destruct H2 as []. split... intros. pose proof (H2 x0 t0 v0 H4 H5).
         pose proof (not_elem_of_var_term_map_fvars _ _ H0). apply H7 in H4.
         apply teval_delete_state_var_head... }
@@ -877,34 +895,34 @@ Section semantics.
     - apply lookup_delete.
   Qed.
 
-  Lemma simult_subst_subst_comm A x t m :
+  Lemma msubst_subst_comm A x t m :
     m !! x = Some t →
     dom (delete x m) ## term_fvars t →
     (x ∉ var_term_map_fvars (delete x m)) →
-    simult_subst (<! A[x \ t] !>) (delete x m) ≡ <! $(simult_subst A (delete x m)) [x \ t] !>.
+    msubst (<! A[x \ t] !>) (delete x m) ≡ <! $(msubst A (delete x m)) [x \ t] !>.
   Proof with auto.
-    intros. rewrite <- simult_subst_extract_l... rewrite <- simult_subst_extract_r...
+    intros. rewrite <- msubst_extract_l'... rewrite <- msubst_extract_r'...
   Qed.
 
-  Lemma ssubst_empty A :
+  Lemma msubst_empty A :
     <! A[[∅ \ ∅]] !> ≡ A.
-  Proof. unfold to_var_term_map. simpl. rewrite simult_subst_empty. reflexivity. Qed.
+  Proof. unfold to_var_term_map. simpl. rewrite msubst_empty'. reflexivity. Qed.
 
-  Lemma ssubst_single A x t :
+  Lemma msubst_single A x t :
     <! A[[x \ t]] !> ≡ <! A[x \ t] !>.
   Proof with auto.
-    unfold to_var_term_map. simpl. rewrite (simult_subst_extract_l A x t _).
-    - rewrite delete_insert... rewrite simult_subst_empty...
+    unfold to_var_term_map. simpl. rewrite (msubst_extract_l' A x t _).
+    - rewrite delete_insert... rewrite msubst_empty...
     - rewrite lookup_insert...
     - rewrite delete_insert... set_solver.
   Qed.
 
-  Lemma ssubst_extract_l A x t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma msubst_extract_l A x t xs ts `{OfSameLength _ _ xs ts} :
     x ∉ xs →
     list_to_set xs ## term_fvars t →
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[x \ t][[*xs \ *ts]] !>.
   Proof with auto.
-    intros. unfold to_var_term_map. simpl. rewrite (simult_subst_extract_l A x t).
+    intros. unfold to_var_term_map. simpl. rewrite (msubst_extract_l' A x t).
     - rewrite delete_insert... apply lookup_list_to_map_zip_None...
     - rewrite lookup_insert...
     - rewrite dom_delete_L. rewrite dom_insert_L.
@@ -915,13 +933,13 @@ Section semantics.
       rewrite not_elem_of_singleton. naive_solver.
   Qed.
 
-  Lemma ssubst_extract_r A x t xs ts `{OfSameLength _ _ xs ts} :
+  Lemma msubst_extract_r A x t xs ts `{OfSameLength _ _ xs ts} :
     x ∉ xs →
     (x ∉ ⋃ (term_fvars <$> ts)) →
     <! A[[x, *xs \ t, *ts]] !> ≡ <! A[[*xs \ *ts]][x \ t] !>.
   Proof with auto.
     intros. unfold to_var_term_map. repeat rewrite app_nil_r.
-    simpl. rewrite (simult_subst_extract_r A x t).
+    simpl. rewrite (msubst_extract_r' A x t).
     - rewrite delete_insert... apply lookup_list_to_map_zip_None...
     - rewrite lookup_insert...
     - intros contra. apply elem_of_var_term_map_fvars in contra as (y&t0&?&?).
@@ -932,29 +950,29 @@ Section semantics.
       exists t0. split... apply elem_of_list_lookup. exists i...
   Qed.
 
-  Lemma ssubst_extract_2 A x1 t1 x2 t2 :
+  Lemma msubst_extract_2 A x1 t1 x2 t2 :
     x1 ≠ x2 →
     x2 ∉ term_fvars t1 →
     <! A[[x1, x2 \ t1, t2]] !> ≡ <! A[x1 \ t1][x2 \ t2] !>.
   Proof with auto.
-    intros. rewrite ssubst_extract_l with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
-    - rewrite ssubst_single with (A:=<! A[x1\t1] !>) (x:=x2) (t:=t2)...
+    intros. rewrite msubst_extract_l with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
+    - rewrite msubst_single with (A:=<! A[x1\t1] !>) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - rewrite list_to_set_cons. rewrite list_to_set_nil. set_solver.
   Qed.
 
-  Lemma ssubst_extract_2' A x1 t1 x2 t2 :
+  Lemma msubst_extract_2' A x1 t1 x2 t2 :
     x1 ≠ x2 →
     x1 ∉ term_fvars t2 →
     <! A[[x1, x2 \ t1, t2]] !> ≡ <! A[x2 \ t2][x1 \ t1] !>.
   Proof with auto.
-    intros. rewrite ssubst_extract_r with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
-    - rewrite ssubst_single with (A:=A) (x:=x2) (t:=t2)...
+    intros. rewrite msubst_extract_r with (x:=x1) (xs:=[x2]) (t:=t1) (ts:=[t2]).
+    - rewrite msubst_single with (A:=A) (x:=x2) (t:=t2)...
     - apply not_elem_of_cons. split... set_solver.
     - simpl. set_solver.
   Qed.
 
-  Lemma ssubst_dup_keep_l A xs0 ts0 x t xs1 ts1 xs2 ts2
+  Lemma msubst_dup_keep_l A xs0 ts0 x t xs1 ts1 xs2 ts2
       `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
     x ∉ xs1 →
     <! A[[*xs0, x, *xs1, x, *xs2 \ *ts0, t, *ts1, t, *ts2]] !> ≡
@@ -970,7 +988,7 @@ Section semantics.
     - rewrite insert_empty. rewrite map_disjoint_singleton_r. apply lookup_list_to_map_zip_None...
   Qed.
 
-  Lemma ssubst_dup_keep_r A xs0 ts0 x t xs1 ts1 xs2 ts2
+  Lemma msubst_dup_keep_r A xs0 ts0 x t xs1 ts1 xs2 ts2
       `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
     x ∉ xs1 →
     <! A[[*xs0, x, *xs1, x, *xs2 \ *ts0, t, *ts1, t, *ts2]] !> ≡
@@ -986,7 +1004,7 @@ Section semantics.
     - rewrite insert_empty. rewrite map_disjoint_singleton_r. apply lookup_list_to_map_zip_None...
   Qed.
 
-  Lemma ssubst_comm A xs0 ts0 x1 t1 xs1 ts1 x2 t2 xs2 ts2
+  Lemma msubst_comm A xs0 ts0 x1 t1 xs1 ts1 x2 t2 xs2 ts2
       `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
     x1 ≠ x2 →
     x1 ∉ xs1 →
@@ -1014,30 +1032,30 @@ Section semantics.
     rewrite <- (map_union_assoc (list_to_map (zip xs1 ts1)))...
   Qed.
 
-  Lemma ssubst_comm_consecutive A xs0 ts0 x1 t1 x2 t2 xs1 ts1
+  Lemma msubst_comm_consecutive A xs0 ts0 x1 t1 x2 t2 xs1 ts1
       `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} :
     x1 ≠ x2 →
     <! A[[*xs0, x1, x2, *xs1 \ *ts0, t1, t2, *ts1]] !> ≡
       <! A[[*xs0, x2, x1, *xs1 \ *ts0, t2, t1, *ts1]] !>.
   Proof with auto.
     intros.
-    rewrite ssubst_comm with (xs0:=xs0) (ts0:=ts0) (xs1:=nil) (ts1:=nil) (xs2:=xs1) (ts2:=ts1)
+    rewrite msubst_comm with (xs0:=xs0) (ts0:=ts0) (xs1:=nil) (ts1:=nil) (xs2:=xs1) (ts2:=ts1)
                            (x1:=x1) (t1:=t1) (x2:=x2) (t2:=t2)...
     all: apply not_elem_of_nil.
     Unshelve.
     all: typeclasses eauto.
   Qed.
 
-  Lemma ssubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
+  Lemma msubst_non_free A xs ts `{OfSameLength _ _ xs ts} :
     list_to_set xs ## formula_fvars A →
     <! A[[*xs \ *ts]] !> ≡ A.
   Proof with auto.
-    intros. induction A; simp simult_subst.
-    - rewrite ssubst_af_non_free...
+    intros. induction A; simp msubst.
+    - rewrite msubst_af_non_free...
     - rewrite IHA...
     - rewrite IHA1; [| set_solver]. rewrite IHA2; [| set_solver]...
     - rewrite IHA1; [| set_solver]. rewrite IHA2; [| set_solver]...
-    - simpl. generalize_fresh_var_for_simult_subst x A (to_var_term_map xs ts) as x'.
+    - simpl. generalize_fresh_var_for_msubst x A (to_var_term_map xs ts) as x'.
       unfold to_var_term_map in H5. rewrite dom_list_to_map_zip_L in H5...
       destruct H4.
       + subst. f_equiv. rewrite H1...
@@ -1060,8 +1078,8 @@ Section semantics.
     intros ? Hnodup ?. intros σ.
     opose proof (teval_var_term_map_total σ (to_var_term_map xs1 ts)) as [mv ?].
     opose proof (teval_var_term_map_total σ _) as [mvx2t ?].
-    rewrite feval_simult_subst with (mv:=mvx2t) by exact H2.
-    rewrite feval_simult_subst with (mv:=mv).
+    rewrite feval_msubst with (mv:=mvx2t) by exact H2.
+    rewrite feval_msubst with (mv:=mv).
     2:{ unfold to_var_term_map in *. destruct H1 as [], H2 as [].
         split.
         - rewrite dom_list_to_map_zip_L in *... typeclasses eauto.
@@ -1091,7 +1109,7 @@ Section semantics.
     rewrite <- map_union_assoc. rewrite feval_delete_state_var_term_map_head.
     2:{ unfold teval_var_term_map in H2. destruct H2 as [-> _]. unfold to_var_term_map.
         rewrite dom_list_to_map_zip_L... }
-    rewrite feval_simult_subst with (mv:=mv)...
+    rewrite feval_msubst with (mv:=mv)...
   Qed.
 
   Lemma msubst_msubst_eq A xs ts1 ts2 `{!OfSameLength xs ts1} `{!OfSameLength xs ts2} :
@@ -1100,11 +1118,11 @@ Section semantics.
   Proof with auto.
     intros Hnodup σ.
     opose proof (teval_var_term_map_total σ _) as [mv1 ?].
-    rewrite feval_simult_subst with (mv:=mv1) by exact H.
+    rewrite feval_msubst with (mv:=mv1) by exact H.
     opose proof (teval_var_term_map_total _ _) as [mv2 ?].
-    rewrite feval_simult_subst with (mv:=mv2) by exact H0.
+    rewrite feval_msubst with (mv:=mv2) by exact H0.
     opose proof (teval_var_term_map_total _ _) as [mv3 ?].
-    rewrite feval_simult_subst with (mv:=mv3) by exact H1.
+    rewrite feval_msubst with (mv:=mv3) by exact H1.
     rewrite map_union_assoc. f_equiv. f_equiv. apply (map_eq _ mv3).
     intros x. destruct H as [], H0 as [], H1 as [].
     destruct (decide (x ∈ xs)).
@@ -1127,7 +1145,7 @@ Section semantics.
     - apply H3 with (x:=x)... unfold to_var_term_map. apply lookup_list_to_map_zip_Some...
       exists i. split_and!... intros. eapply NoDup_lookup with (i:=i) in H9... lia.
     - specialize (H4 x <! t1 [[ₜ *xs \ *ts2]] !> v3).
-      rewrite <- teval_simult_subst; [apply H4| split; auto]... unfold to_var_term_map.
+      rewrite <- teval_msubst; [apply H4| split; auto]... unfold to_var_term_map.
       apply lookup_list_to_map_zip_Some.
       { apply of_same_length_fmap_r. }
       exists i. split_and!...
@@ -1135,6 +1153,7 @@ Section semantics.
       + intros. apply NoDup_lookup with (i:=i) in H9... lia.
   Qed.
 
+  (* TODO: move it *)
   Lemma fsubst_fsubst_ne A x1 t1 x2 t2 :
     x1 ≠ x2 →
     x1 ∉ term_fvars t2 →
@@ -1163,7 +1182,7 @@ Section semantics.
       + rewrite <- teval_delete_state_var_head; [exact H3|]...
   Qed.
 
-  Lemma msubst_msubst_ne A xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
+  Lemma msubst_msubst_disj A xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
     xs1 ## xs2 →
     NoDup xs1 →
     NoDup xs2 →
@@ -1172,13 +1191,13 @@ Section semantics.
   Proof with auto.
     intros Hdisjoint Hnodup1 Hnodup2 Hfree σ.
     opose proof (teval_var_term_map_total σ _) as [mv1 ?].
-    rewrite feval_simult_subst with (mv:=mv1) by exact H.
+    rewrite feval_msubst with (mv:=mv1) by exact H.
     opose proof (teval_var_term_map_total _ _) as [mv2 ?].
-    rewrite feval_simult_subst with (mv:=mv2) by exact H0.
+    rewrite feval_msubst with (mv:=mv2) by exact H0.
     opose proof (teval_var_term_map_total _ _) as [mv3 ?].
-    rewrite feval_simult_subst with (mv:=mv3) by exact H1.
+    rewrite feval_msubst with (mv:=mv3) by exact H1.
     opose proof (teval_var_term_map_total _ _) as [mv4 ?].
-    rewrite feval_simult_subst with (mv:=mv4) by exact H2.
+    rewrite feval_msubst with (mv:=mv4) by exact H2.
     rewrite map_union_assoc. rewrite map_union_assoc.
     f_equiv. f_equiv. apply (map_eq (mv2 ∪ mv1)).
     intros x. destruct H as [], H0 as [], H1 as [], H2 as [].
@@ -1207,7 +1226,7 @@ Section semantics.
       + apply H4 with (x:=x)... unfold to_var_term_map. apply lookup_list_to_map_zip_Some...
         exists i. split_and!... intros. eapply NoDup_lookup with (i:=i) in H13... lia.
       + specialize (H5 x <! t [[ₜ *xs2 \ *ts2 ]] !> v3).
-        rewrite <- teval_simult_subst; [apply H5| split; auto]... unfold to_var_term_map.
+        rewrite <- teval_msubst; [apply H5| split; auto]... unfold to_var_term_map.
         apply lookup_list_to_map_zip_Some.
         { apply of_same_length_fmap_r. }
         exists i. split_and!...

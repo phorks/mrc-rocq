@@ -11,8 +11,8 @@ From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
-From MRC Require Import PredCalc.SimultSubst.
-From MRC Require Import PredCalc.FinalElements.
+From MRC Require Import PredCalc.MultiSubst.
+From MRC Require Import PredCalc.Variables.
 From MRC Require Import PredCalc.NAry.
 From MRC Require Import PredCalc.SetSolver.
 
@@ -1038,7 +1038,7 @@ Section n_ary_lemmas.
   (*   exists v. rewrite (feval_subst v) in H... rewrite (feval_subst v)... *)
   (* Qed. *)
 
-  Lemma f_foralllist_elim_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Lemma f_foralllist_elim_as_msubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
     NoDup xs →
     <! ∀* xs, A !> ⇛ <! A[[*xs \ *ts]] !>.
@@ -1048,19 +1048,19 @@ Section n_ary_lemmas.
     1: { simpl in H0. contradiction. }
     apply of_same_length_cons_inv_l in Hl as (t&ts'&->&?). rename ts' into ts.
     clear H0. destruct (length xs) eqn:E.
-    1:{ apply length_zero_iff_nil in E, H2. subst. simpl in H1. rewrite (ssubst_single A x t).
+    1:{ apply length_zero_iff_nil in E, H2. subst. simpl in H1. rewrite (msubst_single A x t).
         apply f_forall_elim... }
     apply of_same_length_rest in H as ?. clear E. simpl. assert (Hunique:=H1).
     apply NoDup_cons in H1 as []. rewrite f_forall_foralllist_comm.
     intros σ ?. pose proof (teval_total σ t) as [vt Hvt].
     rewrite f_forall_elim with (t:=TConst vt) in H4.
     specialize (IH <! A[x \ $(TConst vt)] !> ts H0). forward IH by lia.
-    rewrite IH in H4... rewrite <- ssubst_extract_l in H4...
+    rewrite IH in H4... rewrite <- msubst_extract_l in H4...
     2: { simpl. set_solver. }
     pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) (t::ts))) as (mv&?).
-    rewrite feval_simult_subst with (mv:=mv)...
+    rewrite feval_msubst with (mv:=mv)...
     pose proof (teval_var_term_map_total σ (to_var_term_map (x::xs) ((TConst vt)::ts))) as (mv'&?).
-    rewrite feval_simult_subst with (mv:=mv') in H4...
+    rewrite feval_msubst with (mv:=mv') in H4...
     enough (mv = mv') by (subst mv'; assumption). clear H2 IH H4 A.
     apply of_same_length_rest in H as Hl.
     apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H5 as (v&mv0&?&->&?&?)...
@@ -1069,13 +1069,13 @@ Section n_ary_lemmas.
     pose proof (teval_var_term_map_det _ _ _ H5 H8) as ->...
   Qed.
 
-  Lemma f_exists_intro_as_ssubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
+  Lemma f_exists_intro_as_msubst A (xs : list variable) ts `{OfSameLength _ _ xs ts} :
     length xs ≠ 0 →
     NoDup xs →
     <! A[[*xs \ *ts]] !> ⇛ <! ∃* xs, A !>.
   Proof with auto.
     intros. rewrite f_existslist_as_foralllist. rewrite <- f_ent_contrapositive.
-    rewrite f_not_stable. rewrite <- simpl_ssubst_not. apply f_foralllist_elim_as_ssubst...
+    rewrite f_not_stable. rewrite <- simpl_msubst_not. apply f_foralllist_elim_as_msubst...
   Qed.
 
   Lemma f_foralllist_elim_binders (xs : list variable) A :

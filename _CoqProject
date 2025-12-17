@@ -8,9 +8,9 @@ src/PredCalc/Basic.v
 src/PredCalc/SyntacticFacts.v
 src/PredCalc/Equiv.v
 src/PredCalc/SemanticFacts.v
-src/PredCalc/FinalElements.v
+src/PredCalc/Variables.v
 src/PredCalc/EquivLemmas.v
-src/PredCalc/SimultSubst.v
+src/PredCalc/MultiSubst.v
 src/PredCalc/NAry.v
 src/PredCalc/SetSolver.v
 src/PredCalc/NAryEquivLemmas.v

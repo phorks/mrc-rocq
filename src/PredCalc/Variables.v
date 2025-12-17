@@ -4,7 +4,7 @@ From MRC Require Import Model.
 From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.SyntacticFacts.
 
-Section final_elements.
+Section variables.
   Context {value : Type}.
   Notation term := (term value).
   Notation formula := (formula value).
@@ -220,7 +220,7 @@ Section final_elements.
     subst. simpl in *. set_solver.
   Qed.
 
-End final_elements.
+End variables.
 
 
 Hint Resolve var_final_as_var : core.
@@ -382,3 +382,48 @@ Notation "⤊( Bs )" := (as_formula <$> Bs)
 
 Arguments final_term value : clear implicits.
 Arguments final_formula value : clear implicits.
+
+Section lemmas.
+  Context {value : Type}.
+
+  Lemma disjoint_initial_var_of (xs1 xs2 : list final_variable) :
+    xs1 ## xs2 →
+    ↑₀ xs1 ## ↑₀ xs2.
+  Proof. set_solver. Qed.
+
+  Lemma NoDup_initial_var_of xs :
+    NoDup xs →
+    NoDup ↑₀ xs.
+  Proof. intros. apply NoDup_fmap; [apply initial_var_of_inj | assumption]. Qed.
+
+  Lemma NoDup_as_var xs :
+    NoDup xs →
+    NoDup ↑ₓ xs.
+  Proof. intros. apply NoDup_fmap; [apply as_var_inj | assumption]. Qed.
+
+  Lemma disjoint_initial_var_of_term_fvars xs1 xs2 :
+    xs1 ## xs2 →
+    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars value <$> ⇑ₓ xs2).
+  Proof.
+    intros. set_unfold. intros x (x'&->&?) ?. apply elem_of_union_list in H1 as (fvars&?&?).
+    apply elem_of_list_fmap in H1 as (tx&->&?). rewrite <- list_fmap_compose in H1.
+    apply elem_of_list_fmap in H1 as (y&->&?). set_solver.
+  Qed.
+
+  Lemma disjoint_initial_final_vars (xs1 xs2 : gset variable) :
+    (∀ x, x ∈ xs1 → ¬ var_final x) →
+    (∀ x, x ∈ xs2 → var_final x) →
+    xs1 ## xs2.
+  Proof. intros. set_solver. Qed.
+
+  Lemma disjoint_final_initial_vars (xs1 xs2 : gset variable) :
+    (∀ x, x ∈ xs1 → var_final x) →
+    (∀ x, x ∈ xs2 → ¬ var_final x) →
+    xs1 ## xs2.
+  Proof. intros. set_solver. Qed.
+End lemmas.
+
+Hint Resolve disjoint_initial_var_of : core.
+Hint Resolve NoDup_initial_var_of : core.
+Hint Resolve NoDup_as_var : core.
+Hint Resolve disjoint_initial_var_of_term_fvars : core.

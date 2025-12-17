@@ -10,9 +10,9 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
-From MRC Require Import PredCalc.FinalElements.
+From MRC Require Import PredCalc.Variables.
 From MRC Require Import PredCalc.EquivLemmas.
-From MRC Require Import PredCalc.SimultSubst.
+From MRC Require Import PredCalc.MultiSubst.
 
 Section syntactic.
   Context {value : Type}.
@@ -738,13 +738,13 @@ Section semantic.
     rewrite fequiv_subst_non_free... set_solver.
   Qed.
 
-  Lemma seqsubst_ssubst A xs ts `{!OfSameLength xs ts} :
+  Lemma seqsubst_msubst A xs ts `{!OfSameLength xs ts} :
     zip_pair_functional xs ts →
     list_to_set xs ## ⋃ (term_fvars <$> ts) →
     <! A [; *xs \ *ts ;] !> ≡ <! A [[ *xs \ *ts ]] !>.
   Proof with auto.
     induction_same_length xs ts as x t; intros.
-    1:{ rewrite ssubst_empty... }
+    1:{ rewrite msubst_empty... }
     simpl. apply zip_pair_functional_cons_inv in H as H1. destruct (decide (x ∈ xs)).
     - rewrite fequiv_subst_non_free.
       2:{ intros contra.
@@ -757,7 +757,7 @@ Section semantic.
       + simpl. rewrite lookup_insert_ne...
     - etrans.
       + rewrite IH; [| apply zip_pair_functional_cons_inv in H; auto | set_solver].
-        rewrite <- ssubst_extract_r; [| set_solver | set_solver]. reflexivity.
+        rewrite <- msubst_extract_r; [| set_solver | set_solver]. reflexivity.
       + simpl. reflexivity.
   Qed.
 
@@ -967,17 +967,17 @@ Section semantic.
   Qed.
 
   (** [subst_initials] facts *)
-  Lemma subst_initials_ssubst (xs : list final_variable) A :
+  Lemma subst_initials_msubst (xs : list final_variable) A :
     <! A[_₀\ xs] !> ≡ <! A[[↑₀ xs \ ⇑ₓ xs]] !>.
   Proof with auto.
-    unfold subst_initials. apply seqsubst_ssubst...
+    unfold subst_initials. apply seqsubst_msubst...
   Qed.
 
   Lemma subst_initials_perm (xs xs' : list final_variable) A :
     xs ≡ₚ xs' →
     <! A[_₀\ xs] !> ≡ <! A[_₀\ xs'] !>.
   Proof with auto.
-    intros. do 2 rewrite subst_initials_ssubst. f_equiv. unfold to_var_term_map.
+    intros. do 2 rewrite subst_initials_msubst. f_equiv. unfold to_var_term_map.
     induction H; simpl...
     - f_equal. etrans.
       + apply IHPermutation.
@@ -1071,6 +1071,43 @@ Section semantic.
     - simpl. rewrite simpl_seqsubst_forall. 2-3: set_solver. rewrite IH...
       1-2: set_solver.
   Qed.
+
+  Lemma simpl_msubst_existslist ys A (xs : list variable) ts `{!OfSameLength xs ts} :
+    ys ## xs →
+    list_to_set ys ## ⋃ (term_fvars <$> ts) →
+    <! (∃* ys, A)[[*xs \ *ts]] !> ≡ <! (∃* ys, A [[*xs \ *ts]]) !>.
+  Proof with auto.
+    induction ys as [|y ys IH]... intros. simpl. rewrite simpl_msubst_exists.
+    - rewrite IH; auto; set_solver.
+    - clear IH. unfold quant_msubst_fvars. intros contra. set_unfold in contra.
+      destruct contra as [[|] | ].
+      + set_solver.
+      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
+        * set_solver.
+        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
+          apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
+          exists t. split... apply elem_of_list_lookup_2 in H3...
+      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
+  Qed.
+
+  Lemma simpl_msubst_foralllist ys A (xs : list variable) ts `{!OfSameLength xs ts} :
+    ys ## xs →
+    list_to_set ys ## ⋃ (term_fvars <$> ts) →
+    <! (∀* ys, A)[[*xs \ *ts]] !> ≡ <! (∀* ys, A [[*xs \ *ts]]) !>.
+  Proof with auto.
+    induction ys as [|y ys IH]... intros. simpl. rewrite simpl_msubst_forall.
+    - rewrite IH; auto; set_solver.
+    - clear IH. unfold quant_msubst_fvars. intros contra. set_unfold in contra.
+      destruct contra as [[|] | ].
+      + set_solver.
+      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
+        * set_solver.
+        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
+          apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
+          exists t. split... apply elem_of_list_lookup_2 in H3...
+      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
+  Qed.
+
 
   (** Simplification lemmas for feval of n-ary variants **)
   Lemma simpl_feval_andlist σ Bs :

@@ -54,7 +54,7 @@ Section refinement.
   Proof with auto.
     intros Hent A. simpl.
     rewrite <- Hent. rewrite <- f_impl_curry. rewrite -> f_foralllist_impl_unused_l.
-    2: { intros x ? ?. apply (fvars_seqsubst_vars_not_free_in_terms_superset) in H0...
+    2: { intros x ? ?. apply (fvars_seqsubst_superset_vars_not_free_in_terms) in H0...
          set_solver. }
     rewrite simpl_subst_initials_impl. rewrite subst_initials_inverse_l by set_solver...
     rewrite <- (f_and_idemp pre) at 1. rewrite <- f_and_assoc. fSimpl.
@@ -193,80 +193,6 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
-  Lemma disjoint_initial_var_of xs1 xs2 :
-    xs1 ## xs2 →
-    ↑₀ xs1 ## ↑₀ xs2.
-  Proof. set_solver. Qed.
-
-  Lemma NoDup_initial_var_of xs :
-    NoDup xs →
-    NoDup ↑₀ xs.
-  Proof. intros. apply NoDup_fmap; [apply initial_var_of_inj | assumption]. Qed.
-
-  Lemma disjoint_initial_var_of_term_fvars xs1 xs2 :
-    xs1 ## xs2 →
-    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars value <$> ⇑ₓ xs2).
-  Proof. intros. set_solver. Qed.
-
-  Hint Resolve disjoint_initial_var_of : core.
-  Hint Resolve NoDup_initial_var_of : core.
-  Hint Resolve disjoint_initial_var_of_term_fvars : core.
-
-  (* TODO: move these *)
-  Lemma simpl_msubst_exists y A (xs : list variable) ts `{!OfSameLength xs ts} :
-    y ∉ (quant_simult_subst_fvars y A (to_var_term_map xs ts)) →
-    <! (∃ y, A)[[*xs \ *ts]] !> ≡ <! (∃ y, A [[*xs \ *ts]]) !>.
-  Proof with auto.
-    intros.
-    assert (fresh_var y (quant_simult_subst_fvars y A (to_var_term_map xs ts)) = y).
-    { apply fresh_var_id... }
-    simp simult_subst. simpl. rewrite H0. rewrite fequiv_subst_diag...
-  Qed.
-
-  Lemma simpl_msubst_forall y A (xs : list variable) ts `{!OfSameLength xs ts} :
-    y ∉ (quant_simult_subst_fvars y A (to_var_term_map xs ts)) →
-    <! (∀ y, A)[[*xs \ *ts]] !> ≡ <! (∀ y, A [[*xs \ *ts]]) !>.
-  Proof with auto.
-    intros. unfold FForall. rewrite simpl_ssubst_not. f_equiv.
-    rewrite simpl_msubst_exists... rewrite simpl_ssubst_not...
-  Qed.
-
-  Lemma simpl_msubst_existslist ys A (xs : list variable) ts `{!OfSameLength xs ts} :
-    ys ## xs →
-    list_to_set ys ## ⋃ (term_fvars <$> ts) →
-    <! (∃* ys, A)[[*xs \ *ts]] !> ≡ <! (∃* ys, A [[*xs \ *ts]]) !>.
-  Proof with auto.
-    induction ys as [|y ys IH]... intros. simpl. rewrite simpl_msubst_exists.
-    - rewrite IH; auto; set_solver.
-    - clear IH. unfold quant_simult_subst_fvars. intros contra. set_unfold in contra.
-      destruct contra as [[|] | ].
-      + set_solver.
-      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
-        * set_solver.
-        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
-          apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
-          exists t. split... apply elem_of_list_lookup_2 in H3...
-      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
-  Qed.
-
-  Lemma simpl_msubst_foralllist ys A (xs : list variable) ts `{!OfSameLength xs ts} :
-    ys ## xs →
-    list_to_set ys ## ⋃ (term_fvars <$> ts) →
-    <! (∀* ys, A)[[*xs \ *ts]] !> ≡ <! (∀* ys, A [[*xs \ *ts]]) !>.
-  Proof with auto.
-    induction ys as [|y ys IH]... intros. simpl. rewrite simpl_msubst_forall.
-    - rewrite IH; auto; set_solver.
-    - clear IH. unfold quant_simult_subst_fvars. intros contra. set_unfold in contra.
-      destruct contra as [[|] | ].
-      + set_solver.
-      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
-        * set_solver.
-        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
-          apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
-          exists t. split... apply elem_of_list_lookup_2 in H3...
-      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
-  Qed.
-
   Lemma r_leading_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!FormulaFinal <! pre[[↑ₓ xs \ ⇑ₜ ts]] !>} :
     w ## xs →
     NoDup w →
@@ -275,11 +201,10 @@ Section refinement.
     <{ *w, *xs : [pre[[↑ₓ xs \ ⇑ₜ ts]], post[[↑₀ xs \ *ts₀]]] }> ⊑
       <{ *xs := *(FinalRhsTerm <$> ts); *w, *xs : [pre, post] }>.
   Proof with auto.
-    intros Hdisjoint Hnodup1 Hnodup2 ? A. simpl. rewrite wp_asgn. rewrite simpl_ssubst_and.
+    intros Hdisjoint Hnodup1 Hnodup2 ? A. simpl. rewrite wp_asgn. rewrite simpl_msubst_and.
     fSimpl. unfold subst_initials at 1. rewrite subst_initials_app_comm.
-    rewrite subst_initials_app. rewrite subst_initials_ssubst.
-    setoid_rewrite (msubst_trans _ (↑₀ xs) (↑ₓ xs) (⇑ₜ ts)); [| set_solver | |].
-    2:{ apply NoDup_fmap... apply as_var_inj. }
+    rewrite subst_initials_app. rewrite subst_initials_msubst.
+    setoid_rewrite (msubst_trans _ (↑₀ xs) (↑ₓ xs) (⇑ₜ ts)); [| set_solver | |]...
     2:{ intros x ??. set_unfold. destruct H0 as [|]; [set_solver|].
         destruct H. destruct H0 as (x'&?&?&_&_). subst.
         rewrite to_final_var_as_var in H1. set_solver. }
@@ -289,8 +214,8 @@ Section refinement.
     { intros x ??. set_unfold in H0. set_unfold in H1. destruct H1 as (t&?&t'&?&?).
       subst. destruct H0 as []. apply final_term_final in H1. done. }
     assert (as_formula A ≡ <! A [[↑₀ xs \ *ts₀]] !>).
-    { rewrite ssubst_non_free... intros x ??. apply formula_is_final in H2. set_solver. }
-    rewrite H1 at 1. clear H1. rewrite <- simpl_ssubst_impl.
+    { rewrite msubst_non_free... intros x ??. apply formula_is_final in H2. set_solver. }
+    rewrite H1 at 1. clear H1. rewrite <- simpl_msubst_impl.
     assert (<! (∀* ↑ₓ (w ++ xs), (post ⇒ A) [ [↑₀ xs \ * ts₀] ]) !> ≡
               <! (∀* ↑ₓ (w ++ xs), (post ⇒ A)) [ [↑₀ xs \ * ts₀] ] !>).
     { rewrite simpl_msubst_foralllist; [auto|set_solver|]. intros x ??. set_unfold in H1.
@@ -308,24 +233,18 @@ Section refinement.
           * destruct H4 as (x'&->&?&?&?). simpl in H2. set_unfold in H2. subst x'.
             rewrite H4 in H1. unfold var_final in H1. simpl in H1. discriminate.
       - apply NoDup_app. do 2 rewrite NoDup_fmap by apply as_var_inj. set_solver.
-      - clear dependent x. intros x ??. set_unfold in H1. set_unfold in H2.
-        destruct H2 as (t&?). destruct H2.
-        + destruct H1 as [|].
-          * destruct H1 as (x'&->&?). destruct H3 as [|].
-            -- destruct H3 as (x''&->&?x'''&->&?). set_solver.
-            -- destruct H3 as (x''&->&?x'''&->&?). set_solver.
-          * destruct H1 as (x'&->&?). destruct H3 as [|].
-            -- destruct H3 as (x''&->&?x'''&->&?). set_solver.
-            -- destruct H3 as (x''&->&?x'''&->&?). set_solver. }
+      - apply disjoint_final_initial_vars; [set_solver|]. clear dependent x. intros x ??.
+        rewrite <- fmap_app in H1. set_unfold in H1. destruct H1 as (t&?&x'&->&?).
+        destruct H3; destruct H3 as (?&->&?); set_unfold in H1; subst x; done. }
     rewrite H1. clear H1.
     rewrite fold_subst_initials. rewrite subst_initials_app.
-    rewrite (subst_initials_ssubst xs). rewrite msubst_msubst_eq.
+    rewrite (subst_initials_msubst xs). rewrite msubst_msubst_eq.
     2:{ apply NoDup_fmap... apply initial_var_of_inj. }
-    rewrite subst_initials_ssubst. rewrite msubst_msubst_ne.
+    rewrite subst_initials_msubst. rewrite msubst_msubst_disj.
     2:{ set_solver. }
     2-3: apply NoDup_fmap; auto; apply initial_var_of_inj.
     2:{ set_solver. }
-    rewrite <- subst_initials_ssubst. f_equiv. apply map_eq. intros x₀. unfold to_var_term_map.
+    rewrite <- subst_initials_msubst. f_equiv. apply map_eq. intros x₀. unfold to_var_term_map.
     destruct (decide (x₀ ∈ ↑₀ xs)).
     - apply elem_of_list_fmap in e as (x'&?&?). apply elem_of_list_lookup in H2 as (i&?).
       destruct (lookup_of_same_length_l ts H2) as (t&?). trans (Some (as_term t)).
@@ -337,7 +256,7 @@ Section refinement.
           assert (xs ## w) by set_solver.
           erewrite <- H4; clear H4... rewrite msubst_term_app_comm...
           opose proof (msubst_term_trans t (↑ₓ w ++ ↑ₓ xs) (↑₀ w ++ ↑₀ xs) (⇑ₓ w ++ ⇑ₓ xs)).
-             trans (simult_subst_term t (to_var_term_map (↑ₓ w ++ ↑ₓ xs) ((@TVar value <$> (as_var <$> w)) ++
+             trans (msubst_term t (to_var_term_map (↑ₓ w ++ ↑ₓ xs) ((@TVar value <$> (as_var <$> w)) ++
                                                            (@TVar value <$> (as_var <$> xs))))).
              -- symmetry. etrans.
                 ++ rewrite <- H4; clear dependent H4 H ts₀; [reflexivity| | | | ].
@@ -349,7 +268,7 @@ Section refinement.
                       apply NoDup_app...
                    ** clear dependent x₀ x'. intros x ??. set_unfold in H.
                       apply term_is_final in H1. destruct H as [[x' [? ?]] | [x' [? ?]]]; subst;
-                      apply var_final_initial_var_of in H1 as [].
+                        done.
                 ++ f_equal. f_equal. unfold to_var_term_map. f_equal. f_equal. rewrite fmap_app...
              -- unfold to_var_term_map. repeat rewrite <- fmap_app. rewrite msubst_term_diag...
                 apply NoDup_fmap; [apply as_var_inj|]. apply NoDup_app...
@@ -380,14 +299,13 @@ Section refinement.
     rewrite <- simpl_subst_initials_and. rewrite fmap_app.
     unfold subst_initials. rewrite <- f_foralllist_one_point...
     rewrite f_foralllist_app. rewrite (f_foralllist_elim_binders (as_var <$> w)).
-    rewrite (f_foralllist_elim_as_ssubst <! post ⇒ A !> _ (as_term <$> ts))...
+    rewrite (f_foralllist_elim_as_msubst <! post ⇒ A !> _ (as_term <$> ts))...
     2:{ rewrite length_fmap... }
-    2:{ apply NoDup_fmap... apply as_var_inj. }
     erewrite eqlist_rewrite. Unshelve.
     4: { do 2 rewrite fmap_app. reflexivity. }
     3: { do 2 rewrite fmap_app. reflexivity. }
     rewrite f_eqlist_app. rewrite f_impl_dup_hyp. rewrite (f_and_assoc _ pre).
-    rewrite f_and_assoc in proviso. rewrite proviso. clear proviso. rewrite simpl_ssubst_impl.
+    rewrite f_and_assoc in proviso. rewrite proviso. clear proviso. rewrite simpl_msubst_impl.
     fSimpl. rewrite <- f_eqlist_app.
     erewrite eqlist_rewrite. Unshelve.
     4: { do 2 rewrite <- list_fmap_compose. rewrite <- fmap_app. rewrite list_fmap_compose.
@@ -396,7 +314,7 @@ Section refinement.
          reflexivity. }
     setoid_rewrite f_foralllist_one_point... rewrite fold_subst_initials.
     rewrite f_subst_initials_final_formula...
-    apply ssubst_formula_final.
+    apply msubst_formula_final.
     Unshelve. typeclasses eauto.
   Qed.
 
@@ -415,10 +333,10 @@ Section refinement.
       + fSimpl. fSplit... fLem pre.
         2:{ fSimpl... }
         fLem <! ∨* ⤊ gs !>.
-        * forward IH... fSimpl. rewrite IH. intros ?. simp feval in H3. destruct H3 as [].
+        * forward IH... fSimpl. rewrite IH. intros ?. simp feval in H2. destruct H2 as [].
           assumption.
-        * clear IH proviso H0 H1 g. induction gs as [|g gs IH]; simpl...
-          simpl in *. apply f_or_equiv_st_false in H2 as []. rewrite H0. fSimpl.
+        * clear IH proviso H H0 g. induction gs as [|g gs IH]; simpl...
+          simpl in *. apply f_or_equiv_st_false in H1 as []. rewrite H. fSimpl.
           rewrite IH...
       + fSimpl. forward IH...
   Qed.

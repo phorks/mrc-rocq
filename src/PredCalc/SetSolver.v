@@ -10,8 +10,8 @@ From MRC Require Import PredCalc.SyntacticFacts.
 From MRC Require Import PredCalc.SemanticFacts.
 From MRC Require Import PredCalc.EquivLemmas.
 From MRC Require Import PredCalc.NAry.
-From MRC Require Import PredCalc.SimultSubst.
-From MRC Require Import PredCalc.FinalElements.
+From MRC Require Import PredCalc.MultiSubst.
+From MRC Require Import PredCalc.Variables.
 
 Section set_solver.
   Context {M : model}.
