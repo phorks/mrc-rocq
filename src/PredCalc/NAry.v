@@ -299,7 +299,7 @@ Section syntactic.
     induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_or...
   Qed.
 
-  Lemma simpl_seqsubst_impl A B xs ts `{!OfSameLength xs ts} :
+  Lemma simpl_seqsubst_impl A B xs ts `{Hl1: !OfSameLength xs ts} :
     seqsubst <! A ⇒ B !> xs ts = <! $(seqsubst A xs ts) ⇒ $(seqsubst B xs ts) !>.
   Proof with auto.
     induction_same_length xs ts as x t... simpl. rewrite IH. rewrite simpl_subst_impl...

@@ -193,6 +193,19 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
+  Lemma r_following_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!OfSameLength xs ts} :
+    length xs ≠ 0 →
+    NoDup xs →
+    <{ *w, *xs : [pre, post] }> ⊑
+    <{ *w, *xs : [pre, post[[↑ₓ xs \ ⇑ₜ ts]]]; *xs := *(FinalRhsTerm <$> ts) }>.
+  Proof with auto.
+    intros Hlength Hnodup A. simpl. rewrite wp_asgn. fSimpl. rewrite <- simpl_msubst_impl.
+    f_equiv. rewrite fmap_app. do 2 rewrite foralllist_app. f_equiv.
+    rewrite <- f_foralllist_idemp. rewrite (f_foralllist_elim_as_msubst <! post ⇒ A !>)...
+    - reflexivity.
+    - rewrite length_fmap...
+  Qed.
+
   Lemma r_leading_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!FormulaFinal <! pre[[↑ₓ xs \ ⇑ₜ ts]] !>} :
     w ## xs →
     NoDup w →
