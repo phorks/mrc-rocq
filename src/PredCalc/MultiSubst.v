@@ -1005,14 +1005,22 @@ Section semantics.
   Qed.
 
   Lemma msubst_comm A xs0 ts0 x1 t1 xs1 ts1 x2 t2 xs2 ts2
-      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} `{OfSameLength _ _ xs2 ts2} :
+      `{!OfSameLength xs0 ts0}
+      `{!OfSameLength xs1 ts1}
+      `{!OfSameLength xs2 ts2}
+      {Hl1 Hl2} :
     x1 ≠ x2 →
     x1 ∉ xs1 →
     x2 ∉ xs1 →
-    <! A[[*xs0, x1, *xs1, x2, *xs2 \ *ts0, t1, *ts1, t2, *ts2]] !> ≡
-      <! A[[*xs0, x2, *xs1, x1, *xs2 \ *ts0, t2, *ts1, t1, *ts2]] !>.
+    msubst A (@to_var_term_map _ (xs0 ++ [x1] ++ xs1 ++ [x2] ++ xs2)
+                (ts0 ++ [t1] ++ ts1 ++ [t2] ++ ts2) Hl1) ≡
+    msubst A (@to_var_term_map _ (xs0 ++ [x2] ++ xs1 ++ [x1] ++ xs2)
+                (ts0 ++ [t2] ++ ts1 ++ [t1] ++ ts2) Hl2).
   Proof with auto.
-    intros. unfold to_var_term_map. repeat rewrite app_nil_r. f_equiv.
+    intros. unfold to_var_term_map.
+    pose proof (@of_same_length _ _ _ _ Hl1).
+    repeat rewrite length_app in H2. simpl in H2.
+    repeat rewrite app_nil_r. f_equiv.
     repeat rewrite zip_with_app... repeat rewrite list_to_map_app.
     simpl.
     rewrite (map_union_assoc (list_to_map (zip xs1 ts1))).
@@ -1033,17 +1041,19 @@ Section semantics.
   Qed.
 
   Lemma msubst_comm_consecutive A xs0 ts0 x1 t1 x2 t2 xs1 ts1
-      `{OfSameLength _ _ xs0 ts0} `{OfSameLength _ _ xs1 ts1} :
+      `{!OfSameLength xs0 ts0} `{!OfSameLength xs1 ts1}
+      {Hl1 Hl2} :
     x1 ≠ x2 →
-    <! A[[*xs0, x1, x2, *xs1 \ *ts0, t1, t2, *ts1]] !> ≡
-      <! A[[*xs0, x2, x1, *xs1 \ *ts0, t2, t1, *ts1]] !>.
+    msubst A (@to_var_term_map _ (xs0 ++ [x1] ++ [x2] ++ xs1)
+                (ts0 ++ [t1] ++ [t2] ++ ts1) Hl1) ≡
+    msubst A (@to_var_term_map _ (xs0 ++ [x2] ++ [x1] ++ xs1)
+                (ts0 ++ [t2] ++ [t1] ++ ts1) Hl2).
   Proof with auto.
     intros.
     rewrite msubst_comm with (xs0:=xs0) (ts0:=ts0) (xs1:=nil) (ts1:=nil) (xs2:=xs1) (ts2:=ts1)
                            (x1:=x1) (t1:=t1) (x2:=x2) (t2:=t2)...
+    1:{ typeclasses eauto. }
     all: apply not_elem_of_nil.
-    Unshelve.
-    all: typeclasses eauto.
   Qed.
 
   Lemma msubst_non_free A xs ts `{OfSameLength _ _ xs ts} :

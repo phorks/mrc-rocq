@@ -25,16 +25,16 @@ Section prog.
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (final_formula * prog))
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
-  | PVar (x : variable) (p : prog)
-  | PConst (x : variable) (p : prog).
+  | PVar (x : final_variable) (p : prog)
+  | PConst (x : final_variable) (p : prog).
 
-  Fixpoint PVarList (xs : list variable) (p : prog) :=
+  Fixpoint PVarList (xs : list final_variable) (p : prog) :=
     match xs with
     | [] => p
     | x :: xs => PVar x (PVarList xs p)
     end.
 
-  Fixpoint PConstList (xs : list variable) (p : prog) :=
+  Fixpoint PConstList (xs : list final_variable) (p : prog) :=
     match xs with
     | [] => p
     | x :: xs => PConst x (PConstList xs p)
@@ -68,8 +68,8 @@ Section prog.
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
     | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
     | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
-    | PVar x p => prog_fvars p ∖ {[x]}
-    | PConst x p => prog_fvars p ∖ {[x]}
+    | PVar x p => prog_fvars p ∖ {[as_var x]}
+    | PConst x p => prog_fvars p ∖ {[as_var x]}
   end.
 
   Fixpoint any_guard (gcmds : gcmd_list) : formula :=
@@ -101,36 +101,29 @@ Section prog.
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
     ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
 
-  Global Instance pequiv : Equiv prog := λ p1 p2, p1 ⊑ p2 ∧ p2 ⊑ p1.
+  Global Instance pequiv : Equiv prog := λ p1 p2, ∀ A : final_formula, wp p1 A ≡ wp p2 A.
   Global Instance refines_refl : Reflexive refines.
-  Proof with auto. intros ? ?.  reflexivity. Qed.
+  Proof with auto. intros ??.  reflexivity. Qed.
 
   Global Instance refines_trans : Transitive refines.
-  Proof with auto. intros ? ? ? ? ? ?... transitivity (wp y A); naive_solver. Qed.
+  Proof with auto. intros p1 p2 p3 ?? A... transitivity (wp p2 A); naive_solver. Qed.
 
   Global Instance pequiv_refl : Reflexive pequiv.
-  Proof with auto. split; reflexivity. Qed.
+  Proof with auto. split; done. Qed.
 
   Global Instance pequiv_sym : Symmetric pequiv.
-  Proof with auto. intros p1 p2. unfold pequiv. naive_solver. Qed.
+  Proof with auto. intros p1 p2. unfold pequiv. intros. symmetry... Qed.
 
   Global Instance pequiv_trans : Transitive pequiv.
-  Proof with auto.
-    intros p1 p2 p3 [H12 H21] [H23 H32]. split.
-    - transitivity p2...
-    - transitivity p2...
-  Qed.
+  Proof with auto. intros p1 p2 p3 ?? A. trans (wp p2 A)... Qed.
 
   Global Instance pequiv_equiv : Equivalence pequiv.
-  Proof.
-    split.
-    - exact pequiv_refl.
-    - exact pequiv_sym.
-    - exact pequiv_trans.
-  Qed.
+  Proof. split; [exact pequiv_refl | exact pequiv_sym | exact pequiv_trans]. Qed.
 
   Global Instance refines_antisym : Antisymmetric prog pequiv refines.
-  Proof. intros p1 p2 H12 H21. split; assumption. Qed.
+  Proof with auto.
+    intros p1 p2 H12 H21. split; intros; [apply H12 in H | apply H21 in H]...
+  Qed.
 
   (* ******************************************************************* *)
   (* axiomatization of recursive blocks and definition of while          *)
@@ -173,54 +166,76 @@ Section prog.
     | FinalRhsTerm (t : final_term).
 
   Record asgn_args := mkAsgnArgs {
-    asgn_args_open_vars : list final_variable;
+    asgn_opens : list final_variable;
     asgn_xs : list final_variable;
     asgn_ts : list final_term;
     asgn_of_same_length : OfSameLength asgn_xs asgn_ts;
   }.
 
-  (* Local Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term) *)
-  (*   `{H : OfSameLength _ _ lhs rhs} : asgn_args. *)
-  (* Proof. *)
+  Definition asgn_args_with_open (args : asgn_args) x :=
+    let (opens, xs, ts, _) := args in
+    mkAsgnArgs (x :: opens) xs ts _.
+
+  Definition asgn_args_with_closed (args : asgn_args) x t :=
+    let (opens, xs, ts, _) := args in
+    mkAsgnArgs opens (x :: xs) (t :: ts) _.
 
   Definition split_asgn_list (lhs : list final_variable) (rhs : list asgn_rhs_term)
     `{H : OfSameLength _ _ lhs rhs} : asgn_args :=
     of_same_length_rect
       id
         (λ rec x t args,
-          let (opens, xs, ts, _) := (rec args : asgn_args) in
           match t with
-          | OpenRhsTerm => (mkAsgnArgs (opens ++ [x]) xs ts _)
-          | FinalRhsTerm t => (mkAsgnArgs opens (x::xs) (t::ts) _)
+          | OpenRhsTerm => asgn_args_with_open (rec args) x
+          | FinalRhsTerm t => asgn_args_with_closed (rec args) x t
           end)
         (mkAsgnArgs [] [] [] _)
         lhs rhs.
 
-  Lemma split_asgn_list_no_opens xs ts `{OfSameLength _ _ xs ts} :
-    split_asgn_list xs (FinalRhsTerm <$> ts) = mkAsgnArgs [] xs ts _.
+  Lemma split_asgn_list_cons_closed x t lhs rhs
+      `{Hl1 : !OfSameLength lhs rhs} `{Hl2 : !OfSameLength (x :: lhs) (FinalRhsTerm t :: rhs)} :
+    @split_asgn_list (x :: lhs) (FinalRhsTerm t :: rhs) Hl2  =
+    asgn_args_with_closed (@split_asgn_list lhs rhs Hl1) x t.
   Proof.
-    generalize dependent ts. induction xs as [|x xs IH]; simpl; intros.
-    - assert (H':=H). apply of_same_length_nil_inv_l in H' as ->. simpl...
-      unfold split_asgn_list. simpl. f_equal. apply OfSameLength_pi.
-    - assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&->&?).
-      rename ts' into ts. unfold split_asgn_list in IH. simpl.
-      unfold split_asgn_list. simpl.
-      apply of_same_length_rest in H as H'.
-      (* PI shenanigans *)
-      assert ((@of_same_length_rest final_variable asgn_rhs_term x xs (FinalRhsTerm t)
-                 (list_fmap final_term asgn_rhs_term FinalRhsTerm ts)
-                 (@of_same_length_fmap_r final_variable final_term asgn_rhs_term
-                    (x :: xs) (t :: ts) FinalRhsTerm H)) =
-                (@of_same_length_fmap_r final_variable final_term asgn_rhs_term xs
-                   ts FinalRhsTerm H') ) as ->.
-      { apply OfSameLength_pi. }
-      rewrite IH. f_equiv. apply OfSameLength_pi.
+    unfold split_asgn_list. simpl. repeat f_equiv. apply OfSameLength_pi.
+  Qed.
+
+  Lemma split_asgn_list_cons_open x lhs rhs `{!OfSameLength lhs rhs}
+    `{Hl' : !OfSameLength (x :: lhs) (OpenRhsTerm :: rhs)} :
+    @split_asgn_list (x :: lhs) (OpenRhsTerm :: rhs) Hl' =
+    asgn_args_with_open (split_asgn_list lhs rhs) x.
+  Proof.
+    unfold split_asgn_list. simpl. repeat f_equiv. apply OfSameLength_pi.
+  Qed.
+
+  Lemma split_asgn_list_no_opens xs ts `{!OfSameLength xs ts} :
+    split_asgn_list xs (FinalRhsTerm <$> ts) = mkAsgnArgs [] xs ts _.
+  Proof with auto.
+    induction_same_length xs ts as x t.
+    - unfold split_asgn_list. simpl. f_equiv. apply OfSameLength_pi.
+    - assert (Hl:=H'). apply of_same_length_rest in Hl.
+      pose proof (@split_asgn_list_cons_closed x t xs (FinalRhsTerm <$> ts)
+                    (of_same_length_fmap_r) _).
+      rewrite (IH Hl) in H. unfold asgn_args_with_closed in H.
+      assert (H'=of_same_length_cons) by apply OfSameLength_pi.
+      rewrite H0. rewrite <- H. f_equiv. apply OfSameLength_pi.
   Qed.
 
   Definition PAsgnWithOpens (lhs : list final_variable) (rhs : list asgn_rhs_term)
-                            `{OfSameLength _ _ lhs rhs} : prog :=
+                            `{!OfSameLength lhs rhs} : prog :=
     let (opens, xs, ts, _) := split_asgn_list lhs rhs in
-    PVarList (as_var <$> remove_dups opens) (PAsgn xs ts).
+    PVarList opens (PAsgn xs ts).
+
+
+  Lemma PAsgnWithOpens_cons_open x lhs rhs `{!OfSameLength lhs rhs}
+      `{!OfSameLength (x :: lhs) (OpenRhsTerm :: rhs)} :
+    PAsgnWithOpens (x :: lhs) (OpenRhsTerm :: rhs) =
+      PVar x (PAsgnWithOpens lhs rhs).
+  Proof.
+    simpl. unfold PAsgnWithOpens at 1. erewrite split_asgn_list_cons_open.
+    unfold asgn_args_with_open. destruct (split_asgn_list lhs rhs) eqn:E.
+    simpl. unfold PAsgnWithOpens. rewrite E. reflexivity.
+  Qed.
 
   Lemma PAsgnWithOpens_no_opens xs ts `{OfSameLength _ _ xs ts} :
     PAsgnWithOpens xs (FinalRhsTerm <$> ts) = PAsgn xs ts.
