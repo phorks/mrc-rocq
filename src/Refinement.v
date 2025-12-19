@@ -632,6 +632,35 @@ Proof with auto.
       * intros. inversion H1. subst t0. exists 0. split; simpl...
 Qed.
 
+Lemma elem_of_asgn_ts_inv t lhs rhs `{!OfSameLength lhs rhs} :
+  t ∈ asgn_ts (split_asgn_list lhs rhs) →
+    ∃ x, (x, t) ∈ (asgn_xs (split_asgn_list lhs rhs), (@asgn_ts M (split_asgn_list lhs rhs))).
+Proof with auto.
+  intros. apply elem_of_list_lookup in H as (i&?).
+  opose proof (lookup_of_same_length_r (asgn_xs (split_asgn_list lhs rhs)) H) as (x&?).
+  { apply asgn_of_same_length. }
+  exists x, i. split...
+Qed.
+
+Lemma elem_of_asgn_ts t lhs rhs `{!OfSameLength lhs rhs} :
+  NoDup lhs →
+  t ∈ asgn_ts (split_asgn_list lhs rhs) ↔
+    ∃ x, (x, t) ∈ (asgn_xs (split_asgn_list lhs rhs), (@asgn_ts M (split_asgn_list lhs rhs))).
+Proof with auto.
+  intros Hnodup. split; [apply elem_of_asgn_ts_inv|].
+  intros (x&?). apply elem_of_asgn_xs_ts in H as [i []]... simpl in H, H0.
+  generalize dependent i. induction_same_length lhs rhs as l r; [set_solver|].
+  intros Hnodup ???. assert (Hl:=of_same_length_rest H'). apply NoDup_cons in Hnodup as [].
+  destruct r.
+  + erewrite split_asgn_list_cons_open. rewrite asgn_ts_with_open.
+    destruct i.
+    * simpl in H0. discriminate.
+    * apply IH with (i:=i)...
+  + erewrite split_asgn_list_cons_closed. rewrite asgn_ts_with_closed. destruct i.
+    * simpl in H0. inversion H0. subst. set_solver.
+    * set_unfold. right. eapply IH; [assumption | exact H | exact H0].
+Qed.
+
 Global Instance wp_proper_prog {A : final_formula} : Proper ((≡@{prog}) ==> (≡)) (λ p, wp p A).
 Proof. intros p1 p2 Hp. specialize (Hp A). assumption. Qed.
 
@@ -808,6 +837,17 @@ Qed.
     msubst A (to_var_term_map xs ts) ≡ msubst A (to_var_term_map xs' ts').
   Proof with auto.
     intros. f_equiv. apply zip_pair_Permutation_list_to_map_zip... typeclasses eauto.
+  Qed.
+
+  Lemma asgn_opens_submseteq lhs rhs `{!OfSameLength lhs rhs} :
+    @asgn_opens M (split_asgn_list lhs rhs) ⊆+ lhs.
+  Proof with auto.
+    induction_same_length lhs rhs as l r; [set_solver|]. apply submseteq_cons_r.
+    assert (Hl:=of_same_length_rest H'). destruct r.
+    - right. erewrite split_asgn_list_cons_open. rewrite asgn_opens_with_open.
+      eexists. split; [reflexivity | apply IH].
+    - left. erewrite split_asgn_list_cons_closed. rewrite asgn_opens_with_closed.
+      apply IH.
   Qed.
 
   Lemma asgn_xs_submseteq lhs rhs `{!OfSameLength lhs rhs} :
@@ -1379,6 +1419,14 @@ Qed.
   (*       1-2: typeclasses eauto. *)
   (*       Set Printing Coercions. intros contra. apply as_var_inj in contra. subst. done. *)
 
+Lemma as_var_to_final_var_final (x : variable) :
+  var_final x →
+  as_var (to_final_var x) = x.
+Proof.
+  intros. rewrite as_var_to_final_var. destruct x. unfold var_final in H.
+  unfold Model.var_is_initial in H. rewrite H. apply var_with_is_initial_id.
+  reflexivity.
+Qed.
 
   (* Lemma asgn_comm xs1 xs2 (rhs1 rhs2 : list (@asgn_rhs_term M)) *)
   (*   `{!OfSameLength xs1 rhs1} *)
@@ -1397,6 +1445,70 @@ Qed.
   (*       rewrite <- IH. *)
   (*       opose proof (@PAsgnWithOpens_cons_open _ x1 (xs1 ++ xs2) (rhs1 ++ rhs2) _). *)
   (*       rewrite H. *)
+  Lemma r_open_assignment_l x (t : final_term) xs (rhs : list (@asgn_rhs_term M))
+    `{!OfSameLength xs rhs}
+    `{!OfSameLength ([x] ++ xs) ([OpenRhsTerm] ++ rhs)}
+    `{!OfSameLength ([x] ++ xs) ([FinalRhsTerm t] ++ rhs)} :
+    x ∉ xs →
+    NoDup xs →
+    (∀ x', (x', OpenRhsTerm) ∈ (xs, rhs) → as_var x' ∉ term_fvars t) →
+    (∀ x' t', (x', FinalRhsTerm t') ∈ (xs, rhs) → as_var x ∉ term_fvars t') →
+    <{ x, *xs := ?, *rhs }> ⊑
+    <{ x, *xs := t, *rhs }>.
+  Proof with auto.
+    intros. intros A. unfold PAsgnWithOpens. simpl.
+    destruct (split_asgn_list (x :: xs) (OpenRhsTerm :: rhs)) eqn:E1.
+    destruct (split_asgn_list (x :: xs) (FinalRhsTerm (as_final_term t) :: rhs)) eqn:E2.
+    rewrite split_asgn_list_cons_open with (OfSameLength0:=OfSameLength0) in E1.
+    rewrite split_asgn_list_cons_closed with (Hl1:=OfSameLength0) in E2.
+    unfold asgn_args_with_open in E1. unfold asgn_args_with_closed in E2.
+    simpl in E1, E2. destruct (split_asgn_list xs rhs) eqn:E3.
+    inversion E1. inversion E2. subst.
+    assert (asgn_opens0 = Prog.asgn_opens (split_asgn_list xs rhs)) as Heq1 by (rewrite E3; done).
+    assert (asgn_xs = Prog.asgn_xs (split_asgn_list xs rhs)) as Heq2 by (rewrite E3; done).
+    assert (asgn_ts = Prog.asgn_ts (split_asgn_list xs rhs)) as Heq3 by (rewrite E3; done).
+    clear E1 E2 E3. simpl. repeat rewrite wp_varlist. simpl.
+    rewrite f_forall_elim with (t:=t). rewrite simpl_subst_foralllist.
+    2:{ intros contra. apply elem_of_list_fmap in contra. destruct contra as (x'&?&?).
+        apply as_var_inj in H3. subst. eapply elem_of_submseteq in H4;
+          [| apply asgn_opens_submseteq]... }
+    2:{ intros y ??. set_unfold in H3. destruct H3 as []. apply H1 with (x':=(to_final_var y)).
+        - subst. apply elem_of_asgn_opens in H5...
+        - rewrite as_var_to_final_var_final... }
+    rewrite <- msubst_extract_r.
+    - simpl. reflexivity.
+    - intros contra. apply elem_of_list_fmap in contra as (x'&?&?). apply as_var_inj in H3.
+      subst. eapply elem_of_submseteq in H4; [| apply asgn_xs_submseteq]. done.
+    - clear dependent t. set_unfold. intros (?&?&t&->&?). subst.
+      apply elem_of_asgn_ts_inv in H3 as (xt&?).
+      apply elem_of_asgn_xs_ts in H3... apply H2 in H3. contradiction.
+  Qed.
+
+  Lemma r_open_assignment_r x (t : final_term) xs (rhs : list (@asgn_rhs_term M))
+    `{!OfSameLength xs rhs} :
+    x ∉ xs →
+    NoDup xs →
+    (∀ x', (x', OpenRhsTerm) ∈ (xs, rhs) → as_var x' ∉ term_fvars t) →
+    (∀ x' t', (x', FinalRhsTerm t') ∈ (xs, rhs) → as_var x ∉ term_fvars t') →
+    <{ *xs, x := *rhs, ? }> ⊑
+    <{ *xs, x := *rhs, t }>.
+  Proof with auto.
+    intros. intros A.
+    rewrite PAsgnWithOpens_wp_equiv with (lhs2:=[x] ++ xs)
+                                                    (rhs2:=[OpenRhsTerm] ++ rhs).
+    2:{ apply NoDup_app. split_and!; [auto | set_solver |]. apply NoDup_singleton. }
+    3:{ simpl. rewrite zip_pair_Permutation_app_comm... 2: typeclasses eauto. simpl.
+        apply zip_pair_Permutation_cons... }
+    2:{ apply NoDup_cons. split... }
+    rewrite PAsgnWithOpens_wp_equiv with (lhs1:=xs ++ [x]) (lhs2:=[x] ++ xs)
+                                                    (rhs2:=[FinalRhsTerm t] ++ rhs)...
+    2:{ apply NoDup_app. split_and!; [auto | set_solver |]. apply NoDup_singleton. }
+    3:{ simpl. rewrite zip_pair_Permutation_app_comm... 2: typeclasses eauto. simpl.
+        rewrite as_final_term_as_term. apply zip_pair_Permutation_cons... }
+    2:{ apply NoDup_cons. split... }
+    rewrite (r_open_assignment_l x t xs rhs H H0 H1 H2 A). simpl.
+    rewrite as_final_term_as_term. reflexivity.
+  Qed.
 
   Lemma r_open_assignment x (t : final_term) xs0 xs1 (rhs0 rhs1 : list (@asgn_rhs_term M))
     `{!OfSameLength xs0 rhs0}
