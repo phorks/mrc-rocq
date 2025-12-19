@@ -332,7 +332,4 @@ Section lemmas.
     unfold flip. rewrite f_ent_contrapositive...
   Qed.
 
-  (* This can be proved using [feval_lem]. See the note on [feval_lem]. *)
-  Axiom fequiv_lem : ∀ A B, A ≡ B ∨ A ≢ B.
-
 End lemmas.
