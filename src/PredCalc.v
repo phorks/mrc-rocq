@@ -9,3 +9,4 @@ From MRC Require Export PredCalc.NAry.
 From MRC Require Export PredCalc.SetSolver.
 From MRC Require Export PredCalc.NAryEquivLemmas.
 From MRC Require Export PredCalc.Tactics.
+From MRC Require Export PredCalc.CommonModels.

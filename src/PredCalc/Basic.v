@@ -9,12 +9,13 @@ From MRC Require Import Tactics.
 From MRC Require Import SeqNotation.
 Open Scope bool_scope.
 
-Section pred_calc_syntax.
-  Context {V : Type}.
+Section syntax.
+  Context {value : Type}.
+  Context {value_ty : Type}.
 
   Unset Elimination Schemes.
   Inductive term : Type :=
-  | TConst (v : V)
+  | TConst (v : value)
   | TVar (x : variable)
   | TApp (symbol : string) (args : list term).
   Set Elimination Schemes.
@@ -40,11 +41,11 @@ Section pred_calc_syntax.
   Qed.
 
   Lemma term_formula_rank_ind P :
-    (forall n,
-        (forall m, m < n →
-                   forall u, term_rank u = m → P u) →
-        (forall t, term_rank t = n → P t)) →
-    forall n t, term_rank t < n → P t.
+    (∀ n,
+        (∀ m, m < n →
+                   ∀ u, term_rank u = m → P u) →
+        (∀ t, term_rank t = n → P t)) →
+    ∀ n t, term_rank t < n → P t.
   Proof with auto.
     intros Hind n. induction n; intros t Hrank.
     - lia.
@@ -53,11 +54,11 @@ Section pred_calc_syntax.
   Qed.
 
   Lemma term_ind P :
-    (forall v, P (TConst v)) →
-    (forall x, P (TVar x)) →
-    (forall f args,
-        (forall arg, In arg args → P arg) → P (TApp f args)) →
-    (forall t, P t).
+    (∀ v, P (TConst v)) →
+    (∀ x, P (TVar x)) →
+    (∀ f args,
+        (∀ arg, In arg args → P arg) → P (TApp f args)) →
+    (∀ t, P t).
   Proof with auto.
     intros Hconst Hvar Hfunc t.
     apply (term_formula_rank_ind P) with (term_rank t + 1); try lia...
@@ -71,6 +72,7 @@ Section pred_calc_syntax.
   | AT_True
   | AT_False
   | AT_Eq (t1 t2 : term)
+  | AT_HasType (t : term) (ty : value_ty)
   | AT_Pred (symbol : string) (args : list (term)).
 
   Unset Elimination Schemes.
@@ -96,13 +98,14 @@ Section pred_calc_syntax.
     match t with
     | TConst v => TConst v
     | TVar y => if decide (y = x) then a else TVar y
-    | TApp sym args => TApp sym (map (fun arg => subst_term arg x a) args)
+    | TApp sym args => TApp sym (map (λ arg, subst_term arg x a) args)
     end.
 
   Definition subst_af af x a :=
     match af with
     | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
-    | AT_Pred sym args => AT_Pred sym (map (fun arg => subst_term arg x a) args)
+    | AT_HasType t ty => AT_HasType (subst_term t x a) ty
+    | AT_Pred sym args => AT_Pred sym (map (λ arg, subst_term arg x a) args)
     | _ => af
     end.
 
@@ -116,6 +119,7 @@ Section pred_calc_syntax.
   Definition af_fvars af : gset variable :=
     match af with
     | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
+    | AT_HasType t ty => term_fvars t
     | AT_Pred _ args => ⋃ (term_fvars <$> args)
     | _ => ∅
     end.
@@ -242,15 +246,15 @@ The following is not a limitation; however we enforce it to make proofs easier
   Ltac fold_qrank_subst_fresh n A x x' t :=
     fold_qrank_subst n A x (fresh_var x (quant_subst_fvars x A x' t)).
 
-  Lemma formula_rank_gt_zero : forall A, formula_rank A > 0.
+  Lemma formula_rank_gt_zero A : formula_rank A > 0.
   Proof.
-    intros A. destruct A; simpl; lia.
+    destruct A; simpl; lia.
   Qed.
 
-  Lemma formula_rank_nonzero : forall A,
+  Lemma formula_rank_nonzero A :
       formula_rank A <> 0.
   Proof.
-    intros A. assert (formula_rank A > 0) by apply formula_rank_gt_zero.
+    assert (formula_rank A > 0) by apply formula_rank_gt_zero.
     lia.
   Qed.
 
@@ -265,11 +269,11 @@ The following is not a limitation; however we enforce it to make proofs easier
                            apply eq_sym in H; apply formula_rank_nonzero in H;
   destruct H end : core.
 
-  Lemma formula_rank_one_is_simple : forall A,
+  Lemma formula_rank_one_is_simple A :
       formula_rank A = 1 →
       ∃ af, A = FAtom af.
   Proof with auto.
-    intros A Hr. destruct A;
+    intros Hr. destruct A;
       try solve [inversion Hr; auto];
       try solve [inversion Hr;
                  destruct (Nat.max_spec (formula_rank A1) (formula_rank A2))
@@ -277,21 +281,17 @@ The following is not a limitation; however we enforce it to make proofs easier
     - exists af...
   Qed.
 
-  Lemma formula_rank_ind : forall P,
-      (forall n,
-          (forall m, m < n →
-                     forall B, rank B = m → P B) →
-          (forall A, rank A = n → P A)) →
-      forall A, P A.
+  Lemma formula_rank_ind P :
+      (∀ n,
+          (∀ m, m < n →
+                     ∀ B, rank B = m → P B) →
+          (∀ A, rank A = n → P A)) →
+      ∀ A, P A.
   Proof with auto.
-    intros P Hind.
-    assert (H : forall n A, rank A < n → P A).
-    {
-      induction n; intros A Hrank.
-      - lia.
-      - apply Hind with (formula_rank A + quantifier_rank A)...
-        intros m Hlt B HB. apply IHn. lia.
-    }
+    intros Hind.
+    assert (H : ∀ n A, rank A < n → P A).
+    { induction n; intros A Hrank; [lia|].
+      apply Hind with (formula_rank A + quantifier_rank A)... intros m Hlt B HB. apply IHn. lia. }
     intros A. apply H with (S (rank A)). lia.
   Qed.
 
@@ -434,25 +434,24 @@ The following is not a limitation; however we enforce it to make proofs easier
       try solve [apply IHA with B; auto]...
   Qed.
 
-  Lemma ranks_equal_if_shape_eq : forall A B,
+  Lemma ranks_equal_if_shape_eq A B :
       shape_eq A B = true →
       formula_rank A = formula_rank B ∧
         quantifier_rank A = quantifier_rank B.
   Proof with auto.
-    assert (Hfr: forall A B, shape_eq A B = true →
+    generalize dependent B. generalize dependent A.
+    assert (Hfr: ∀ A B, shape_eq A B = true →
                              formula_rank A = formula_rank B). {
-      intros A; induction A using formula_ind_naive; destruct B; try discriminate;
+      induction A using formula_ind_naive; destruct B; try discriminate;
         intros H; simpl; auto;
         try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
              auto). }
-    assert (Hqr: forall A B, shape_eq A B = true →
-                             quantifier_rank A = quantifier_rank B). {
-      intros A. induction A using formula_ind_naive; destruct B; try discriminate;
-        intros H; simpl; auto;
-        try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
-             auto).
-    }
-    auto.
+    enough (Hqr: ∀ A B, shape_eq A B = true →
+                             quantifier_rank A = quantifier_rank B)...
+    intros A. induction A using formula_ind_naive; destruct B; try discriminate;
+      intros H; simpl; auto;
+      try (inversion H; apply Bool.andb_true_iff in H1 as [H1 H2];
+           auto).
   Qed.
 
   Lemma rank_eq_if_shape_eq A B :
@@ -473,7 +472,7 @@ The following is not a limitation; however we enforce it to make proofs easier
     shape_eq A (subst_formula_aux r A x a) = true.
   Proof with auto.
     revert x a r.
-    apply (formula_rank_ind (fun P => forall x a r,
+    apply (formula_rank_ind (λ P, ∀ x a r,
                                  shape_eq P (subst_formula_aux r P x a) = true))...
     clear A. intros n IH. destruct A;
       intros Hr x' a r.
@@ -568,13 +567,14 @@ The following is not a limitation; however we enforce it to make proofs easier
       apply rank_eq_if_shape_eq in H. lia.
   Qed.
 
-End pred_calc_syntax.
+End syntax.
 
 Notation rank A := (formula_rank A + quantifier_rank A).
 
 Open Scope refiney_scope.
 
 Declare Custom Entry term.
+Declare Custom Entry term_ty.
 Declare Custom Entry formula.
 Declare Custom Entry term_relation.
 Declare Custom Entry atomic_formula.
@@ -583,21 +583,6 @@ Notation "e" := e (in custom term at level 0, e constr at level 0) : refiney_sco
 Notation "$( e )" := e (in custom term at level 0, only parsing,
                           e constr at level 200) : refiney_scope.
 Notation "( e )" := e (in custom term, e custom term at level 200) : refiney_scope.
-Notation "t + u" := (TApp "+" (@cons term t (@cons term u nil)))
-                      (in custom term at level 50,
-                          t custom term,
-                          u custom term,
-                          left associativity) : refiney_scope.
-Notation "t - u" := (TApp "-" (@cons term t (@cons term u nil)))
-                      (in custom term at level 50,
-                          t custom term,
-                          u custom term,
-                          left associativity) : refiney_scope.
-Notation "t * u" := (TApp "*" (@cons term t (@cons term u nil)))
-                      (in custom term at level 50,
-                          t custom term,
-                          u custom term,
-                          left associativity) : refiney_scope.
 Notation "t [ x \ t' ]" := (subst_term t x t')
                             (in custom term at level 10, left associativity,
                               x at next level) : refiney_scope.
@@ -607,26 +592,23 @@ Notation "t = u" := (FAtom (AT_Eq t u))
                           t custom term at level 60,
                           u custom term at level 60,
                           no associativity) : refiney_scope.
+
 Notation "t '≠' u" := (FNot (FAtom (AT_Eq t u)))
                        (in custom term_relation at level 60,
                            t custom term at level 60,
                            u custom term at level 60,
                            no associativity) : refiney_scope.
 
-(* Notation "f '(' x ',' .. ',' y ')'" := (TApp f (@cons term x .. (@cons term y nil) ..)) *)
-(*                                          (in custom term at level 40, *)
-(*                                              x custom term, y custom term) : refiney_scope. *)
+Notation "t ∈ ty" := (FAtom (AT_HasType t ty))
+                      (in custom term_relation at level 60,
+                          t custom term at level 60,
+                          no associativity) : refiney_scope.
 
-(* Declare Custom Entry aformula. *)
+Notation "t ∉ ty" := (FNot (FAtom (AT_HasType t ty)))
+                      (in custom term_relation at level 60,
+                          t custom term at level 60,
+                          no associativity) : refiney_scope.
 
-(* Notation "x < y" := (AT_Pred "<" (@cons term x (@cons term y nil)))
-                              (in custom formula at level 70, no associativity). *)
-(* Notation "x <= y" := (AT_Pred "<=" (@cons term x (@cons term y nil)))
-                              (in custom formula at level 70, no associativity). *)
-(* Notation "x > y" := (AT_Pred ">" (@cons term x (@cons term y nil)))
-                              (in custom formula at level 70, no associativity). *)
-(* Notation "x >= y" := (AT_Pred ">=" (@cons term x (@cons term y nil)))
-                              (in custom formula at level 70, no associativity). *)
 
 Notation "<! e !>" := e (e custom formula) : refiney_scope.
 
@@ -713,27 +695,27 @@ Ltac deduce_rank_eq Hsame :=
 Hint Resolve shape_eq_refl : core.
 Hint Resolve subst_preserves_shape : core.
 
-Section pred_calc_semantics.
+Section semantics.
   Context {M : model}.
-  Let V := value M.
+  Let value := value M.
 
-  Definition state := gmap variable V.
+  Definition state := gmap variable value.
 
-  Inductive fn_eval fSym vargs : V → Prop :=
+  Inductive fn_eval fSym vargs : value → Prop :=
   | FnEval : ∀ fdef v,
       (fdefs M) !! fSym = Some fdef →
       fdef_rel fdef vargs v →
       fn_eval fSym vargs v
   | FnEvalBottom : (fdefs M) !! fSym = None → fn_eval fSym vargs ⊥.
 
-  Inductive teval (σ : state) : term → V → Prop :=
+  Inductive teval (σ : state) : term → value → Prop :=
   | TEval_Const : ∀ v, teval σ (TConst v) v
   | TEval_Var : ∀ x v, σ !!! x = v → teval σ (TVar x) v
   | TEval_App : ∀ f args vargs fval,
       teval_list σ args vargs →
       fn_eval f vargs fval →
       teval σ (TApp f args) (fval)
-  with teval_list (σ : state) : list term → list V → Prop :=
+  with teval_list (σ : state) : list term → list value → Prop :=
   | TEvalArgs_Nil : teval_list σ [] []
   | TEvalArgs_Cons : ∀ t ts v vs,
       teval σ t v →
@@ -748,8 +730,8 @@ Section pred_calc_semantics.
   Proof with auto.
     intros H1 H2. generalize dependent v2.
     generalize dependent v1. generalize dependent t.
-    apply (teval_ind_mut σ (λ t v1 _, forall v2, teval σ t v2 → v1 = v2)
-             (λ args vargs1 _, forall vargs2, teval_list σ args vargs2 → vargs1 = vargs2)).
+    apply (teval_ind_mut σ (λ t v1 _, ∀ v2, teval σ t v2 → v1 = v2)
+             (λ args vargs1 _, ∀ vargs2, teval_list σ args vargs2 → vargs1 = vargs2)).
     - intros. inversion H...
     - intros. inversion H; subst...
     - intros. inversion H0; subst. inversion H5; subst; inversion f0; subst...
@@ -798,7 +780,7 @@ Section pred_calc_semantics.
       + apply IHargs...
   Qed.
 
-  Definition peval (pSym : string) (vargs : list V) : Prop :=
+  Definition peval (pSym : string) (vargs : list value) : Prop :=
     ∃ pdef, (pdefs M !! pSym = Some pdef ∧
                ∀ H : length vargs = pdef_arity pdef,
                  pdef_rel pdef (list_to_vec_n vargs H)).
@@ -808,6 +790,7 @@ Section pred_calc_semantics.
     | AT_True => True
     | AT_False => False
     | AT_Eq t1 t2 => ∃ v, teval σ t1 v ∧ teval σ t2 v
+    | AT_HasType t ty => ∃ v, teval σ t v ∧ hastype M v ty
     | AT_Pred symbol args => ∃ vargs, teval_list σ args vargs ∧ peval symbol vargs
   end.
 
@@ -816,7 +799,7 @@ Section pred_calc_semantics.
     feval σ (FNot A) => ¬ feval σ A;
     feval σ (FAnd A B) => feval σ A ∧ feval σ B;
     feval σ (FOr A B) => feval σ A ∨ feval σ B;
-    feval σ (FExists x A) => ∃ v : V, feval σ (<! A[x \ $(TConst v)] !>).
+    feval σ (FExists x A) => ∃ v : value, feval σ (<! A[x \ $(TConst v)] !>).
   Proof.
     all: try (unfold rank; simpl; fold Nat.add; lia).
     unfold rank. simpl. fold Nat.add. pose proof (subst_preserves_shape A x (TConst v)).
@@ -850,12 +833,16 @@ Section pred_calc_semantics.
   Proof with auto.
     intros. simp feval. split; intros [v Hv]; exists v; apply H...
   Qed.
-End pred_calc_semantics.
+End semantics.
 
-Arguments term V : clear implicits.
-Arguments atomic_formula : clear implicits.
-Arguments formula V : clear implicits.
+Arguments term value : clear implicits.
+Arguments atomic_formula value : clear implicits.
+Arguments formula value : clear implicits.
 Arguments state M : clear implicits.
+
+Notation termM M := (term (value M)).
+Notation atomic_formulaM M := (atomic_formula (value M) (value_ty M)).
+Notation formulaM M := (formula (value M) (value_ty M)).
 
 Hint Constructors teval : core.
 

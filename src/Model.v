@@ -270,7 +270,6 @@ Record model := mkModel {
   value_ty : Type;
   value_bottom : value;
   hastype : value → value_ty → Prop;
-  as_nat : value → option nat;
   fdefs : gmap string (@fdef value value_ty hastype);
   pdefs : gmap string (@pdef value);
 }.

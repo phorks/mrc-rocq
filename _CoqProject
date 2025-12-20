@@ -15,5 +15,6 @@ src/PredCalc/NAry.v
 src/PredCalc/SetSolver.v
 src/PredCalc/NAryEquivLemmas.v
 src/PredCalc/Tactics.v
+src/PredCalc/CommonModels.v
 src/PredCalc.v
 src/Prog.v

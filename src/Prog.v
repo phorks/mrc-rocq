@@ -15,10 +15,10 @@ Open Scope refiney_scope.
 
 Section prog.
   Context {M : model}.
-  Local Notation term := (term (value M)).
+  Local Notation term := (termM M).
   Local Notation final_term := (final_term (value M)).
-  Local Notation formula := (formula (value M)).
-  Local Notation final_formula := (final_formula (value M)).
+  Local Notation formula := (formulaM M).
+  Local Notation final_formula := (final_formulaM M).
 
   Unset Elimination Schemes.
   Inductive prog : Type :=
@@ -680,10 +680,10 @@ Section prog.
   Context {M : model}.
   Local Notation value := (value M).
   Local Notation prog := (@prog M).
-  Local Notation term := (term value).
-  Local Notation formula := (formula value).
-  Local Notation final_term := (final_term value).
-  Local Notation final_formula := (final_formula value).
+  Local Notation term := (termM M).
+  Local Notation formula := (formulaM M).
+  Local Notation final_term := (final_termM M).
+  Local Notation final_formula := (final_formulaM M).
 
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.

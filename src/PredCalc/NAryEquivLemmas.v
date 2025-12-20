@@ -20,9 +20,9 @@ Section n_ary_lemmas.
   Context {M : model}.
 
   Local Notation value := (value M).
-  Local Notation term := (term value).
-  Local Notation atomic_formula := (atomic_formula value).
-  Local Notation formula := (formula value).
+  Local Notation term := (termM M).
+  Local Notation atomic_formula := (atomic_formulaM M).
+  Local Notation formula := (formulaM M).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -1063,8 +1063,8 @@ Section n_ary_lemmas.
     rewrite feval_msubst with (mv:=mv') in H4...
     enough (mv = mv') by (subst mv'; assumption). clear H2 IH H4 A.
     apply of_same_length_rest in H as Hl.
-    apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H5 as (v&mv0&?&->&?&?)...
-    apply teval_var_term_map_zip_cons_inv with (H:=Hl) in H6 as (v'&mv1&?&->&?&?)...
+    eapply teval_var_term_map_zip_cons_inv in H5 as (v&mv0&?&->&?&?)...
+    eapply teval_var_term_map_zip_cons_inv in H6 as (v'&mv1&?&->&?&?)...
     inversion H6. subst v0. subst v'. pose proof (teval_det t vt v Hvt H2) as ->.
     pose proof (teval_var_term_map_det _ _ _ H5 H8) as ->...
   Qed.
@@ -1249,7 +1249,7 @@ Section n_ary_lemmas.
     <! A[_₀\ w] !> ≡ A.
   Proof. intros. unfold subst_initials. apply seqsubst_non_free. set_solver. Qed.
 
-  Lemma f_subst_initials_final_formula A w `{FormulaFinal _ A} :
+  Lemma f_subst_initials_final_formula A w `{!FormulaFinal A} :
     <! A[_₀\ w] !> ≡ A.
   Proof. intros. apply f_subst_initials_final_formula'. auto. Qed.
 
@@ -1258,9 +1258,9 @@ Section n_ary_lemmas.
     <! A[_₀\ w] !> ≡ A.
   Proof. intros. unfold subst_initials. apply seqsubst_non_free. set_solver. Qed.
 
-  Lemma final_formula_disjoint_initial_vars A w `{FormulaFinal _ A} :
+  Lemma final_formula_disjoint_initial_vars A w `{!FormulaFinal A} :
     list_to_set (↑₀ w) ## formula_fvars A.
-  Proof. intros x ? ?. apply H in H1. set_solver. Qed.
+  Proof. intros x ? ?. apply formula_is_final in H0. set_solver. Qed.
 
   Lemma subst_initials_inverse_l A w :
     list_to_set (↑₀ w) ## formula_fvars A →

@@ -5,13 +5,14 @@ From MRC Require Import Model.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.Basic.
 
-Section syntactic_facts.
+Section syntactic.
   Context {value : Type}.
+  Context {value_ty : Type}.
   Local Notation term := (term value).
 
   Implicit Types t : term.
-  Implicit Types af : atomic_formula value.
-  Implicit Types A B C : formula value.
+  Implicit Types af : atomic_formula value value_ty.
+  Implicit Types A B C : formula value value_ty.
   Implicit Types v : value.
 
   Lemma higher_qrank__subst_eq A : ∀ x a r',
@@ -286,8 +287,8 @@ Section syntactic_facts.
       subst_af af x x = af.
   Proof with auto.
     intros af x. destruct af...
-    - simpl... f_equal; apply subst_term_diag.
-    - simpl. f_equal. induction args... rewrite map_cons. f_equal; auto; apply subst_term_diag.
+    1-2: simpl; f_equal; apply subst_term_diag.
+    simpl. f_equal. induction args... rewrite map_cons. f_equal; auto; apply subst_term_diag.
   Qed.
 
   Lemma subst_term_non_free t x t' :
@@ -309,6 +310,7 @@ Section syntactic_facts.
   Proof with auto.
     intros. destruct af; simpl; try reflexivity.
     - simpl in H. apply not_elem_of_union in H as [? ?]. f_equal; apply subst_term_non_free...
+    - simpl in H. f_equal. apply subst_term_non_free...
     - f_equal. simpl in H. induction args... simpl in *. apply not_elem_of_union in H as [? ?].
       f_equal.
       + simpl in H. apply subst_term_non_free...
@@ -384,8 +386,8 @@ Section syntactic_facts.
   Lemma fvars_subst_af_free af x t' :
     x ∈ af_fvars af →
     af_fvars (subst_af af x t') = (af_fvars af ∖ {[x]}) ∪ term_fvars t'.
-    intros. destruct af.
   Proof with auto.
+    intros. destruct af.
     - simpl in H. apply elem_of_empty in H as [].
     - simpl in H. apply elem_of_empty in H as [].
     - simpl in *. apply elem_of_union in H. destruct H.
@@ -395,6 +397,7 @@ Section syntactic_facts.
       + rewrite (fvars_subst_term_free t2)... destruct (decide (x ∈ term_fvars t1)).
         * rewrite fvars_subst_term_free... set_solver.
         * rewrite subst_term_non_free... set_solver.
+    - simpl in *. rewrite fvars_subst_term_free...
     - simpl in *. apply leibniz_equiv. intros a.
       apply elem_of_union_list in H as (x_arg_fvars&H1&H2).
       apply elem_of_list_fmap in H1 as (x_arg&->&H1). split; intros H.
@@ -528,8 +531,8 @@ Section syntactic_facts.
       subst_af (subst_af af x2 t2) x1 t1.
   Proof with auto.
     intros. destruct af; simpl...
-    - f_equal; auto using subst_term_commute.
-    - f_equal. induction args... repeat rewrite map_cons. f_equal... apply subst_term_commute...
+    1-2: f_equal; auto using subst_term_commute.
+    f_equal. induction args... repeat rewrite map_cons. f_equal... apply subst_term_commute...
   Qed.
 
-End syntactic_facts.
+End syntactic.

@@ -16,10 +16,9 @@ From MRC Require Import PredCalc.Variables.
 Section set_solver.
   Context {M : model}.
   Local Notation value := (value M).
-  Local Notation term := (term value).
-  Local Notation formula := (formula value).
-  Local Notation final_term := (final_term value).
-  Local Notation final_formula := (final_formula value).
+  Local Notation value_ty := (value_ty M).
+  Local Notation term := (termM M).
+  Local Notation formula := (formulaM M).
 
   Implicit Types A B C : formula.
   Implicit Types xs : list variable.
@@ -124,36 +123,36 @@ Section set_solver.
   Global Instance set_unfold_elem_of_fvars_FAnd x A1 A2 Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A1) Q1 →
     SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ∧ A2 !>) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars <! A1 ∧ A2 !>) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. set_solver. Qed.
   Global Instance set_unfold_elem_of_fvars_FOr x A1 A2 Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A1) Q1 →
     SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ∨ A2 !>) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars <! A1 ∨ A2 !>) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. set_solver. Qed.
   Global Instance set_unfold_elem_of_fvars_FImpl x A1 A2 Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A1) Q1 →
     SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ⇒ A2 !>) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars <! A1 ⇒ A2 !>) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. set_solver. Qed.
   Global Instance set_unfold_elem_of_fvars_FIff x A1 A2 Q1 Q2 :
     SetUnfoldElemOf x (formula_fvars A1) Q1 →
     SetUnfoldElemOf x (formula_fvars A2) Q2 →
-    SetUnfoldElemOf x (@formula_fvars value <! A1 ⇔ A2 !>) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars <! A1 ⇔ A2 !>) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. set_solver. Qed.
   Global Instance set_unfold_elem_of_fvars_FExists x y A Q :
     SetUnfoldElemOf x (formula_fvars A) Q →
-    SetUnfoldElemOf x (@formula_fvars value <! ∃ y, A !>) (x ≠ y ∧ Q).
+    SetUnfoldElemOf x (formula_fvars <! ∃ y, A !>) (x ≠ y ∧ Q).
   Proof with auto. intros. constructor. simpl. set_solver. Qed.
   Global Instance set_unfold_elem_of_fvars_FForall x y A Q :
     SetUnfoldElemOf x (formula_fvars A) Q →
-    SetUnfoldElemOf x (@formula_fvars value <! ∀ y, A !>) (x ≠ y ∧ Q).
+    SetUnfoldElemOf x (formula_fvars <! ∀ y, A !>) (x ≠ y ∧ Q).
   Proof with auto. intros. constructor. simpl. set_solver. Qed.
 
   Global Instance set_unfold_elem_of_fvars_FAndList x Bs P1 P2 :
     (∀ A, SetUnfoldElemOf A Bs (P1 A)) →
     (∀ A, SetUnfoldElemOf x (formula_fvars A) (P2 A)) →
-    SetUnfoldElemOf x (@formula_fvars value <! ∧* Bs !>) (∃ A, P1 A ∧ P2 A).
+    SetUnfoldElemOf x (formula_fvars <! ∧* Bs !>) (∃ A, P1 A ∧ P2 A).
   Proof with auto.
     intros. constructor. rewrite fvars_andlist. rewrite elem_of_union_list. set_solver.
   Qed.
@@ -161,7 +160,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_fvars_FOrList x Bs P1 P2 :
     (∀ A, SetUnfoldElemOf A Bs (P1 A)) →
     (∀ A, SetUnfoldElemOf x (formula_fvars A) (P2 A)) →
-    SetUnfoldElemOf x (@formula_fvars value <! ∨* Bs !>) (∃ A, P1 A ∧ P2 A).
+    SetUnfoldElemOf x (formula_fvars <! ∨* Bs !>) (∃ A, P1 A ∧ P2 A).
   Proof with auto.
     intros. constructor. rewrite fvars_orlist. rewrite elem_of_union_list. set_solver.
   Qed.
@@ -181,7 +180,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_fvars_FEqList x ts1 ts2 Hsl Q1 Q2 :
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts1)) Q1 →
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts2)) Q2 →
-    SetUnfoldElemOf x (formula_fvars (@FEqList _ ts1 ts2 Hsl)) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars (@FEqList _ value_ty ts1 ts2 Hsl)) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. rewrite fvars_eqlist. set_solver. Qed.
 
 End set_solver.

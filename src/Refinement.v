@@ -16,11 +16,11 @@ Section refinement.
   Context {M : model}.
   Local Notation value := (value M).
   Local Notation prog := (@prog M).
-  Local Notation state := (@state M).
-  Local Notation term := (term value).
-  Local Notation formula := (formula value).
-  Local Notation final_term := (final_term value).
-  Local Notation final_formula := (final_formula value).
+  Local Notation state := (state M).
+  Local Notation term := (termM M).
+  Local Notation formula := (formulaM M).
+  Local Notation final_term := (final_termM M).
+  Local Notation final_formula := (final_formulaM M).
 
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.
@@ -108,7 +108,7 @@ Section refinement.
     intros Hdisjoint H A. simpl. fSimpl.
     unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
-    erewrite (@eqlist_rewrite _ (⇑₀ (w ++ xs))). Unshelve.
+    erewrite (@eqlist_rewrite _ _ (⇑₀ (w ++ xs))). Unshelve.
     4-5: do 2 rewrite fmap_app; reflexivity.
     rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
     rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).

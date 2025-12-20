@@ -16,9 +16,11 @@ From MRC Require Import PredCalc.MultiSubst.
 
 Section syntactic.
   Context {value : Type}.
+  Context {value_ty : Type}.
+
   Local Notation term := (term value).
-  Local Notation atomic_formula := (atomic_formula value).
-  Local Notation formula := (formula value).
+  Local Notation atomic_formula := (atomic_formula value value_ty).
+  Local Notation formula := (formula value value_ty).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -438,15 +440,15 @@ Section syntactic.
   Proof. rewrite subst_initials_app. reflexivity. Qed.
 
   (** [FormulaFinal] instances *)
-  Global Instance FExistsList_final (xs : list variable) A `{FormulaFinal _ A} :
+  Global Instance FExistsList_final (xs : list variable) A `{!FormulaFinal A} :
     FormulaFinal (FExistsList xs A).
   Proof. intros x H'. rewrite fvars_existslist in H'. set_solver. Qed.
 
-  Global Instance FForallList_final (xs : list variable) A `{FormulaFinal _ A} :
+  Global Instance FForallList_final (xs : list variable) A `{!FormulaFinal A} :
     FormulaFinal (FForallList xs A).
   Proof. intros x H'. rewrite fvars_foralllist in H'. set_solver. Qed.
 
-  Global Instance subst_initials_final A (xs : list final_variable) `{FormulaFinal _ A} :
+  Global Instance subst_initials_final A (xs : list final_variable) `{!FormulaFinal A} :
     FormulaFinal (subst_initials A xs).
   Proof. intros x H'. apply fvars_subst_initials_superset in H'. set_solver. Qed.
 
@@ -496,9 +498,10 @@ Section semantic.
   Context {M : model}.
 
   Local Notation value := (value M).
-  Local Notation term := (term value).
-  Local Notation atomic_formula := (atomic_formula value).
-  Local Notation formula := (formula value).
+  Local Notation value_ty := (value_ty M).
+  Local Notation term := (termM M).
+  Local Notation atomic_formula := (atomic_formulaM M).
+  Local Notation formula := (formulaM M).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -943,7 +946,8 @@ Section semantic.
 
   Global Instance FEqList_of_same_length_pi :
     Proper (forall_relation (λ ts1,
-                forall_relation (λ ts2, respectful universal_relation (=)))) FEqList.
+                forall_relation (λ ts2, respectful universal_relation (=))))
+      (@FEqList value value_ty).
   Proof with auto.
     intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
   Qed.
@@ -1139,7 +1143,7 @@ Section semantic.
   Lemma simpl_feval_existslist σ xs A :
     feval σ <! ∃* xs, A !> ↔
     ∃ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
@@ -1159,7 +1163,7 @@ Section semantic.
   Lemma simpl_feval_foralllist σ xs A :
     feval σ <! ∀* xs, A !> ↔
     ∀ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - intros. generalize dependent σ. induction_same_length xs vs as x v...

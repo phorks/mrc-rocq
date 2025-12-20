@@ -11,8 +11,8 @@ From MRC Require Import PredCalc.SemanticFacts.
 
 Section props.
   Context {M : model}.
-  Local Notation term := (term (value M)).
-  Local Notation formula := (formula (value M)).
+  Local Notation term := (termM M).
+  Local Notation formula := (formulaM M).
 
   Implicit Types t : term.
   Implicit Types A B C : formula.

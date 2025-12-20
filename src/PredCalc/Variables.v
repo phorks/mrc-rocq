@@ -6,8 +6,10 @@ From MRC Require Import PredCalc.SyntacticFacts.
 
 Section variables.
   Context {value : Type}.
+  Context {value_ty : Type}.
+
   Notation term := (term value).
-  Notation formula := (formula value).
+  Notation formula := (formula value value_ty).
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
@@ -234,7 +236,6 @@ Hint Resolve var_final_initial_var_of : core.
 Hint Resolve final_var_list_as_var_disjoint_term_fvars_initial_var_of : core.
 Hint Extern 3 (FormulaFinal _) => typeclasses eauto : core.
 
-
 Notation "₀ x" := (initial_var_of x) (in custom term at level 5) : refiney_scope.
 
 Declare Custom Entry variable_list.
@@ -388,6 +389,9 @@ Notation "⤊( Bs )" := (as_formula <$> Bs)
 
 Arguments final_term value : clear implicits.
 Arguments final_formula value : clear implicits.
+
+Notation final_termM M := (final_term (value M)).
+Notation final_formulaM M := (final_formula (value M) (value_ty M)).
 
 Section lemmas.
   Context {value : Type}.
