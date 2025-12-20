@@ -2,6 +2,8 @@ From stdpp Require Import sets vector gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Tactics.
 
+Open Scope refiney_scope.
+
 Lemma exists_iff_exists_weaken {V} (P Q : V → Prop) :
   (∀ v, P v ↔ Q v) →
   ((∃ v, P v) ↔ (∃ v, Q v)).
@@ -76,6 +78,16 @@ Proof with auto.
   intros. unfold lookup_total, map_lookup_total. rewrite lookup_union_r...
 Qed.
 
+Lemma submseteq_NoDup {A} (l k : list A) :
+  NoDup k →
+  l ⊆+ k →
+  NoDup l.
+Proof with auto.
+  intros. apply submseteq_Permutation in H0 as [k' ?]. apply Permutation_NoDup in H0...
+  2:{ apply NoDup_ListNoDup... }
+  apply NoDup_ListNoDup in H0. apply NoDup_app in H0 as [? _]...
+Qed.
+
 (** Facts about [list] *)
 Lemma length_nonzero_iff_cons {A} (l : list A) n :
   length l = S n ↔ ∃ x xs, l = x :: xs ∧ length xs = n.
@@ -104,7 +116,7 @@ Proof with auto.
     + simpl. rewrite IHl. split; lia.
 Qed.
 
-Lemma lookup_app_l_Some_disjoint {A : Type} (l1 l2 : list A) (x : A) i :
+Lemma lookup_app_l_Some_disjoint {A} (l1 l2 : list A) (x : A) i :
   l1 ## l2 →
   x ∈ l1 →
   (l1 ++ l2) !! i = Some x →
@@ -114,7 +126,7 @@ Proof with auto.
   exfalso. apply (H x)...
 Qed.
 
-Lemma lookup_app_l_Some_disjoint' {A : Type} (l1 l2 : list A) (x : A) i :
+Lemma lookup_app_l_Some_disjoint' {A} (l1 l2 : list A) (x : A) i :
   l1 ## l2 →
   x ∉ l2 →
   (l1 ++ l2) !! i = Some x →
@@ -124,7 +136,7 @@ Proof with auto.
   contradiction.
 Qed.
 
-Lemma lookup_app_r_Some_disjoint {A : Type} (l1 l2 : list A) (x : A) i :
+Lemma lookup_app_r_Some_disjoint {A} (l1 l2 : list A) (x : A) i :
   l1 ## l2 →
   x ∈ l2 →
   (l1 ++ l2) !! i = Some x →
@@ -136,7 +148,7 @@ Proof with auto.
     apply list_lookup_None in E. lia.
 Qed.
 
-Lemma lookup_app_r_Some_disjoint' {A : Type} (l1 l2 : list A) (x : A) i :
+Lemma lookup_app_r_Some_disjoint' {A} (l1 l2 : list A) (x : A) i :
   l1 ## l2 →
   x ∉ l1 →
   (l1 ++ l2) !! i = Some x →
@@ -156,10 +168,19 @@ Qed.
 Class OfSameLength {A B} (l1 : list A) (l2 : list B) :=
   of_same_length : length l1 = length l2.
 
-
 Instance OfSameLength_pi {A B} (l1 : list A) (l2 : list B) :
   ProofIrrel (OfSameLength l1 l2).
 Proof. apply eq_pi. solve_decision. Qed.
+
+Lemma rewrite_of_same_length {A B C} (xs xs' : list A) (ys ys' : list B)
+    (f : ∀ (xs : list A) (ys : list B), OfSameLength xs ys → C)
+    `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
+  xs = xs' →
+  ys = ys' →
+  f xs ys _ = f xs' ys' _.
+Proof.
+  intros. subst. f_equiv. apply OfSameLength_pi.
+Qed.
 
 Instance of_same_length_nil {A B} : @OfSameLength A B [] [].
 Proof. reflexivity. Defined.
@@ -428,7 +449,6 @@ Lemma elem_of_zip_pair_indexed {A B} (i : nat) (x : A) (y : B) (xs : list A) (ys
   (i, (x, y)) ∈ (xs, ys) ↔ xs !! i = Some x ∧ ys !! i = Some y.
 Proof. reflexivity. Qed.
 
-
 Lemma elem_of_zip_pair_hd_indexed {A B} x0 y0 x y (xs : list A) (ys : list B) :
   (0, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (x0 = x ∧ y0 = y).
 Proof. rewrite elem_of_zip_pair_indexed. simpl. split; naive_solver. Qed.
@@ -437,6 +457,208 @@ Lemma elem_of_zip_pair_tl_indexed {A B} i x0 y0 x y (xs : list A) (ys : list B) 
   (S i, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (i, (x0, y0)) ∈ (xs, ys).
 Proof.
   do 2 rewrite elem_of_zip_pair_indexed. simpl. naive_solver.
+Qed.
+
+Lemma elem_of_zip_pair_nil {A B} x y :
+  (x, y) ∈ (([] : list A), ([] : list B)) → False.
+Proof with auto.
+  intros (i&?&?). simpl in *. apply elem_of_list_lookup_2 in H. set_solver.
+Qed.
+
+Lemma elem_of_zip_pair_hd_ne {A B} x0 y0 x y (xs : list A) (ys : list B) :
+  x0 ≠ x →
+  (x0, y0) ∈ (x :: xs, y :: ys) ↔ (x0, y0) ∈ (xs, ys).
+Proof with auto.
+  intros. split; intros (i&?).
+  - destruct i.
+    + apply elem_of_zip_pair_hd_indexed in H0 as []. subst. contradiction.
+    + apply elem_of_zip_pair_tl_indexed in H0. exists i...
+  - exists (S i). apply elem_of_zip_pair_tl_indexed...
+Qed.
+
+Lemma elem_of_zip_pair_hd {A B} y0 x y (xs : list A) (ys : list B) :
+  x ∉ xs →
+  (x, y0) ∈ (x :: xs, y :: ys) ↔ y0 = y.
+Proof with auto.
+  intros. split.
+  - intros (i&?). destruct i.
+    + apply elem_of_zip_pair_hd_indexed in H0 as []...
+    + apply elem_of_zip_pair_tl_indexed in H0 as []. simpl in *. apply elem_of_list_lookup_2 in H0.
+      done.
+  - intros ->. exists 0. apply elem_of_zip_pair_hd_indexed...
+Qed.
+
+Lemma elem_of_zip_pair_app {A B} x y (xs1 : list A) (ys1 : list B)
+  (xs2 : list A) (ys2 : list B) `{!OfSameLength xs1 ys1} :
+  (x, y) ∈ (xs1 ++ xs2, ys1 ++ ys2) ↔ (x, y) ∈ (xs1, ys1) ∨ (x, y) ∈ (xs2, ys2).
+Proof with auto.
+  split.
+  - intros (i&?&?). simpl in H, H0. destruct (decide (i < length xs1)).
+    + left. rewrite lookup_app_l in H... rewrite OfSameLength0 in l. rewrite lookup_app_l in H0...
+      exists i. split...
+    + right. rewrite lookup_app_r in H by lia. rewrite OfSameLength0 in n.
+      rewrite lookup_app_r in H0 by lia. rewrite OfSameLength0 in H. exists (i - length ys1).
+      split...
+  - intros [|]; destruct H as (i&?&?); simpl in H, H0.
+    + exists i. split; simpl; apply lookup_app_l_Some...
+    + exists (length xs1 + i). split; simpl.
+      * rewrite lookup_app_r by lia. replace (length xs1 + i - length xs1) with i by lia...
+      * rewrite OfSameLength0. rewrite lookup_app_r by lia.
+        replace (length ys1 + i - length ys1) with i by lia...
+Qed.
+
+Lemma elem_of_zip_pair_indexed_inv {A B} i x y (xs : list A) (ys : list B) :
+  (i, (x, y)) ∈ (xs, ys) → (x, y) ∈ (xs, ys).
+Proof. intros. exists i. assumption. Qed.
+
+Lemma lookup_list_to_map_zip_Some_inv {K A} `{Countable K}
+    (ks : list K) (xs : list A) (k : K) (x : A) `{!OfSameLength ks xs} :
+  (list_to_map (zip ks xs) : gmap K A) !! k = Some x →
+                                                   (k, x) ∈ (ks, xs).
+Proof with auto.
+  intros. apply lookup_list_to_map_zip_Some in H0 as (i&?&?&?)... exists i. split...
+Qed.
+
+Lemma elem_of_zip_pair_fmap {A A' B B'} x' y' (xs : list A) (ys : list B)
+    (f : A → A') (g : B → B')
+    `{!OfSameLength xs ys} `{!OfSameLength (f <$> xs) (g <$> ys)} :
+  (x', y') ∈ (f <$> xs, g <$> ys) ↔ ∃ x y, (x, y) ∈ (xs, ys) ∧ x' = f x ∧ y' = g y.
+Proof with auto.
+  split.
+  - intros (i&?&?). simpl in H, H0. apply list_lookup_fmap_Some in H as (x&?&?).
+    apply list_lookup_fmap_Some in H0 as (y&?&?). exists x, y. split_and!... exists i.
+    split...
+  - intros (x&y&(i&?&?)&?&?). simpl in H, H0. exists i. split; simpl; apply list_lookup_fmap_Some.
+    + exists x. split...
+    + exists y. split...
+Qed.
+
+Definition zip_pair_Permutation {A B} (p1 p2 : list A * list B) :=
+  ∀ (x : A) (y : B), (x, y) ∈ p1 ↔ (x, y) ∈ p2.
+
+Infix "≡ₚₚ" := (zip_pair_Permutation) (at level 70, no associativity) : refiney_scope.
+
+Global Instance zip_pair_Permutation_refl {A B} : Reflexive (@zip_pair_Permutation A B).
+Proof. intros p x y. reflexivity. Qed.
+
+Hint Extern 0 (?p ≡ₚₚ ?p) => reflexivity : core.
+
+Global Instance zip_pair_Permutation_sym {A B} : Symmetric (@zip_pair_Permutation A B).
+Proof. intros p1 p2 H x y. specialize (H x y). naive_solver. Qed.
+
+Global Instance zip_pair_Permutation_trans {A B} : Transitive (@zip_pair_Permutation A B).
+Proof.
+  intros p1 p2 p3 H12 H23. intros x y. specialize (H12 x y). specialize (H23 x y). naive_solver.
+Qed.
+
+Global Instance zip_pair_Permutation_equiv {A B} : Equivalence (@zip_pair_Permutation A B).
+Proof.
+  split; [exact zip_pair_Permutation_refl | exact zip_pair_Permutation_sym |
+           exact zip_pair_Permutation_trans].
+Qed.
+
+Lemma zip_pair_Permutation_cons {A B} `{EqDecision A} (x : A) (y : B) (xs1 : list A)
+  (ys1 : list B) (xs2 : list A) (ys2 : list B) `{!OfSameLength xs1 ys1} `{!OfSameLength xs2 ys2} :
+  (xs1, ys1) ≡ₚₚ (xs2, ys2) →
+  (x :: xs1, y :: ys1) ≡ₚₚ (x :: xs2, y :: ys2).
+Proof with auto.
+  unfold zip_pair_Permutation. intros. split; intros (i&?&?); simpl in H0, H1.
+  - destruct i.
+    + exists 0. split...
+    + rewrite lookup_cons_ne_0 in H0 by lia. simpl in H0.
+      rewrite lookup_cons_ne_0 in H1 by lia. simpl in H1. specialize (H x0 y0).
+      pose proof (proj1 H). forward H2 by (exists i; split; auto).
+      destruct H2 as (j&?&?). simpl in H2, H3.
+      exists (S j). split...
+  - destruct i.
+    + exists 0. split...
+    + rewrite lookup_cons_ne_0 in H0 by lia. simpl in H0.
+      rewrite lookup_cons_ne_0 in H1 by lia. simpl in H1. specialize (H x0 y0).
+      pose proof (proj2 H). forward H2 by (exists i; split; auto).
+      destruct H2 as (j&?&?). simpl in H2, H3.
+      exists (S j). split...
+Qed.
+
+Lemma zip_pair_Permutation_app_comm {A B} (xs1 : list A) (ys1 : list B) (xs2 : list A)
+    (ys2 : list B) `{!OfSameLength xs1 ys1} `{!OfSameLength xs2 ys2} :
+  (xs1 ++ xs2, ys1 ++ ys2) ≡ₚₚ (xs2 ++ xs1, ys2 ++ ys1).
+Proof with auto.
+  unfold zip_pair_Permutation. intros x y. repeat rewrite elem_of_zip_pair_app...
+  naive_solver.
+Qed.
+
+Lemma zip_pair_Permutation_nil_inv_l {A B}
+    (xs : list A) (ys : list B) `{!OfSameLength xs ys} :
+  ([], []) ≡ₚₚ (xs, ys) →
+  xs = [] ∧ ys = [].
+Proof with auto.
+  intros. unfold zip_pair_Permutation in H. induction_same_length xs ys as x y...
+  - intros. clear IH. specialize (H x y). assert ((x, y) ∈ (x :: xs, y :: ys)).
+    { exists 0. split... }
+    rewrite <- H in H0. destruct H0 as (i&?&?). simpl in H0, H1. set_solver.
+Qed.
+
+Lemma zip_pair_Permutation_cons_inv_l {A B} `{EqDecision A}
+    (x : A) (y : B) (xs : list A) (ys : list B)
+    (xs' : list A) (ys' : list B) `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
+  (x :: xs, y :: ys) ≡ₚₚ (xs', ys') →
+  x ∉ xs →
+  NoDup xs →
+  NoDup xs' →
+  ∃ (xs'0 : list A) (ys'0 : list B) (xs'1 : list A) (ys'1 : list B) (Hl0 : OfSameLength xs'0 ys'0) (Hl1 : OfSameLength xs'1 ys'1),
+    xs' = xs'0 ++ x :: xs'1 ∧ ys' = ys'0 ++ y :: ys'1 ∧ (xs, ys) ≡ₚₚ (xs'0 ++ xs'1, ys'0 ++ ys'1).
+Proof with auto.
+  intros ? Hnin Hnodup Hnodup'. pose proof (H x y). assert ((x, y) ∈ (xs', ys')) as (i&?&?).
+  { apply H. exists 0. split... }
+  simpl in H1, H2. apply elem_of_list_split_length in H1, H2. destruct H1 as (xs'0&xs'1&?&?).
+  destruct H2 as (ys'0&ys'1&?&?). subst. exists xs'0, ys'0, xs'1, ys'1. eexists; [naive_solver|].
+  eexists...
+  { pose proof (@of_same_length _ _ _ _ OfSameLength1). unfold OfSameLength.
+    repeat rewrite length_app in H1. simpl in H1. lia. }
+  split_and!... intros x' y'. specialize (H x' y').
+  apply NoDup_app in Hnodup' as (?&?&?). apply NoDup_cons in H3 as [].
+  destruct (decide (x' = x)).
+  - subst. split; intros (i&?&_); simpl in H6.
+    + apply elem_of_list_lookup_2 in H6. contradiction.
+    + apply elem_of_list_lookup_2 in H6. set_solver.
+  - rewrite elem_of_zip_pair_hd_ne in H... rewrite H.
+    rewrite elem_of_zip_pair_app... rewrite elem_of_zip_pair_hd_ne...
+    rewrite elem_of_zip_pair_app...
+Qed.
+
+Lemma zip_pair_Permutation_list_to_map_zip {A B}
+    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) `{Countable A} `{EqDecision A}
+    `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
+  NoDup xs →
+  NoDup xs' →
+  (xs, ys) ≡ₚₚ (xs', ys') →
+  (list_to_map (zip xs ys) : gmap A B) = list_to_map (zip xs' ys').
+Proof with auto.
+  intros. unfold zip_pair_Permutation in H. apply map_eq. intros x.
+  destruct (list_to_map (zip xs ys) !! x) as [y|] eqn:E.
+  - apply lookup_list_to_map_zip_Some_inv in E... apply H2 in E.
+    symmetry. apply lookup_list_to_map_zip_Some... destruct E as (i&?&?). simpl in H3, H4.
+    exists i. split_and!... intros. apply NoDup_lookup with (i:=i) in H5... lia.
+  - apply lookup_list_to_map_zip_None in E... symmetry. apply lookup_list_to_map_zip_None...
+    intros ?. apply elem_of_list_lookup in H3 as (i&?).
+    destruct (lookup_of_same_length_l ys' H3) as (y&?)...
+    assert ((x, y) ∈ (xs, ys)) as (?&?&_).
+    { apply H2. exists i. split... }
+    simpl in H5. apply elem_of_list_lookup_2 in H5. contradiction.
+Qed.
+
+Lemma zip_pair_Permutation_fmap {A A' B B'}
+    (xs : list A) (ys : list B)
+    (xs' : list A) (ys' : list B)
+    (f : A → A') (g : B → B')
+    `{!OfSameLength xs ys} `{!OfSameLength (f <$> xs) (g <$> ys)}
+    `{!OfSameLength xs' ys'} `{!OfSameLength (f <$> xs') (g <$> ys')} :
+  (xs, ys) ≡ₚₚ (xs', ys') →
+  (f <$> xs, g <$> ys) ≡ₚₚ (f <$> xs', g <$> ys').
+Proof with auto.
+  intros. unfold zip_pair_Permutation. intros x' y'. rewrite elem_of_zip_pair_fmap...
+  rewrite elem_of_zip_pair_fmap... split; intros (x&y&?&?&?);
+    exists x, y; split; auto; apply H in H0...
 Qed.
 
 Definition zip_pair_functional {A B} (xs : list A) (ys : list B) :=

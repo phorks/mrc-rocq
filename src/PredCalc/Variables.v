@@ -193,9 +193,6 @@ Section variables.
     x ∈ formula_fvars A →
     var_final x.
   Proof. intros. apply H in H0. assumption. Qed.
-
-
-
   (* Axiom v : V. *)
   (* Axiom x : final_variable. *)
   (* Axiom y : variable. *)
@@ -211,6 +208,15 @@ Section variables.
   (* Definition tt : final_term := as_final_term (TApp fsym (TVar x :: [TVar x])). *)
   (* Definition aa : final_formula := as_final_formula <! ⌜t + x = t + t⌝ !>. *)
   (* Definition aa1 : final_formula := as_final_formula <! ⌜t + x = t + t⌝ ∧ A[y \ u] !>. *)
+
+  Lemma as_var_to_final_var_final (x : variable) :
+    var_final x →
+    as_var (to_final_var x) = x.
+  Proof.
+    intros. rewrite as_var_to_final_var. destruct x. unfold var_final in H.
+    unfold Model.var_is_initial in H. rewrite H. apply var_with_is_initial_id.
+    reflexivity.
+  Qed.
 
   Lemma final_var_list_as_var_disjoint_term_fvars_initial_var_of (xs : list final_variable) :
     list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar value <$> (initial_var_of <$> xs))).

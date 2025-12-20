@@ -1270,4 +1270,13 @@ Section semantics.
         set_solver.
   Qed.
 
+  Lemma msubst_zip_pair_Permutation A xs ts xs' ts' `{!OfSameLength xs ts} `{!OfSameLength xs' ts'} :
+    NoDup xs →
+    NoDup xs' →
+    (xs, ts) ≡ₚₚ (xs', ts') →
+    msubst A (to_var_term_map xs ts) ≡ msubst A (to_var_term_map xs' ts').
+  Proof with auto.
+    intros. f_equiv. apply zip_pair_Permutation_list_to_map_zip... typeclasses eauto.
+  Qed.
+
 End semantics.
