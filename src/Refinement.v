@@ -196,6 +196,21 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
+  Lemma r_varlist_permute xs xs' (p : prog) :
+    xs ≡ₚ xs' →
+    <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
+  Proof.
+    intros Hperm A. do 2 rewrite wp_varlist. rewrite f_foralllist_permute; [reflexivity|].
+    apply Permutation_map. assumption.
+  Qed.
+
+  Lemma r_varlist_app xs1 xs2 p :
+    <{ |[ var* $(xs1 ++ xs2) ⦁ $p ]| }> ≡ <{ |[ var* $(xs2 ++ xs1) ⦁ $p ]| }>.
+  Proof with auto.
+    intros A. do 2 rewrite wp_varlist. do 2 rewrite fmap_app.
+    do 2 rewrite foralllist_app. rewrite f_foralllist_comm...
+  Qed.
+
   Lemma r_following_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!OfSameLength xs ts} :
     length xs ≠ 0 →
     NoDup xs →
@@ -334,21 +349,6 @@ Section refinement.
     Unshelve. typeclasses eauto.
   Qed.
 
-  Lemma r_varlist_permute xs xs' (p : prog) :
-    xs ≡ₚ xs' →
-    <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
-  Proof.
-    intros Hperm A. do 2 rewrite wp_varlist. rewrite f_foralllist_permute; [reflexivity|].
-    apply Permutation_map. assumption.
-  Qed.
-
-  Lemma r_varlist_app xs1 xs2 p :
-    <{ |[ var* $(xs1 ++ xs2) ⦁ $p ]| }> ≡ <{ |[ var* $(xs2 ++ xs1) ⦁ $p ]| }>.
-  Proof with auto.
-    intros A. do 2 rewrite wp_varlist. do 2 rewrite fmap_app.
-    do 2 rewrite foralllist_app. rewrite f_foralllist_comm...
-  Qed.
-
   Local Lemma r_asgn_equiv' xs1 rhs1 xs2 rhs2 `{!OfSameLength xs1 rhs1} `{!OfSameLength xs2 rhs2} :
     NoDup xs1 →
     NoDup xs2 →
@@ -359,7 +359,7 @@ Section refinement.
   Proof with auto.
     intros Hnodup1 Hnodup2 Hopens Hclosed A. unfold PAsgnWithOpens.
     destruct (split_asgn_list xs1 rhs1) eqn:E1. simpl in *.
-    destruct (split_asgn_list xs2 rhs2) eqn:E2. simpl in *. apply wp_proper_prog.
+    destruct (split_asgn_list xs2 rhs2) eqn:E2. simpl in *. apply wp_proper_pequiv.
     rewrite r_varlist_permute.
     2:{ apply Hopens. }
     f_equiv. clear A Hopens. intros A. simpl. apply msubst_zip_pair_Permutation.
@@ -492,7 +492,6 @@ Section refinement.
         apply zip_pair_Permutation_cons...
         1-2: typeclasses eauto. rewrite zip_pair_Permutation_app_comm... }
     2:{ apply NoDup_cons. rewrite NoDup_app. split_and!... set_solver. }
-
     opose proof (r_open_assignment_l x t (xs0 ++ xs1) (rhs0 ++ rhs1) _ _ _ _ A).
     1:{ set_solver. }
     1:{ apply NoDup_app. split_and!... }

@@ -13,7 +13,6 @@ From Equations Require Import Equations.
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
-
 Section prog.
   Context {M : model}.
   Local Notation term := (term (value M)).
@@ -334,7 +333,6 @@ Section prog.
     - right. erewrite split_asgn_list_cons_closed. rewrite asgn_xs_with_closed. eexists.
       split; [reflexivity | apply IH].
   Qed.
-
 
   Lemma asgn_opens_app xs1 rhs1 xs2 rhs2
     `{!OfSameLength xs1 rhs1} `{!OfSameLength xs2 rhs2}
