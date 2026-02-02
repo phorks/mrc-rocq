@@ -15,6 +15,7 @@ Open Scope refiney_scope.
 
 Section prog.
   Context {M : model}.
+  Context `{MNat : ModelWithNat M}.
   Local Notation term := (termM M).
   Local Notation final_term := (final_term (value M)).
   Local Notation formula := (formulaM M).
@@ -25,6 +26,7 @@ Section prog.
   | PAsgn (xs : list final_variable) (ts: list final_term) `{OfSameLength _ _ xs ts}
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (final_formula * prog))
+  | PWhile (g inv : final_formula) (variant : final_term) (p : prog)
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : final_variable) (p : prog)
   | PConst (x : final_variable) (p : prog).
@@ -34,15 +36,17 @@ Section prog.
     (∀ xs ts H, P (@PAsgn xs ts H)) →
     (∀ p1 p2, P p1 → P p2 → P (PSeq p1 p2)) →
     (∀ gcmds, Forall (λ fp, P fp.2) gcmds → P (PIf gcmds)) →
+    (∀ g inv v p, P p → P (PWhile g inv v p)) →
     (∀ w pre post, P (PSpec w pre post)) →
     (∀ x p, P p → P (PVar x p)) →
     (∀ x p, P p → P (PConst x p)) →
     ∀ p, P p.
   Proof with auto.
-    intros Hasgn Hseq Hif Hspec Hvar Hcons. destruct p.
+    intros Hasgn Hseq Hif Hwhile Hspec Hvar Hcons. destruct p.
     - apply Hasgn.
     - apply Hseq; apply prog_ind...
     - apply Hif. induction gcmds... constructor... apply prog_ind...
+    - apply Hwhile. apply prog_ind...
     - apply Hspec.
     - apply Hvar. apply prog_ind...
     - apply Hcons. apply prog_ind...
@@ -70,6 +74,7 @@ Section prog.
     | PAsgn xs ts => list_to_set xs
     | PSeq p1 p2 => modified_final_vars p1 ∪ modified_final_vars p2
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
+    | PWhile _ _ _ p => modified_final_vars p
     | PSpec w pre post => list_to_set w
     | PVar x p => modified_final_vars p
     | PConst x p => modified_final_vars p
@@ -86,7 +91,9 @@ Section prog.
     match p with
     | PAsgn xs ts => (list_to_set (as_var <$> xs)) ∪ ⋃ (term_fvars ∘ as_term <$> ts)
     | PSeq p1 p2 => prog_fvars p1 ∪ prog_fvars p2
-    | PIf gcmds => ⋃ ((prog_fvars ∘ snd) <$> gcmds)
+    | PIf gcmds => ⋃ ((λ gcmd, prog_fvars (snd gcmd) ∪
+                                 formula_fvars (as_formula (fst gcmd))) <$> gcmds)
+    | PWhile g inv v p => formula_fvars g ∪ formula_fvars inv ∪ term_fvars v ∪ prog_fvars p
     | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
     | PVar x p => prog_fvars p ∖ {[as_var x]}
     | PConst x p => prog_fvars p ∖ {[as_var x]}
@@ -104,11 +111,21 @@ Section prog.
     | (g, _)::cmds => <! (g ⇔ A) ∧ $(all_cmds cmds A) !>
     end.
 
+  (* TODO: move it *)
+  Definition raw_initial_var name := mkVar name 0 true.
+
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
     | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
+    | PWhile g inv var p =>
+        let var₀ := to_initial_var (fresh_var (raw_var "") (Δ p)) in
+        <! ∀* $(set_to_list (Δ p)),
+            (inv ∧ g ⇒ $(wp p inv)) ∧
+            (inv ∧ ¬ g ⇒ A) ∧
+            (inv ∧ g ⇒ ⌜var ∈ ℕ⌝) ∧
+            (inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
     | PSpec w pre post =>
         <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
     | PVar x p => <! ∀ x, $(wp p A) !>
@@ -116,7 +133,7 @@ Section prog.
     end.
 
   (* ******************************************************************* *)
-  (* definition and properties of ⊑ and ≡ on progs                       *)
+  (* definition and properties of ⊑ and ≡ on prog                        *)
   (* ******************************************************************* *)
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
     ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
@@ -144,28 +161,6 @@ Section prog.
   Proof with auto.
     intros p1 p2 H12 H21. split; intros; [apply H12 in H | apply H21 in H]...
   Qed.
-
-  (* ******************************************************************* *)
-  (* axiomatization of recursive blocks and definition of while          *)
-  (* ******************************************************************* *)
-  Axiom PRec : (prog → prog) → prog.
-
-  Axiom p_rec_unfold_l : ∀ F, PRec F ⊑ F (PRec F).
-  Axiom p_rec_unfold_r : ∀ F, F (PRec F) ⊑ PRec F.
-
-  Lemma p_rec_fixpoint : ∀ F, F (PRec F) ≡ PRec F.
-  Proof.
-    intros. split.
-    - apply p_rec_unfold_r.
-    - apply p_rec_unfold_l.
-  Qed.
-
-  Axiom p_rec_ind : ∀ F P, F P ≡ P → PRec F ⊑ P.
-
-  (* while g => p    =    re P ⦁ if g then p; P fi er *)
-  Definition PWhile (gcmds : gcmd_list) :=
-    PRec (λ P, PIf gcmds).
-
 
   (* ******************************************************************* *)
   (* some extreme programs                                               *)
@@ -618,15 +613,13 @@ Notation "'if' | g : gs → p 'fi'" := (PIf (gcmd_comprehension gs (λ g, p)))
                                          gs global, p custom prog)
     : refiney_scope.
 
-Notation "'re' p ⦁ F 'er'" := (PRec (λ p, F))
-                                (in custom prog at level 95,
-                                    p name, F custom prog)
-    : refiney_scope.
-
-Notation "'while' A ⟶ p 'end" :=
-  (PWhile A p)
+Notation "'while' A 'invariant' I 'variant' v ⟶ p 'end'" :=
+  (PWhile A (<!! I ∧ ⌜v ∈ ℕ⌝ !!>) v p)
     (in custom prog at level 95,
-        A custom formula, p custom prog, no associativity) : refiney_scope.
+        A custom formula,
+        I custom formula,
+        v constr at level 0,
+        p custom prog, no associativity) : refiney_scope.
 
 Notation "w : [ p , q ]" :=
   (PSpec w (as_final_formula p) q)
@@ -678,6 +671,7 @@ Notation "{ A }" := (PSpec [] (as_final_formula A) <! true !>)
 
 Section prog.
   Context {M : model}.
+  Context {MNat : ModelWithNat M}.
   Local Notation value := (value M).
   Local Notation prog := (@prog M).
   Local Notation term := (termM M).
@@ -724,7 +718,7 @@ Section prog.
     - simpl. rewrite IH. reflexivity.
   Qed.
 
-  Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) (@wp M).
+  Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) (@wp M MNat).
   Proof with auto.
     intros p ? <- A B H. generalize dependent B. generalize dependent A.
     induction p; intros A B Hequiv; intros; simpl; fSimpl;

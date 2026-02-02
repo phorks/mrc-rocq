@@ -42,14 +42,14 @@ Section variables.
   Class VarFinal (v : variable) := var_is_final : var_final v.
 
   Global Instance non_initial_var_final {x i} : VarFinal (mkVar x i false).
-  Proof. reflexivity. Defined.
+  Proof. reflexivity. Qed.
 
   Global Instance as_var_var_final {x} : VarFinal (as_var x).
-  Proof. reflexivity. Defined.
+  Proof. reflexivity. Qed.
 
   Lemma var_final_as_var x :
     var_final (as_var x).
-  Proof. reflexivity. Defined.
+  Proof. reflexivity. Qed.
 
   Lemma var_final_initial_var_of x :
     ¬ var_final (initial_var_of x).
@@ -59,20 +59,20 @@ Section variables.
   Class TermListFinal (ts : list term) := term_list_is_final : term_list_final ts.
 
   Global Instance term_list_final_nil : TermListFinal [].
-  Proof. unfold TermListFinal, term_list_final. auto. Defined.
+  Proof. unfold TermListFinal, term_list_final. auto. Qed.
 
   Global Instance term_list_final_cons {t ts} `{TermFinal t} `{TermListFinal ts} :
     TermListFinal (t :: ts).
-  Proof. unfold TermListFinal, term_list_final. auto. Defined.
+  Proof. unfold TermListFinal, term_list_final. auto. Qed.
 
   Global Instance const_term_final {v} : TermFinal (TConst v).
-  Proof. unfold TermFinal, term_final. simpl. intros. set_solver. Defined.
+  Proof. unfold TermFinal, term_final. simpl. intros. set_solver. Qed.
 
   Global Instance var_term_final {x} `{VarFinal x} : TermFinal (TVar x).
   Proof.
     unfold TermFinal, term_final. simpl. intros. apply elem_of_singleton in H0.
     subst. auto.
-  Defined.
+  Qed.
 
   Global Instance app_term_final {fsym args} `{TermListFinal args} :
     TermFinal (TApp fsym args).
@@ -81,7 +81,7 @@ Section variables.
     unfold TermListFinal, term_list_final, term_final in H.
     apply elem_of_union_list in H0 as (fvars&?&?). apply elem_of_list_fmap in H0 as (arg&?&?).
     subst. rewrite Forall_forall in H. apply H with (x:=arg); assumption.
-  Defined.
+  Qed.
 
   Global Instance subst_term_final {t x t'} `{TermFinal t} `{TermFinal t'} :
     TermFinal (subst_term t x t').
@@ -89,7 +89,7 @@ Section variables.
     unfold TermFinal, term_final. intros. destruct (decide (x ∈ term_fvars t)).
     - rewrite fvars_subst_term_free with (t':=t') in H1... set_solver.
     - rewrite subst_term_non_free in H1...
-  Defined.
+  Qed.
 
   Global Instance final_term_term_final {t} : TermFinal (as_term t).
   Proof. unfold TermFinal. apply (final_term_final t). Defined.
@@ -97,14 +97,18 @@ Section variables.
   Class FormulaFinal (A : formula) := formula_is_final : formula_final A.
 
   Global Instance true_atomic_formula_final : FormulaFinal <! true !>.
-  Proof. unfold FormulaFinal, formula_final. simpl. intros. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. simpl. intros. set_solver. Qed.
 
   Global Instance false_atomic_formula_final : FormulaFinal <! false !>.
-  Proof. unfold FormulaFinal, formula_final. simpl. intros. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. simpl. intros. set_solver. Qed.
 
   Global Instance eq_atomic_formula_final {t1 t2} `{TermFinal t1} `{TermFinal t2} :
     FormulaFinal <! ⌜t1 = t2⌝ !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
+
+  Global Instance hastype_atomic_formula_final {t ty} `{TermFinal t} :
+    FormulaFinal <! ⌜t ∈ ty⌝ !>.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance pred_atomic_formula_final {psym args} `{TermListFinal args} :
     FormulaFinal (FAtom (AT_Pred psym args)).
@@ -113,41 +117,41 @@ Section variables.
     unfold TermListFinal, term_list_final, term_final in H.
     apply elem_of_union_list in H0 as (fvars&?&?). apply elem_of_list_fmap in H0 as (arg&?&?).
     subst. rewrite Forall_forall in H. apply H with (x:=arg); assumption.
-  Defined.
+  Qed.
 
   Global Instance f_not_formula_final {A} `{FormulaFinal A} : FormulaFinal <! ¬ A !>.
-  Proof. unfold FormulaFinal, formula_final. auto. Defined.
+  Proof. unfold FormulaFinal, formula_final. auto. Qed.
 
   Global Instance f_and_formula_final {A B} `{FormulaFinal A} `{FormulaFinal B} :
     FormulaFinal <! A ∧ B !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance f_or_formula_final {A B} `{FormulaFinal A} `{FormulaFinal B} :
     FormulaFinal <! A ∨ B !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance f_impl_formula_final {A B} `{FormulaFinal A} `{FormulaFinal B} :
     FormulaFinal <! A ⇒ B !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance f_iff_formula_final {A B} `{FormulaFinal A} `{FormulaFinal B} :
     FormulaFinal <! A ⇔ B !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance f_exists_formula_final {x A} `{FormulaFinal A} :
     FormulaFinal <! ∃ x, A !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance f_forall_formula_final {x A} `{FormulaFinal A} :
     FormulaFinal <! ∀ x, A !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Defined.
+  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
 
   Global Instance subst_formula_final {A x t} `{FormulaFinal A} `{TermFinal t} :
     FormulaFinal <! A[x \ t] !>.
   Proof.
     unfold FormulaFinal, formula_final. intros. apply fvars_subst_superset in H1.
     set_solver.
-  Defined.
+  Qed.
 
   Global Instance final_formula_formula_final {A} : FormulaFinal (as_formula A).
   Proof. unfold FormulaFinal. apply (final_formula_final A). Defined.
@@ -227,6 +231,21 @@ Section variables.
     rewrite <- list_fmap_compose in H. set_unfold in H. destruct H as (x0&?&(x'&?&?)).
     subst. simpl in *. set_solver.
   Qed.
+
+  Lemma to_initial_var_inj' x y :
+    var_final x →
+    var_final y →
+    to_initial_var x = to_initial_var y →
+    x = y.
+  Proof.
+    intros. destruct x. destruct y. unfold var_final in H, H0. simpl in H, H0.
+    inversion H1. subst. reflexivity.
+  Qed.
+
+  Lemma to_initial_var_inj x y `{!VarFinal x} `{!VarFinal y} :
+    to_initial_var x = to_initial_var y →
+    x = y.
+  Proof with auto. intros. apply to_initial_var_inj'... Qed.
 
 End variables.
 

@@ -113,24 +113,26 @@ Class ModelWithNat (M : model) := {
   value_to_nat : value M → option nat;
   hastype_nat_ty : ∀ v, hastype M v nat_ty ↔ ∃ n, value_to_nat v = Some n;
   value_to_nat_nat_to_value : ∀ n, value_to_nat (nat_to_value n) = Some n;
-  nat_with_sum :> ModelWithSum M;
+  nat_with_sum :: ModelWithSum M;
   nat_sum_fdef : ∀ v1 v2 n1 n2,
       value_to_nat v1 = Some n1 →
       value_to_nat v2 = Some n2 →
       fdef_rel sum_fdef [v1; v2] (nat_to_value (n1 + n2));
-  nat_with_sub :> ModelWithSub M;
+  nat_with_sub :: ModelWithSub M;
   nat_sub_fdef : ∀ v1 v2 n1 n2,
       value_to_nat v1 = Some n1 →
       value_to_nat v2 = Some n2 →
       fdef_rel sub_fdef [v1; v2] (nat_to_value (n1 - n2));
-  nat_with_mul :> ModelWithMul M;
+  nat_with_mul :: ModelWithMul M;
   nat_mul_fdef : ∀ v1 v2 n1 n2,
       value_to_nat v1 = Some n1 →
       value_to_nat v2 = Some n2 →
       fdef_rel mul_fdef [v1; v2] (nat_to_value (n1 * n2));
-  nat_with_order :> ModelWithOrder M;
-  nat_le_pdef : ∀ v1 v2 n1 n2,
+  nat_with_order :: ModelWithOrder M;
+  nat_lt_pdef : ∀ v1 v2 n1 n2,
       value_to_nat v1 = Some n1 →
       value_to_nat v2 = Some n2 →
       lt_pdef_rel v1 v2 ↔ n1 < n2;
 }.
+
+Notation ℕ := (@nat_ty _).

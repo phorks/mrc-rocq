@@ -135,6 +135,9 @@ Proof. cbv. reflexivity. Qed.
 Lemma var_is_initial_as_var (x : final_variable) :
   var_is_initial (as_var x) = false.
 Proof. reflexivity. Qed.
+
+Definition to_initial_var x := var_with_is_initial x true.
+
 (* ******************************************************************* *)
 (* fresh variables                                                     *)
 (* ******************************************************************* *)

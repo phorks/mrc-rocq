@@ -579,6 +579,10 @@ Declare Custom Entry formula.
 Declare Custom Entry term_relation.
 Declare Custom Entry atomic_formula.
 
+Notation "e" := e (in custom term_ty at level 0, e constr at level 0) : refiney_scope.
+Notation "$( e )" := e (in custom term_ty at level 0, only parsing,
+                          e constr at level 200) : refiney_scope.
+
 Notation "e" := e (in custom term at level 0, e constr at level 0) : refiney_scope.
 Notation "$( e )" := e (in custom term at level 0, only parsing,
                           e constr at level 200) : refiney_scope.
@@ -602,11 +606,13 @@ Notation "t '≠' u" := (FNot (FAtom (AT_Eq t u)))
 Notation "t ∈ ty" := (FAtom (AT_HasType t ty))
                       (in custom term_relation at level 60,
                           t custom term at level 60,
+                          ty custom term_ty at level 60,
                           no associativity) : refiney_scope.
 
 Notation "t ∉ ty" := (FNot (FAtom (AT_HasType t ty)))
                       (in custom term_relation at level 60,
                           t custom term at level 60,
+                          ty custom term_ty at level 60,
                           no associativity) : refiney_scope.
 
 

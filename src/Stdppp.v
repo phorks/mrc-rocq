@@ -62,7 +62,64 @@ Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
 Definition set_to_list {A} `{Countable A} `{EqDecision A} (s : gset A) : list A :=
-  set_fold (λ i x, i :: x) [] s.
+  set_fold cons [] s.
+
+Lemma set_to_list_empty {A} `{Countable A} `{EqDecision A} : @set_to_list A _ _ _ ∅ = nil.
+Proof. set_solver. Qed.
+
+Lemma set_to_list_singleton {A} `{Countable A} `{EqDecision A} (x : A) :
+  set_to_list {[x]} = [x].
+Proof. unfold set_to_list. by rewrite set_fold_singleton. Qed.
+
+Lemma set_to_list_union_singleton_l_perm {A} `{Countable A} `{EqDecision A} (x : A) (s : gset A) :
+  x ∉ s →
+  set_to_list ({[x]} ∪ s) ≡ₚ x :: set_to_list s.
+Proof.
+  intros. unfold set_to_list, set_fold, compose. by rewrite elements_union_singleton.
+Qed.
+
+Lemma set_to_list_union_singleton_r_perm {A} `{Countable A} `{EqDecision A} (x : A) (s : gset A) :
+  x ∉ s →
+  set_to_list (s ∪ {[x]}) ≡ₚ x :: set_to_list s.
+Proof.
+  intros. rewrite union_comm_L. by apply set_to_list_union_singleton_l_perm.
+Qed.
+
+Lemma set_to_list_union_perm {A} `{Countable A} `{EqDecision A} (s1 s2 : gset A) :
+  s1 ## s2 →
+  set_to_list (s1 ∪ s2) ≡ₚ set_to_list s1 ++ set_to_list s2.
+Proof with auto.
+  generalize dependent s1. induction s2 using set_ind_L; intros.
+  - rewrite union_empty_r_L. rewrite set_to_list_empty. rewrite app_nil_r...
+  - rewrite union_assoc_L. rewrite IHs2 by set_solver. rewrite IHs2 by set_solver.
+    rewrite set_to_list_union_singleton_r_perm by set_solver.
+    rewrite set_to_list_singleton. rewrite app_assoc. by rewrite (Permutation_app_comm _ [x]).
+Qed.
+
+Lemma set_to_list_set_map_perm {A B} `{Countable A, EqDecision A, Countable B, EqDecision B}
+    (s : gset A) (f : A → B) `{!Inj (=) (=) f} :
+  set_to_list (set_map f s) ≡ₚ f <$> set_to_list s.
+Proof with auto.
+  induction s using set_ind_L; [set_solver|]. rewrite set_map_union_L.
+  rewrite set_map_singleton_L. rewrite set_to_list_union_singleton_l_perm.
+  2:{ set_unfold. intros (x0&?&?). apply Inj0 in H2. by subst x0. }
+  rewrite set_to_list_union_singleton_l_perm... simpl. rewrite IHs...
+Qed.
+
+Lemma set_to_list_list_to_set {A} `{Countable A, EqDecision A} (l : list A) :
+  NoDup l →
+  set_to_list (list_to_set l) ≡ₚ l.
+Proof with auto.
+  intros. induction l... rewrite list_to_set_cons. apply NoDup_cons in H0 as [].
+  rewrite set_to_list_union_singleton_l_perm by set_solver. rewrite IHl...
+Qed.
+
+Lemma list_to_set_set_to_list {A} `{Countable A, EqDecision A} (s : gset A) :
+  list_to_set (set_to_list s) = s.
+Proof with auto.
+  intros. induction s using set_ind_L... rewrite set_to_list_union_singleton_l_perm...
+  simpl. rewrite IHs...
+Qed.
 
 Lemma lookup_total_union_l' {K A M} `{FinMap K M} `{Inhabited A} (m1 m2 : M A) i x :
   m1 !! i = Some x →
@@ -183,7 +240,7 @@ Proof.
 Qed.
 
 Instance of_same_length_nil {A B} : @OfSameLength A B [] [].
-Proof. reflexivity. Defined.
+Proof. reflexivity. Qed.
 
 Instance of_same_length_id {A} {l : list A} : OfSameLength l l | 0.
 Proof. reflexivity. Qed.
@@ -213,7 +270,7 @@ Proof. unfold OfSameLength in *. do 2 rewrite length_fmap. assumption. Qed.
 
 Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list B}
                               (H : OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
-Proof. unfold OfSameLength in *. simpl in H. lia. Defined.
+Proof. unfold OfSameLength in *. simpl in H. lia. Qed.
 
 Hint Extern 5 (OfSameLength ?xs1 ?xs2) =>
   match goal with
@@ -241,7 +298,7 @@ Proof. intros. subst. exact H. Qed.
 
 Instance of_same_length_rev {A B} {l1 : list A} {l2 : list B}
                               `{OfSameLength _ _ l1 l2} : OfSameLength (rev l1) (rev l2).
-Proof. unfold OfSameLength in *. do 2 rewrite length_rev. assumption. Defined.
+Proof. unfold OfSameLength in *. do 2 rewrite length_rev. assumption. Qed.
 
 Definition of_same_length_rect {A B X Y} (f_nil : X → Y) (f_cons : (X → Y) → A → B → X → Y)
   (x : X)

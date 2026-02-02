@@ -25,11 +25,11 @@ Section equiv.
   Local Notation "(≡ₜ_{ σ } )" := (tequiv_st σ).
   Local Notation "(≡ₜ)" := (@equiv term).
 
-  (** [≡] is a subrelation of [≡_{σ}] *)
+  (** [≡ₜ] is a subrelation of [≡ₜ_{σ}] *)
   Global Instance tequiv_subrelation_tequiv_st {σ} : subrelation (≡ₜ) (≡ₜ_{σ}).
   Proof. intros ? ? ?. specialize (H σ). auto. Qed.
 
-  (** ** [≡_{σ}] is an equivalence relation  *)
+  (** ** [≡ₜ_{σ}] is an equivalence relation  *)
   Global Instance tequiv_st_refl {σ} : Reflexive (≡ₜ_{σ}).
   Proof with auto. intros ? ?... Qed.
 

@@ -14,6 +14,7 @@ Open Scope refiney_scope.
 
 Section refinement.
   Context {M : model}.
+  Context `{MNat : ModelWithNat M}.
   Local Notation value := (value M).
   Local Notation prog := (@prog M).
   Local Notation state := (state M).
@@ -275,7 +276,7 @@ Section refinement.
     2:{ set_solver. }
     2-3: apply NoDup_fmap; auto; apply initial_var_of_inj.
     2:{ set_solver. }
-    rewrite <- subst_initials_msubst. f_equiv. apply map_eq. intros x₀. unfold to_var_term_map.
+    rewrite <- subst_initials_msubst. f_equiv. apply map_eq. intros x₀. unfold to_vtmap.
     destruct (decide (x₀ ∈ ↑₀ xs)).
     - apply elem_of_list_fmap in e as (x'&?&?). apply elem_of_list_lookup in H2 as (i&?).
       destruct (lookup_of_same_length_l ts H2) as (t&?). trans (Some (as_term t)).
@@ -283,11 +284,11 @@ Section refinement.
         * rewrite list_lookup_fmap. rewrite H2. simpl. rewrite H1...
         * unfold ts₀. repeat rewrite list_lookup_fmap. rewrite H3.
           simpl. f_equal.
-          opose proof msubst_term_app. unfold to_var_term_map in H4 at 2 3.
+          opose proof msubst_term_app. unfold to_vtmap in H4 at 2 3.
           assert (xs ## w) by set_solver.
           erewrite <- H4; clear H4... rewrite msubst_term_app_comm...
           opose proof (msubst_term_trans t (↑ₓ w ++ ↑ₓ xs) (↑₀ w ++ ↑₀ xs) (⇑ₓ w ++ ⇑ₓ xs)).
-             trans (msubst_term t (to_var_term_map (↑ₓ w ++ ↑ₓ xs) ((@TVar value <$> (as_var <$> w)) ++
+             trans (msubst_term t (to_vtmap (↑ₓ w ++ ↑ₓ xs) ((@TVar value <$> (as_var <$> w)) ++
                                                            (@TVar value <$> (as_var <$> xs))))).
              -- symmetry. etrans.
                 ++ rewrite <- H4; clear dependent H4 H ts₀; [reflexivity| | | | ].
@@ -300,8 +301,8 @@ Section refinement.
                    ** clear dependent x₀ x'. intros x ??. set_unfold in H.
                       apply term_is_final in H1. destruct H as [[x' [? ?]] | [x' [? ?]]]; subst;
                         done.
-                ++ f_equal. f_equal. unfold to_var_term_map. f_equal. f_equal. rewrite fmap_app...
-             -- unfold to_var_term_map. repeat rewrite <- fmap_app. rewrite msubst_term_diag...
+                ++ f_equal. f_equal. unfold to_vtmap. f_equal. f_equal. rewrite fmap_app...
+             -- unfold to_vtmap. repeat rewrite <- fmap_app. rewrite msubst_term_diag'...
                 apply NoDup_fmap; [apply as_var_inj|]. apply NoDup_app...
         * intros. apply list_lookup_fmap_Some in H4 as (x''&?&?). rewrite H1 in H5.
           apply initial_var_of_inj in H5. subst x''. apply NoDup_lookup with (i:=i) in H4...
@@ -525,22 +526,121 @@ Section refinement.
       + fSimpl. forward IH...
   Qed.
 
+  (* TODO: move these *)
+  Definition nat_to_term (n : nat) : term :=
+    TConst (nat_to_value n).
 
-  Lemma r_iteration w (I : formula) (v : variable) gcs :
-    w : [inv, inv ∧ ¬ (gcomc_any_guard gcs)] ⊑ `PDo gcs`
+  Coercion nat_to_term : nat >-> term.
 
+  Arguments raw_initial_var name : simpl never.
 
+  Global Instance fresh_var_final x fvars `{VarFinal x} : VarFinal (fresh_var x fvars).
+  Proof with auto.
+    unfold VarFinal. generalize dependent x. unfold fresh_var. induction (S (size fvars)); intros.
+    - simpl. apply H.
+    - simpl. destruct (decide (x ∈ fvars)).
+      + apply IHn. unfold VarFinal, var_final in H. destruct x. simpl in H.
+        rewrite H. reflexivity.
+      + apply H.
+  Qed.
 
+  Lemma initial_var_of_eq_to_initial_var (x : final_variable) :
+    initial_var_of x = to_initial_var x.
+  Proof. cbv. reflexivity. Qed.
 
+  Lemma set_to_list_as_var_set_list_to_set w :
+    NoDup w →
+    set_to_list (as_var_set (list_to_set w)) ≡ₚ ↑ₓ w.
+  Proof with auto.
+    intros. unfold as_var_set. rewrite set_to_list_set_map_perm by exact as_var_inj.
+    apply fmap_Permutation. apply set_to_list_list_to_set...
+  Qed.
 
+  Lemma r_iteration (w : list final_variable) (g inv : final_formula) (var : final_term) (p : prog) :
+    NoDup w →
+    let var₀ := <! $(as_term var) [[ₜ ↑ₓ w \ ⇑₀ w ]] !> in
+    <{ *w : [inv, inv ∧ ¬ g] }> ⊑
+      <{ while g invariant inv variant var ⟶
+         *w : [inv ∧ g, inv ∧ ⌜var ∈ ℕ⌝ ∧ ⌜0 ≤ var⌝ ∧ ⌜var < var₀⌝] end }>.
+  Proof with auto.
+    intros Hnodup ? A. simpl. unfold modified_vars. simpl.
+    rewrite (f_foralllist_permute (set_to_list (as_var_set (list_to_set w))) (↑ₓ w)).
+    2:{ apply set_to_list_as_var_set_list_to_set... }
+    rewrite f_subst_initials_no_initials.
+    2:{ rewrite fvars_foralllist. simpl. intros x ??. set_unfold. destruct H as [].
+        destruct H0 as [? _]. destruct_or! H0; apply final_formula_final in H0... }
+    intros σ. simp feval. simpl. repeat rewrite simpl_feval_foralllist. intros.
+    destruct_and! H.
+    assert (Haux1 : zip_pair_functional ↑ₓ w (TConst <$> vs)) by
+      (apply NoDup_zip_pair_functional; auto).
+    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (term_fvars <$> (TConst <$> vs))).
+    { intros x ??. set_unfold in H3. destruct H3 as (t&?&vt&->&?). simpl in H3. set_solver. }
+    rewrite seqsubst_msubst... epose proof (teval_vtmap_total σ _) as [mv ?].
+    rewrite feval_msubst by exact H. simp feval. split_and!.
+    - rewrite simpl_feval_fimpl. simp feval. intros. destruct_and! H3. split_and!...
+      unfold subst_initials. rewrite seqsubst_msubst...
+      epose proof (teval_vtmap_total _ _) as [mv0 ?].
+      rewrite feval_msubst by exact H4. rewrite simpl_feval_foralllist. intros.
+      rewrite seqsubst_msubst.
+      2:{ apply NoDup_zip_pair_functional... }
+      2:{ intros x ??. set_unfold in H9. destruct H9 as (?&?&?&->&?). simpl in H9. set_solver. }
+      epose proof (teval_vtmap_total _ _) as [mv' ?].
+      rewrite feval_msubst by exact H8. rewrite simpl_feval_fimpl. simp feval.
+      intros [? []]. split...
+    - specialize (H2 vs H0). apply seqsubst_msubst in H2...
+      rewrite feval_msubst in H2 by exact H... rewrite simpl_feval_fimpl in H2 |- *.
+      simp feval in H2 |- *. intros [[] ?]. apply H2. split...
+    - rewrite simpl_feval_fimpl. simp feval. naive_solver.
+    - rewrite simpl_feval_fimpl. simp feval. intros [[] []]. split_and!...
+      unfold subst_initials. rewrite seqsubst_msubst...
+      epose proof (teval_vtmap_total _ _) as [mv0 ?].
+      rewrite feval_msubst by exact H7. rewrite simpl_feval_foralllist.
+      intros vs' ?. rewrite seqsubst_msubst...
+      2:{ apply NoDup_zip_pair_functional... }
+      2:{ intros x ??. set_unfold in H10. destruct H10 as (?&?&?&->&?). set_solver. }
+      epose proof (teval_vtmap_total _ _) as [mv' ?].
+      rewrite feval_msubst by exact H9. rewrite simpl_feval_fimpl. simp feval.
+      intros [? [? []]]. rewrite <- feval_msubst in H13 |- * by exact H9.
+      unfold term_lt in H13 |- *. simp msubst in H13 |- *. simpl in H13 |- *.
+      unfold var₀ in H13. eapply ATPred_proper_st in H13.
+      2:{ reflexivity. }
+      2:{ split.
+          2:{ constructor; [reflexivity|constructor; [|reflexivity]].
+              rewrite msubst_term_msubst_term_eq_cancel... reflexivity. }
+          simpl... }
+      rewrite <- feval_msubst in H13 |- * by exact H7. simp msubst in H13 |- *.
+      simpl in H13 |- *. eapply ATPred_proper_st.
+      1:{ reflexivity. }
+      2:{ exact H13. }
+      split... constructor; [reflexivity|]. constructor... simpl in H6.
+      clear dependent H3 H4 H5 mv0 mv' H13 H2. destruct H6 as (vv&?&?).
+      symmetry. etrans.
+      + erewrite (msubst_term_trans var (↑ₓ w) (↑₀ w))...
+        * rewrite msubst_term_diag... reflexivity.
+        * set_solver.
+        * intros x ??. set_unfold in H4. apply final_term_final in H5. naive_solver.
+      + destruct (to_vtmap ↑ₓ w (TConst <$> vs')
+                 !! to_initial_var (fresh_var String.EmptyString (as_var_set (list_to_set w)))
+                 ) eqn:E.
+        1:{ unfold to_vtmap in E. apply lookup_list_to_map_zip_Some_inv in E.
+            2:{ typeclasses eauto. }
+            apply elem_of_zip_pair in E as (i&?&?). apply list_lookup_fmap_Some in H4 as (x&?&?).
+            destruct x. unfold as_var in H6. simpl in H6. apply (f_equal var_is_initial) in H6.
+            simpl in H6. discriminate. }
+        simpl. clear E.
+        destruct (to_vtmap ↑₀ w ⇑ₓ w
+                 !! to_initial_var (fresh_var String.EmptyString (as_var_set (list_to_set w))))
+                   eqn:E.
+        1:{ unfold to_vtmap in E. apply lookup_list_to_map_zip_Some_inv in E.
+            2:{ typeclasses eauto. }
+            apply elem_of_zip_pair in E as (i&?&?). apply list_lookup_fmap_Some in H4 as (x&?&?).
+            rewrite initial_var_of_eq_to_initial_var in H6. apply to_initial_var_inj' in H6.
+            - pose proof (fresh_var_fresh String.EmptyString (as_var_set (list_to_set w))).
+              rewrite H6 in H7. apply elem_of_list_lookup_2 in H4. unfold as_var_set in H7.
+              exfalso. apply H7. set_unfold. exists x. split...
+            - apply fresh_var_final. unfold VarFinal, var_final. simpl...
+            - apply var_final_as_var. }
+        intros v. split; intros; apply teval_det with (v1:=vv) in H4; auto; subst...
+  Qed.
 
-Lemma assignment : forall pre post x E,
-  pre ⇛ post[x \ E] ->
-  <{ x : [pre, post] ⊑ x := E }>.
-Proof.
-  intros pre post w E H A Hfinal. simpl. etrans.
-  -
-  simpl. 
-Qed.
-
-Compute wp <{ x : [1 < 2, 2 < 3] }> <[ 5 = 7 ]>.
+End refinement.

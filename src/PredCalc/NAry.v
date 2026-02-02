@@ -513,15 +513,23 @@ Section semantic.
   Implicit Types vs : list value.
 
   (** Equivalene of lists of terms **)
-  Global Instance term_list_equiv : Equiv (list term) :=
+  Global Instance tequiv_list : Equiv (list term) :=
     λ ts1 ts2, length ts1 = length ts2 ∧ Forall2 (≡@{term}) ts1 ts2.
 
-  Global Instance term_list_equiv_refl : Reflexive term_list_equiv.
+  Definition tequiv_list_st σ ts1 ts2 := length ts1 = length ts2 ∧
+                                               Forall2 (≡ₜ_{σ}@{M}) ts1 ts2.
+
+  Local Infix "≡*ₜ_{ σ }" := (tequiv_list_st σ) (at level 70, only parsing, no associativity)
+      : refiney_scope.
+  Local Notation "(≡*ₜ_{ σ } )" := (tequiv_list_st σ) (only parsing) : refiney_scope.
+  Local Notation "(≡*ₜ_{ σ } )" := (tequiv_list_st σ) (only parsing) : refiney_scope.
+
+  Global Instance tequiv_list_refl : Reflexive tequiv_list.
   Proof with auto.
     intros ts. induction ts; hnf... split... apply Forall2_cons. split... apply IHts.
   Qed.
 
-  Global Instance term_list_equiv_sym : Symmetric term_list_equiv.
+  Global Instance tequiv_list_sym : Symmetric tequiv_list.
   Proof with auto.
     intros ts1. induction ts1 as [|t1 ts1 IH]; intros ts2 [H1 H2]; hnf.
     - simpl in H1. symmetry in H1. apply length_zero_iff_nil in H1. subst ts2...
@@ -532,7 +540,7 @@ Section semantic.
         split...
   Qed.
 
-  Global Instance term_list_equiv_trans : Transitive term_list_equiv.
+  Global Instance tequiv_list_trans : Transitive tequiv_list.
   Proof with auto.
     intros ts1. induction ts1 as [|t1 ts1 IH]; intros ts2 ts3 [] [].
     - simpl in H. rewrite <- H in H1. symmetry in H, H1.
@@ -548,84 +556,197 @@ Section semantic.
           apply IH.
   Qed.
 
-  Global Instance term_list_equiv_equivalence : Equivalence term_list_equiv.
+  Global Instance tequiv_list_equivalence : Equivalence tequiv_list.
   Proof.
-    split; [exact term_list_equiv_refl | exact term_list_equiv_sym |
-             exact term_list_equiv_trans].
+    split; [exact tequiv_list_refl | exact tequiv_list_sym |
+             exact tequiv_list_trans].
   Qed.
 
-  Global Instance cons_proper_term_list_equiv :
-    Proper ((≡@{term}) ==> term_list_equiv ==> term_list_equiv) cons.
+  Global Instance tequiv_list_st_refl {σ} : Reflexive (tequiv_list_st σ).
+  Proof with auto.
+    intros ts. induction ts; hnf... split... constructor; [reflexivity|apply IHts].
+  Qed.
+
+  Global Instance tequiv_list_st_sym {σ} : Symmetric (tequiv_list_st σ).
+  Proof with auto.
+    intros ts1. induction ts1 as [|t1 ts1 IH]; intros ts2 [H1 H2]; hnf.
+    - simpl in H1. symmetry in H1. apply length_zero_iff_nil in H1. subst ts2...
+    - simpl in H1. symmetry in H1. apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?).
+      subst ts2. rename ts2' into ts2. split.
+      + do 2 rewrite length_cons...
+      + apply Forall2_cons. apply Forall2_cons in H2 as []. split; [symmetry; auto|apply IH].
+        split...
+  Qed.
+
+  Global Instance tequiv_list_st_trans {σ} : Transitive (tequiv_list_st σ).
+  Proof with auto.
+    intros ts1. induction ts1 as [|t1 ts1 IH]; intros ts2 ts3 [] [].
+    - simpl in H. rewrite <- H in H1. symmetry in H, H1.
+      apply length_zero_iff_nil in H, H1. subst. split...
+    - simpl in H. rewrite <- H in H1. symmetry in H, H1.
+      apply length_nonzero_iff_cons in H as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
+      apply length_nonzero_iff_cons in H1 as (t3&ts3'&?&?). subst ts3. rename ts3' into ts3.
+      split.
+      + do 2 rewrite length_cons...
+      + rewrite Forall2_cons in *. destruct H0 as [], H2 as []. split.
+        * trans t2...
+        * forward (IH ts2 ts3) by (split; auto). forward IH by (split; auto; lia).
+          apply IH.
+  Qed.
+
+  Global Instance tequiv_list_st_equivalence {σ} : Equivalence (tequiv_list_st σ).
   Proof.
-    intros t1 t2 Ht ts1 ts2 Hts. unfold term_list_equiv in *.
+    split; [exact tequiv_list_st_refl | exact tequiv_list_st_sym |
+             exact tequiv_list_st_trans].
+  Qed.
+
+  Global Instance cons_proper_tequiv_list :
+    Proper ((≡@{term}) ==> tequiv_list ==> tequiv_list) cons.
+  Proof.
+    intros t1 t2 Ht ts1 ts2 Hts. unfold tequiv_list in *.
     do 2 rewrite length_cons. rewrite Forall2_cons. naive_solver.
   Qed.
 
-  Lemma term_list_equiv_cons_l t1 ts1 ts2 :
+  Lemma tequiv_list_cons_l t1 ts1 ts2 :
     t1 :: ts1 ≡ ts2 ↔ ∃ t2 ts2', ts2 = t2 :: ts2' ∧ t1 ≡ t2 ∧ ts1 ≡ ts2'.
   Proof with auto.
     split.
     - intros []. symmetry in H. rewrite length_cons in H.
       apply length_nonzero_iff_cons in H as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
       exists t2, ts2. apply Forall2_cons in H0 as []. split_and!... split...
-    - intros (t2&ts2'&?&?&?). rewrite H. apply cons_proper_term_list_equiv...
+    - intros (t2&ts2'&?&?&?). rewrite H. apply cons_proper_tequiv_list...
   Qed.
 
-  Lemma term_list_equiv_cons_r ts1 t2 ts2 :
+  Lemma tequiv_list_cons_r ts1 t2 ts2 :
     ts1 ≡ t2 :: ts2 ↔ ∃ t1 ts1', ts1 = t1 :: ts1' ∧ t1 ≡ t2 ∧ ts1' ≡ ts2.
   Proof with auto.
     split.
-    - intros. symmetry in H. apply term_list_equiv_cons_l in H as (t1&ts1'&?&?&?).
+    - intros. symmetry in H. apply tequiv_list_cons_l in H as (t1&ts1'&?&?&?).
       exists t1, ts1'. split_and!...
-    - intros (t1&ts1'&?&?&?). rewrite H. apply cons_proper_term_list_equiv...
+    - intros (t1&ts1'&?&?&?). rewrite H. apply cons_proper_tequiv_list...
   Qed.
 
-  Lemma term_list_equiv_nil_l ts :
+  Lemma tequiv_list_nil_l ts :
     [] ≡ ts ↔ ts = [].
   Proof with auto.
-    unfold equiv, term_list_equiv. simpl. split.
+    unfold equiv, tequiv_list. simpl. split.
     - intros []. symmetry in H. apply length_zero_iff_nil in H. subst...
     - intros ->. simpl...
   Qed.
 
-  Lemma term_list_equiv_nil_r ts :
+  Lemma tequiv_list_nil_r ts :
     ts ≡ [] ↔ ts = [].
   Proof with auto.
-    unfold equiv, term_list_equiv. simpl. split.
+    unfold equiv, tequiv_list. simpl. split.
     - intros []. apply length_zero_iff_nil in H. subst...
     - intros ->. simpl...
   Qed.
 
-  Global Instance app_proper_term_list_equiv :
-    Proper ((term_list_equiv) ==> term_list_equiv ==> term_list_equiv) app.
+  Global Instance app_proper_tequiv_list :
+    Proper ((tequiv_list) ==> tequiv_list ==> tequiv_list) app.
   Proof with auto.
     intros ts1 ts3 H13 ts2 ts4 H24. generalize dependent ts3.
     induction ts1 as [|t1 ts1 IH]; intros ts3 H13.
-    - simpl. apply term_list_equiv_nil_l in H13. subst. simpl...
-    - simpl. apply term_list_equiv_cons_l in H13 as (t3&ts3'&->&?&?). rename ts3' into ts3.
+    - simpl. apply tequiv_list_nil_l in H13. subst. simpl...
+    - simpl. apply tequiv_list_cons_l in H13 as (t3&ts3'&->&?&?). rename ts3' into ts3.
       simpl. f_equiv...
   Qed.
 
-  Lemma term_list_equiv_cons_inv t1 ts1 t2 ts2 :
+  Lemma tequiv_list_cons_inv t1 ts1 t2 ts2 :
     t1 :: ts1 ≡ t2 :: ts2 → t1 ≡ t2 ∧ ts1 ≡ ts2.
   Proof with auto.
     intros []. do 2 rewrite length_cons in H. apply Forall2_cons in H0 as [].
     split... split...
   Qed.
 
-  Lemma term_list_equiv_teval_list ts1 ts2 :
+  Lemma tequiv_list_teval_list ts1 ts2 :
     ts1 ≡ ts2 →
     ∀ σ vs, teval_list σ ts1 vs ↔ teval_list σ ts2 vs.
   Proof with auto.
     generalize dependent ts2. induction ts1 as [|t1 ts1 IH].
-    - intros. apply term_list_equiv_nil_l in H. subst...
-    - intros. apply term_list_equiv_cons_l in H as (t2&ts2'&->&?&?). rename ts2' into ts2.
+    - intros. apply tequiv_list_nil_l in H. subst...
+    - intros. apply tequiv_list_cons_l in H as (t2&ts2'&->&?&?). rename ts2' into ts2.
       split; inversion 1.
       + constructor.
         * unfold equiv, tequiv in H. rewrite <- H...
         * apply IH...
       + constructor.
         * unfold equiv, tequiv in H. rewrite H...
+        * apply IH with (ts2:=ts2)...
+  Qed.
+
+  Global Instance cons_proper_tequiv_list_st {σ} :
+    Proper ((≡ₜ_{σ}) ==> (≡*ₜ_{σ}) ==> (≡*ₜ_{σ})) cons.
+  Proof.
+    intros t1 t2 Ht ts1 ts2 Hts. unfold tequiv_list_st in *.
+    do 2 rewrite length_cons. rewrite Forall2_cons. naive_solver.
+  Qed.
+
+  Lemma tequiv_list_st_cons_l {σ} t1 ts1 ts2 :
+    t1 :: ts1 ≡*ₜ_{σ} ts2 ↔ ∃ t2 ts2', ts2 = t2 :: ts2' ∧ t1 ≡ₜ_{σ} t2 ∧ ts1 ≡*ₜ_{σ} ts2'.
+  Proof with auto.
+    split.
+    - intros []. symmetry in H. rewrite length_cons in H.
+      apply length_nonzero_iff_cons in H as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
+      exists t2, ts2. apply Forall2_cons in H0 as []. split_and!... split...
+    - intros (t2&ts2'&?&?&?). rewrite H. apply cons_proper_tequiv_list_st...
+  Qed.
+
+  Lemma tequiv_list_st_cons_r {σ} ts1 t2 ts2 :
+    ts1 ≡*ₜ_{σ} t2 :: ts2 ↔ ∃ t1 ts1', ts1 = t1 :: ts1' ∧ t1 ≡ₜ_{σ} t2 ∧ ts1' ≡*ₜ_{σ} ts2.
+  Proof with auto.
+    split.
+    - intros. symmetry in H. apply tequiv_list_st_cons_l in H as (t1&ts1'&?&?&?).
+      symmetry in H0, H1. exists t1, ts1'. split_and!...
+    - intros (t1&ts1'&?&?&?). rewrite H. apply cons_proper_tequiv_list_st...
+  Qed.
+
+  Lemma tequiv_list_st_nil_l σ ts :
+    [] ≡*ₜ_{σ} ts ↔ ts = [].
+  Proof with auto.
+    unfold equiv, tequiv_list. simpl. split.
+    - intros []. symmetry in H. apply length_zero_iff_nil in H. subst...
+    - intros ->. split...
+  Qed.
+
+  Lemma tequiv_list_st_nil_r σ ts :
+    ts ≡*ₜ_{σ} [] ↔ ts = [].
+  Proof with auto.
+    unfold equiv, tequiv_list. simpl. split.
+    - intros []. apply length_zero_iff_nil in H. subst...
+    - intros ->. split...
+  Qed.
+
+  Global Instance app_proper_tequiv_list_st {σ} :
+    Proper ((≡*ₜ_{σ}) ==> (≡*ₜ_{σ}) ==> (≡*ₜ_{σ})) app.
+  Proof with auto.
+    intros ts1 ts3 H13 ts2 ts4 H24. generalize dependent ts3.
+    induction ts1 as [|t1 ts1 IH]; intros ts3 H13.
+    - simpl. apply tequiv_list_st_nil_l in H13. subst. simpl...
+    - simpl. apply tequiv_list_st_cons_l in H13 as (t3&ts3'&->&?&?). rename ts3' into ts3.
+      simpl. f_equiv...
+  Qed.
+
+  Lemma tequiv_list_st_cons_inv {σ} t1 ts1 t2 ts2 :
+    t1 :: ts1 ≡*ₜ_{σ} t2 :: ts2 → t1 ≡ₜ_{σ} t2 ∧ ts1 ≡*ₜ_{σ} ts2.
+  Proof with auto.
+    intros []. do 2 rewrite length_cons in H. apply Forall2_cons in H0 as [].
+    split... split...
+  Qed.
+
+  Lemma tequiv_list_st_teval_list {σ} ts1 ts2 :
+    ts1 ≡*ₜ_{σ} ts2 →
+    ∀ vs, teval_list σ ts1 vs ↔ teval_list σ ts2 vs.
+  Proof with auto.
+    generalize dependent ts2. induction ts1 as [|t1 ts1 IH].
+    - intros. apply tequiv_list_st_nil_l in H. subst...
+    - intros. apply tequiv_list_st_cons_l in H as (t2&ts2'&->&?&?). rename ts2' into ts2.
+      split; inversion 1.
+      + constructor.
+        * apply H...
+        * apply IH...
+      + constructor.
+        * apply H...
         * apply IH with (ts2:=ts2)...
   Qed.
 
@@ -752,7 +873,7 @@ Section semantic.
     - rewrite fequiv_subst_non_free.
       2:{ intros contra.
           apply fvars_seqsubst_superset_vars_not_free_in_terms in contra; set_solver. }
-      rewrite IH by set_solver... f_equiv. unfold to_var_term_map. apply map_eq.
+      rewrite IH by set_solver... f_equiv. unfold to_vtmap. apply map_eq.
       intros x'. destruct (decide (x = x')).
       + subst. simpl. rewrite lookup_insert. unfold OfSameLength in H'.
         simpl in H'. inversion H'.
@@ -766,15 +887,32 @@ Section semantic.
 
   (**  Proper Instances  **)
 
-  Global Instance teval_list_proper : Proper ((=@{@state M}) ==> (term_list_equiv) ==> (=@{list value}) ==> (iff)) teval_list.
+  Global Instance teval_list_proper :
+    Proper ((=@{@state M}) ==> (tequiv_list) ==> (=@{list value}) ==> (iff)) teval_list.
   Proof with auto.
-    intros σ ? <- ts1 ts2 Hequiv vs ? <-. apply term_list_equiv_teval_list...
+    intros σ ? <- ts1 ts2 Hequiv vs ? <-. apply tequiv_list_teval_list...
   Qed.
 
-  Global Instance ATPred_proper : Proper ((=) ==> (term_list_equiv) ==> (≡@{formula}))
+  Global Instance teval_list_proper_st {σ} :
+    Proper ((≡*ₜ_{σ}) ==> (=@{list value}) ==> (iff)) (teval_list σ).
+  Proof with auto.
+    intros ts1 ts2 Hequiv vs1 vs2 <-. apply tequiv_list_st_teval_list...
+  Qed.
+
+  Global Instance ATPred_proper : Proper ((=) ==> (tequiv_list) ==> (≡@{formula}))
                                         AT_Pred.
   Proof with auto.
     intros psym ? <- ts1 ts2 Hequiv σ. simp feval. split; intros.
+    - simpl in H. destruct H as (vargs&?&?). exists vargs. split... revert H.
+      rewrite Hequiv...
+    - simpl in H. destruct H as (vargs&?&?). exists vargs. split... revert H.
+      rewrite <- Hequiv...
+  Qed.
+
+  Global Instance ATPred_proper_st {σ} : Proper ((=) ==> (≡*ₜ_{σ}) ==> (≡_{σ}@{M}))
+                                        AT_Pred.
+  Proof with auto.
+    intros psym ? <- ts1 ts2 Hequiv. unfold fequiv_st. simp feval. split; intros.
     - simpl in H. destruct H as (vargs&?&?). exists vargs. split... revert H.
       rewrite Hequiv...
     - simpl in H. destruct H as (vargs&?&?). exists vargs. split... revert H.
@@ -843,18 +981,18 @@ Section semantic.
       able to automatically use them. It expects ts1 and ts1' be the same (it also expects
       ts2 and ts2' be the same in the case of eqlist). They must be manually used for rewriting.
       The second three instances are weaker versions of the first three that don't respect
-      [term_list_equiv]. However, setoid rewrite will use them.
+      [tequiv_list]. However, setoid rewrite will use them.
    **)
 
   Definition FEqList_proper_strong_manual : Proper (
         respectful_hetero (list term) (list term)
         (λ ts1, ∀ ts2, OfSameLength ts1 ts2 → formula)
         (λ ts1, ∀ ts2, OfSameLength ts1 ts2 → formula)
-        (term_list_equiv)
+        (tequiv_list)
         (λ ts1 ts1', (respectful_hetero (list term) (list term)
                       (λ ts2, OfSameLength ts1 ts2 → formula)
                       (λ ts2, OfSameLength ts1' ts2 → formula)
-                      (term_list_equiv)
+                      (tequiv_list)
                       (λ ts2 ts2', (respectful_hetero (OfSameLength ts1 ts2) (OfSameLength ts1' ts2')
                                     (λ _, formula)
                                     (λ _, formula)
@@ -864,13 +1002,13 @@ Section semantic.
     intros ts1 ts1' H1 ts2 ts2' H2 Hl1 Hl2 _.
     generalize dependent ts2'. generalize dependent ts2. generalize dependent ts1'.
     induction ts1 as [|t1 ts1 IH]; intros ts1' H1 ts2 Hl1 ts2' H2 Hl2.
-    - apply term_list_equiv_nil_l in H1. subst. unfold FEqList. simpl...
-    - apply term_list_equiv_cons_l in H1 as (t1'&ts1''&->&?&?). rename ts1'' into ts1'.
+    - apply tequiv_list_nil_l in H1. subst. unfold FEqList. simpl...
+    - apply tequiv_list_cons_l in H1 as (t1'&ts1''&->&?&?). rename ts1'' into ts1'.
       assert (Hl1':=Hl1). assert (Hl2':=Hl2). unfold OfSameLength in Hl1', Hl2'.
       symmetry in Hl1', Hl2'. simpl in Hl1', Hl2'.
       apply length_nonzero_iff_cons in Hl1' as (t2&ts2''&->&?). rename ts2'' into ts2.
       apply length_nonzero_iff_cons in Hl2' as (t2'&ts2''&->&?). rename ts2'' into ts2'.
-      apply term_list_equiv_cons_inv in H2 as [? ?].
+      apply tequiv_list_cons_inv in H2 as [? ?].
       unfold FEqList. simpl. f_equiv.
       + apply (@ATEq_proper M)...
       + eapply IH...
@@ -887,7 +1025,7 @@ Section semantic.
         (λ xs xs', (respectful_hetero (list term) (list term)
                       (λ ts, OfSameLength xs ts → formula)
                       (λ ts, OfSameLength xs' ts → formula)
-                      (term_list_equiv)
+                      (tequiv_list)
                       (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts')
                                     (λ _, formula)
                                     (λ _, formula)
@@ -903,7 +1041,7 @@ Section semantic.
       apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
       apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
       apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
-      do 2 erewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. f_equiv...
+      do 2 erewrite seqsubst_cons. apply tequiv_list_cons_inv in Hts as []. f_equiv...
   Qed.
 
   Definition seqsubst_proper_fent_strong_manual : Proper ((⇛ₗ@{M}) ==>
@@ -914,7 +1052,7 @@ Section semantic.
         (λ xs xs', (respectful_hetero (list term) (list term)
                       (λ ts, OfSameLength xs ts → formula)
                       (λ ts, OfSameLength xs' ts → formula)
-                      (term_list_equiv)
+                      (tequiv_list)
                       (λ ts ts', (respectful_hetero (OfSameLength xs ts) (OfSameLength xs' ts')
                                     (λ _, formula)
                                     (λ _, formula)
@@ -930,13 +1068,13 @@ Section semantic.
       apply length_nonzero_iff_cons in H0 as (t1&ts1'&?&?). subst ts1. rename ts1' into ts1.
       apply length_nonzero_iff_cons in H1 as (t2&ts2'&?&?). subst ts2. rename ts2' into ts2.
       apply of_same_length_rest in Hl1 as Hl1'. apply of_same_length_rest in Hl2 as Hl2'.
-      do 2 erewrite seqsubst_cons. apply term_list_equiv_cons_inv in Hts as []. f_equiv...
+      do 2 erewrite seqsubst_cons. apply tequiv_list_cons_inv in Hts as []. f_equiv...
   Qed.
 
   (** The following three instances are weaker version of the last three.
-      The don't allow replacing ts with ts' in cases like
+      These don't allow replacing ts with ts' in cases like
       [<! A [; *xs, *ts ;] !> ≡ <! A [; *xs, *ts' ;] !>] even if we have
-      [term_list_equiv ts ts']. From what I understood Rocq doesn't allow
+      [tequiv_list ts ts']. From what I understood Rocq doesn't allow
       such replacements because there are two implicit [OfSameLength]
       instances hidden inside seqsubst that depend on ts and ts'.
       If this proves to be necessary, it might be a good idea to remove
@@ -981,7 +1119,7 @@ Section semantic.
     xs ≡ₚ xs' →
     <! A[_₀\ xs] !> ≡ <! A[_₀\ xs'] !>.
   Proof with auto.
-    intros. do 2 rewrite subst_initials_msubst. f_equiv. unfold to_var_term_map.
+    intros. do 2 rewrite subst_initials_msubst. f_equiv. unfold to_vtmap.
     induction H; simpl...
     - f_equal. etrans.
       + apply IHPermutation.
@@ -1086,12 +1224,12 @@ Section semantic.
     - clear IH. unfold quant_msubst_fvars. intros contra. set_unfold in contra.
       destruct contra as [[|] | ].
       + set_solver.
-      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
+      + apply elem_of_vtmap_fvars in H1 as (x&t&?&?). apply (H0 y).
         * set_solver.
-        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
+        * unfold to_vtmap in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
           apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
           exists t. split... apply elem_of_list_lookup_2 in H3...
-      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
+      + unfold to_vtmap in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
   Qed.
 
   Lemma simpl_msubst_foralllist ys A (xs : list variable) ts `{!OfSameLength xs ts} :
@@ -1104,12 +1242,12 @@ Section semantic.
     - clear IH. unfold quant_msubst_fvars. intros contra. set_unfold in contra.
       destruct contra as [[|] | ].
       + set_solver.
-      + apply elem_of_var_term_map_fvars in H1 as (x&t&?&?). apply (H0 y).
+      + apply elem_of_vtmap_fvars in H1 as (x&t&?&?). apply (H0 y).
         * set_solver.
-        * unfold to_var_term_map in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
+        * unfold to_vtmap in H1. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&?)...
           apply elem_of_union_list. exists (term_fvars t). split... apply elem_of_list_fmap.
           exists t. split... apply elem_of_list_lookup_2 in H3...
-      + unfold to_var_term_map in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
+      + unfold to_vtmap in H1. rewrite dom_list_to_map_zip_L in H1... set_solver.
   Qed.
 
 

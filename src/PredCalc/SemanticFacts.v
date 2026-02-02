@@ -35,7 +35,6 @@ Section subst.
       destruct H2; subst; contradiction.
   Qed.
 
-
   Lemma teval_delete_state_var x {σ t v} :
     x ∉ term_fvars t →
     teval σ t v ↔ teval (delete x σ) t v.
