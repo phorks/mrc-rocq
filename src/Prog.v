@@ -17,7 +17,7 @@ Section prog.
   Context {M : model}.
   Context `{MNat : ModelWithNat M}.
   Local Notation term := (termM M).
-  Local Notation final_term := (final_term (value M)).
+  Local Notation final_term := (final_termM M).
   Local Notation formula := (formulaM M).
   Local Notation final_formula := (final_formulaM M).
 

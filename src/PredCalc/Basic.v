@@ -12,12 +12,15 @@ Open Scope bool_scope.
 Section syntax.
   Context {value : Type}.
   Context {value_ty : Type}.
+  Context {sym : symbols}.
+  Local Notation fsym := (symbols_fsym sym).
+  Local Notation psym := (symbols_psym sym).
 
   Unset Elimination Schemes.
   Inductive term : Type :=
   | TConst (v : value)
   | TVar (x : variable)
-  | TApp (symbol : string) (args : list term).
+  | TApp (f : fsym) (args : list term).
   Set Elimination Schemes.
 
   Fixpoint term_rank (t : term) :=
@@ -27,9 +30,9 @@ Section syntax.
     | TApp f args => 1 + max_list_with term_rank args
     end.
 
-  Lemma term_rank_app_gt_args fsym (arg : term) (args : list term) :
+  Lemma term_rank_app_gt_args f (arg : term) (args : list term) :
     In arg args →
-    term_rank arg < term_rank (TApp fsym args).
+    term_rank arg < term_rank (TApp f args).
   Proof with auto.
     intros HIn. simpl. unfold In in HIn. induction args.
     - destruct HIn.
@@ -64,7 +67,7 @@ Section syntax.
     apply (term_formula_rank_ind P) with (term_rank t + 1); try lia...
     clear t. intros n IH t Htr. destruct t...
     apply Hfunc. intros arg HIn.
-    apply term_rank_app_gt_args with (fsym:=symbol) in HIn.
+    apply term_rank_app_gt_args with (f:=f) in HIn.
     apply IH with (term_rank arg); lia.
   Qed.
 
@@ -73,7 +76,7 @@ Section syntax.
   | AT_False
   | AT_Eq (t1 t2 : term)
   | AT_HasType (t : term) (ty : value_ty)
-  | AT_Pred (symbol : string) (args : list (term)).
+  | AT_Pred (p : psym) (args : list (term)).
 
   Unset Elimination Schemes.
   Inductive formula : Type :=
@@ -98,7 +101,7 @@ Section syntax.
     match t with
     | TConst v => TConst v
     | TVar y => if decide (y = x) then a else TVar y
-    | TApp sym args => TApp sym (map (λ arg, subst_term arg x a) args)
+    | TApp f args => TApp f (map (λ arg, subst_term arg x a) args)
     end.
 
   Definition subst_af af x a :=
@@ -113,7 +116,7 @@ Section syntax.
     match t with
     | TConst v => ∅
     | TVar y => {[y]}
-    | TApp sym args => ⋃ (term_fvars <$> args)
+    | TApp f args => ⋃ (term_fvars <$> args)
     end.
 
   Definition af_fvars af : gset variable :=
@@ -703,24 +706,19 @@ Hint Resolve subst_preserves_shape : core.
 
 Section semantics.
   Context {M : model}.
-  Let value := value M.
+  Local Notation value := (value M).
 
   Definition state := gmap variable value.
 
-  Inductive fn_eval fSym vargs : value → Prop :=
-  | FnEval : ∀ fdef v,
-      (fdefs M) !! fSym = Some fdef →
-      fdef_rel fdef vargs v →
-      fn_eval fSym vargs v
-  | FnEvalBottom : (fdefs M) !! fSym = None → fn_eval fSym vargs ⊥.
+  Definition fn_eval fn vargs v : Prop := fdef_rel (fdefs M fn) vargs v.
 
   Inductive teval (σ : state) : term → value → Prop :=
   | TEval_Const : ∀ v, teval σ (TConst v) v
   | TEval_Var : ∀ x v, σ !!! x = v → teval σ (TVar x) v
-  | TEval_App : ∀ f args vargs fval,
+  | TEval_App : ∀ fn args vargs vf,
       teval_list σ args vargs →
-      fn_eval f vargs fval →
-      teval σ (TApp f args) (fval)
+      fn_eval fn vargs vf →
+      teval σ (TApp fn args) (vf)
   with teval_list (σ : state) : list term → list value → Prop :=
   | TEvalArgs_Nil : teval_list σ [] []
   | TEvalArgs_Cons : ∀ t ts v vs,
@@ -740,11 +738,7 @@ Section semantics.
              (λ args vargs1 _, ∀ vargs2, teval_list σ args vargs2 → vargs1 = vargs2)).
     - intros. inversion H...
     - intros. inversion H; subst...
-    - intros. inversion H0; subst. inversion H5; subst; inversion f0; subst...
-      + apply H in H3. subst vargs0. rewrite H1 in H4. inversion H4; subst.
-        eapply fdef_det; [exact H6 | exact H2].
-      + setoid_rewrite H1 in H4. discriminate.
-      + setoid_rewrite H1 in H2. discriminate.
+    - intros. inversion H0; subst. apply H in H3. subst vargs0. eapply fdef_det; done.
     - inversion 1...
     - intros. destruct vargs2.
       + inversion H1.
@@ -764,14 +758,7 @@ Section semantics.
         + forward IHargs. { intros. apply H. right... }
           destruct IHargs as [vargs ?]. destruct (H a) as [v Hv]; [left; auto|].
           exists (v :: vargs). constructor... }
-      destruct (fdefs M !! f) eqn:Hdef.
-      + rename f0 into fdef. pose proof (fdef_total fdef vargs) as [v Hv]. exists v.
-        econstructor.
-        * exact Hvargs.
-        * apply FnEval with (fdef:=fdef)...
-      + exists ⊥. econstructor.
-        * exact Hvargs.
-        * apply FnEvalBottom...
+      pose proof (fdef_total (fdefs M f) vargs) as [v Hv]. exists v. by econstructor.
   Qed.
 
   Lemma teval_list_det {σ} args vargs1 vargs2 :
@@ -786,10 +773,9 @@ Section semantics.
       + apply IHargs...
   Qed.
 
-  Definition peval (pSym : string) (vargs : list value) : Prop :=
-    ∃ pdef, (pdefs M !! pSym = Some pdef ∧
-               ∀ H : length vargs = pdef_arity pdef,
-                 pdef_rel pdef (list_to_vec_n vargs H)).
+  Definition peval (p : model_psym M) (vargs : list value) : Prop :=
+    ∀ H : length vargs = pdef_arity (pdefs M p),
+      pdef_rel (pdefs M p) (list_to_vec_n vargs H).
 
   Definition afeval (σ : state) (af : atomic_formula) :=
     match af with
@@ -797,7 +783,7 @@ Section semantics.
     | AT_False => False
     | AT_Eq t1 t2 => ∃ v, teval σ t1 v ∧ teval σ t2 v
     | AT_HasType t ty => ∃ v, teval σ t v ∧ hastype M v ty
-    | AT_Pred symbol args => ∃ vargs, teval_list σ args vargs ∧ peval symbol vargs
+    | AT_Pred p args => ∃ vargs, teval_list σ args vargs ∧ peval p vargs
   end.
 
   Equations? feval (σ : state) (A : formula) : Prop by wf (rank A) lt :=
@@ -846,9 +832,9 @@ Arguments atomic_formula value : clear implicits.
 Arguments formula value : clear implicits.
 Arguments state M : clear implicits.
 
-Notation termM M := (term (value M)).
-Notation atomic_formulaM M := (atomic_formula (value M) (value_ty M)).
-Notation formulaM M := (formula (value M) (value_ty M)).
+Notation termM M := (term (value M) (model_symbols M)).
+Notation atomic_formulaM M := (atomic_formula (value M) (value_ty M) (model_symbols M)).
+Notation formulaM M := (formula (value M) (value_ty M) (model_symbols M)).
 
 Hint Constructors teval : core.
 

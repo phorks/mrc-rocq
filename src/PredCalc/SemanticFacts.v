@@ -8,7 +8,7 @@ From MRC Require Import PredCalc.Basic PredCalc.Equiv PredCalc.SyntacticFacts.
 
 Section subst.
   Context {M : model}.
-  Local Notation term := (term (value M)).
+  Local Notation term := (termM M).
   Local Notation atomic_formula := (atomic_formulaM M).
   Local Notation formula := (formulaM M).
 
@@ -120,11 +120,11 @@ Section subst.
       + rewrite <- teval_delete_state_var in H...
     - simpl in Hfree. split; intros (vargs&?&?); exists vargs.
       + split... apply teval_list_delete_state_var...
-        clear H0 H vargs H symbol. induction args... simpl in *.
+        clear H0 H vargs H p. induction args... simpl in *.
         apply not_elem_of_union in Hfree as [? ?].
         apply andb_prop_intro. split...
       + split... apply teval_list_delete_state_var in H...
-        clear H0 H1 vargs H symbol. induction args... simpl in *.
+        clear H0 H1 vargs H p. induction args... simpl in *.
         apply not_elem_of_union in Hfree as [? ?].
         apply andb_prop_intro. split...
   Qed.
@@ -226,14 +226,11 @@ Section subst.
         * inversion H0. subst. apply TEval_Var. rewrite (lookup_total_insert_ne σ)...
       + intros. destruct tpre; simpl in H1; try discriminate.
         * destruct (decide (x0 = x)); try discriminate. inversion H1; subst.
-          inversion H0; subst. inversion H6; subst.
-          2: { inversion f0; subst.
-               - rewrite H1 in H3. discriminate.
-               - constructor. rewrite (lookup_total_insert σ)... }
-          inversion f0; subst; rewrite H1 in H5; [| discriminate].
-          inversion H5; subst fdef0. clear H5.
+          inversion H0; subst.
+          (* inversion f0; subst; rewrite H1 in H5; [| discriminate]. *)
+          (* inversion H5; subst fdef0. clear H5. *)
           pose proof (Heq := teval_list_det _ _ _ H4 t). subst.
-          pose proof (Heq := fdef_det _ H3 H7). subst.
+          pose proof (Heq := fdef_det _ f H6). subst.
           constructor. rewrite (lookup_total_insert σ)...
         * inversion H1. subst. apply TEval_App with vargs... apply H with t'...
       + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor...

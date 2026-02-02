@@ -309,13 +309,9 @@ Global Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
 
 Section lemmas.
   Context {M : model}.
-  Local Notation term := (term (value M)).
-  Local Notation formula := (formula (value M) (value_ty M)).
-  Local Notation state := (state M).
-
-  Implicit Types A B C : formula.
-  Implicit Types t : term.
-  Implicit Types σ : state.
+  Implicit Types A B C : formulaM M.
+  Implicit Types t : termM M.
+  Implicit Types σ : state M.
 
   Lemma f_ent_contrapositive A B :
     <! ¬ B !> ⇛ <! ¬ A !> ↔ <! A !> ⇛ <! B !>.

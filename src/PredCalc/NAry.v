@@ -17,10 +17,13 @@ From MRC Require Import PredCalc.MultiSubst.
 Section syntactic.
   Context {value : Type}.
   Context {value_ty : Type}.
+  Context {sym : symbols}.
 
-  Local Notation term := (term value).
-  Local Notation atomic_formula := (atomic_formula value value_ty).
-  Local Notation formula := (formula value value_ty).
+  Local Notation term := (term value sym).
+  Local Notation atomic_formula := (atomic_formula value value_ty sym).
+  Local Notation formula := (formula value value_ty sym).
+
+  Local Notation TVar := (@TVar value sym).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -371,7 +374,7 @@ Section syntactic.
 
   (** [subst_initials] facts *)
   Lemma subst_initials_zip_pair_functional (xs : list final_variable) :
-    zip_pair_functional (initial_var_of <$> xs) (@TVar value <$> (as_var <$> xs)).
+    zip_pair_functional (initial_var_of <$> xs) (TVar <$> (as_var <$> xs)).
   Proof.
     unfold zip_pair_functional. intros.
     rewrite <- list_fmap_compose in *.
@@ -386,7 +389,7 @@ Section syntactic.
   Qed.
 
   Lemma subst_initials_inverse_zip_pair_functional (xs : list final_variable) :
-    zip_pair_functional (as_var <$> xs) (@TVar value <$> (initial_var_of <$> xs)).
+    zip_pair_functional (as_var <$> xs) (TVar <$> (initial_var_of <$> xs)).
   Proof with auto.
     intros i j x y1 y2 Hij ??.
     rewrite elem_of_zip_pair_indexed in H, H0.
@@ -402,7 +405,7 @@ Section syntactic.
   Qed.
 
   Lemma subst_initials_vars_terms_disjoint (xs : list final_variable) :
-    list_to_set (initial_var_of <$> xs) ## ⋃ (@term_fvars value <$> (TVar <$> (as_var <$> xs))).
+    list_to_set (initial_var_of <$> xs) ## ⋃ (term_fvars <$> (TVar <$> (as_var <$> xs))).
   Proof.
     rewrite <- list_fmap_compose. intros x0 H1 H2. set_unfold. destruct H1 as (x&?&?). subst.
     apply elem_of_union_list in H2 as (fvars&?&?).
@@ -499,6 +502,7 @@ Section semantic.
 
   Local Notation value := (value M).
   Local Notation value_ty := (value_ty M).
+  Local Notation sym := (model_symbols M).
   Local Notation term := (termM M).
   Local Notation atomic_formula := (atomic_formulaM M).
   Local Notation formula := (formulaM M).
@@ -1085,7 +1089,7 @@ Section semantic.
   Global Instance FEqList_of_same_length_pi :
     Proper (forall_relation (λ ts1,
                 forall_relation (λ ts2, respectful universal_relation (=))))
-      (@FEqList value value_ty).
+      (@FEqList value value_ty sym).
   Proof with auto.
     intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
   Qed.
@@ -1281,7 +1285,7 @@ Section semantic.
   Lemma simpl_feval_existslist σ xs A :
     feval σ <! ∃* xs, A !> ↔
     ∃ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
@@ -1301,7 +1305,7 @@ Section semantic.
   Lemma simpl_feval_foralllist σ xs A :
     feval σ <! ∀* xs, A !> ↔
     ∀ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - intros. generalize dependent σ. induction_same_length xs vs as x v...

@@ -255,27 +255,32 @@ Record pdef {value} := mkPdef {
   pdef_rel : vec value pdef_arity → Prop;
 }.
 
-(* Ltac destr_value_ty_choice V τ := *)
-(*   let H := fresh "H" in *)
-(*   let Hempty := fresh "Hempty" in *)
-(*   let v0 := fresh "v0" in *)
-(*   let Hv0 := fresh "Hv0" in *)
-(*   destruct (value_ty_choice V τ) as [[v0 Hv0]|H]; *)
-(*   [ *)
-(*     rewrite <- eq_dec_eq in Hv0; rewrite <- value_elem_of_iff_typeof_eq in Hv0 *)
-(*   | assert (Hempty : value_ty_is_empty V τ); *)
-(*     first (unfold value_ty_is_empty; intros; rewrite value_elem_of_iff_typeof_eq; *)
-(*             rewrite eq_dec_eq; apply H); clear H *)
-(*   ]. *)
+(* A (first-order) language (or signature) minus the arity function  *)
+Record symbols := mkSymbols {
+  symbols_fsym : Type;
+  symbols_fsym_EqDecision : EqDecision symbols_fsym;
+  symbols_psym : Type;
+  symbols_psym_EqDecision : EqDecision symbols_psym;
+}.
 
 Record model := mkModel {
   value : Type;
   value_ty : Type;
   value_bottom : value;
   hastype : value → value_ty → Prop;
-  fdefs : gmap string (@fdef value value_ty hastype);
-  pdefs : gmap string (@pdef value);
+  model_symbols : symbols;
+  fdefs : symbols_fsym model_symbols → @fdef value value_ty hastype;
+  pdefs : symbols_psym model_symbols → @pdef value;
 }.
 
+Global Notation model_fsym M := (symbols_fsym (model_symbols M)).
+Global Instance model_fsym_EqDecision {M} : EqDecision (model_fsym M) :=
+  (symbols_fsym_EqDecision (model_symbols M)).
+
+Global Notation model_psym M := (symbols_psym (model_symbols M)).
+Global Instance model_psym_EqDecision {M} : EqDecision (model_psym M) :=
+  (symbols_psym_EqDecision (model_symbols M)).
+
 Global Instance model_value_bottom {M} : Bottom (value M) := value_bottom M.
-Global Instance model_value_Inhabited {M} : Inhabited (value M) := populate (value_bottom M).
+Global Instance model_value_Inhabited {M} : Inhabited (value M) :=
+  populate (value_bottom M).

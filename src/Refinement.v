@@ -109,7 +109,7 @@ Section refinement.
     intros Hdisjoint H A. simpl. fSimpl.
     unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
-    erewrite (@eqlist_rewrite _ _ (⇑₀ (w ++ xs))). Unshelve.
+    erewrite (@eqlist_rewrite _ _ _ (⇑₀ (w ++ xs))). Unshelve.
     4-5: do 2 rewrite fmap_app; reflexivity.
     rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
     rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).
@@ -288,8 +288,8 @@ Section refinement.
           assert (xs ## w) by set_solver.
           erewrite <- H4; clear H4... rewrite msubst_term_app_comm...
           opose proof (msubst_term_trans t (↑ₓ w ++ ↑ₓ xs) (↑₀ w ++ ↑₀ xs) (⇑ₓ w ++ ⇑ₓ xs)).
-             trans (msubst_term t (to_vtmap (↑ₓ w ++ ↑ₓ xs) ((@TVar value <$> (as_var <$> w)) ++
-                                                           (@TVar value <$> (as_var <$> xs))))).
+             trans (msubst_term t (to_vtmap (↑ₓ w ++ ↑ₓ xs) ((@TVar value _ <$> (as_var <$> w)) ++
+                                                           (@TVar value _ <$> (as_var <$> xs))))).
              -- symmetry. etrans.
                 ++ rewrite <- H4; clear dependent H4 H ts₀; [reflexivity| | | | ].
                    ** set_solver.
@@ -571,9 +571,9 @@ Section refinement.
         destruct H0 as [? _]. destruct_or! H0; apply final_formula_final in H0... }
     intros σ. simp feval. simpl. repeat rewrite simpl_feval_foralllist. intros.
     destruct_and! H.
-    assert (Haux1 : zip_pair_functional ↑ₓ w (TConst <$> vs)) by
+    assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst _ (model_symbols M) <$> vs)) by
       (apply NoDup_zip_pair_functional; auto).
-    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (term_fvars <$> (TConst <$> vs))).
+    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (@term_fvars _ (model_symbols M) <$> (TConst <$> vs))).
     { intros x ??. set_unfold in H3. destruct H3 as (t&?&vt&->&?). simpl in H3. set_solver. }
     rewrite seqsubst_msubst... epose proof (teval_vtmap_total σ _) as [mv ?].
     rewrite feval_msubst by exact H. simp feval. split_and!.

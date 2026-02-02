@@ -8,11 +8,11 @@ From MRC Require Import PredCalc.Basic.
 Section syntactic.
   Context {value : Type}.
   Context {value_ty : Type}.
-  Local Notation term := (term value).
+  Context {sym : symbols}.
 
-  Implicit Types t : term.
-  Implicit Types af : atomic_formula value value_ty.
-  Implicit Types A B C : formula value value_ty.
+  Implicit Types t : term value sym.
+  Implicit Types af : atomic_formula value value_ty sym.
+  Implicit Types A B C : formula value value_ty sym.
   Implicit Types v : value.
 
   Lemma higher_qrank__subst_eq A : ∀ x a r',

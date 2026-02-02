@@ -16,11 +16,12 @@ Open Scope refiney_scope.
 Section syntax.
   Context {value : Type}.
   Context {value_ty : Type}.
+  Context {sym : symbols}.
 
-  Local Notation term := (term value).
-  Local Notation atomic_formula := (atomic_formula value value_ty).
-  Local Notation formula := (formula value value_ty).
-  Local Notation final_term := (final_term value).
+  Local Notation term := (term value sym).
+  Local Notation atomic_formula := (atomic_formula value value_ty sym).
+  Local Notation formula := (formula value value_ty sym).
+  Local Notation final_term := (final_term value sym).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -322,7 +323,7 @@ Section syntax.
     intros Hdisjoint Hnodup1 Hnodup2 Hfree. induction t...
     - simpl. destruct (decide (x ∈ xs1 ∨ x ∈ xs2)).
       2:{ apply Decidable.not_or in n as [].
-          simpl. replace (to_vtmap xs1 (@TVar value <$> xs2) !! x) with (@None term).
+          simpl. replace (to_vtmap xs1 (@TVar value sym <$> xs2) !! x) with (@None term).
           2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_None... }
           replace (to_vtmap xs1 ts !! x) with (@None term).
           2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_None... }
@@ -335,7 +336,7 @@ Section syntax.
         assert (OfSameLength xs1 xs2).
         { unfold OfSameLength in OfSameLength0. rewrite length_fmap in OfSameLength0... }
         destruct (lookup_of_same_length_l xs2 H) as [x' ?].
-        replace (to_vtmap xs1 (@TVar value <$> xs2) !! x) with (Some (@TVar value x')).
+        replace (to_vtmap xs1 (@TVar value sym <$> xs2) !! x) with (Some (@TVar value sym x')).
         2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_Some;
             [typeclasses eauto|]. exists i. split_and!...
             - apply list_lookup_fmap_Some. exists x'. split...
@@ -489,18 +490,19 @@ Section syntax.
     intros Hnodup. induction t...
     - simpl. destruct (decide (x ∈ xs)).
       + apply elem_of_list_lookup in e as (i&?).
-        replace (list_to_map (zip xs (@TVar value <$> xs)) !! x) with (Some (@TVar value x))...
+        replace (list_to_map (zip xs (@TVar value sym <$> xs)) !! x)
+          with (Some (@TVar value sym x))...
         symmetry. apply lookup_list_to_map_zip_Some; [typeclasses eauto|].
         exists i. split_and!...
         * rewrite list_lookup_fmap. rewrite H...
         * intros. apply NoDup_lookup with (i:=i) in H0... lia.
-      + replace (list_to_map (zip xs (@TVar value <$> xs)) !! x) with (@None term)...
+      + replace (list_to_map (zip xs (@TVar value sym <$> xs)) !! x) with (@None term)...
         symmetry. apply lookup_list_to_map_zip_None... typeclasses eauto.
     - simpl. f_equal. apply list_eq. intros i. f_equal. clear i. induction args...
       simpl. rewrite H; [| left]... f_equal. apply IHargs. intros. apply H. right...
   Qed.
 
-  Lemma msubst_term_diag t xs `{!OfSameLength xs (@TVar value <$> xs)} :
+  Lemma msubst_term_diag t xs `{!OfSameLength xs (@TVar value sym <$> xs)} :
     NoDup xs →
     msubst_term t (to_vtmap xs (TVar <$> xs)) = t.
   Proof with auto. unfold to_vtmap. apply msubst_term_diag'... Qed.
@@ -1041,9 +1043,9 @@ Section semantics.
     x1 ≠ x2 →
     x1 ∉ xs1 →
     x2 ∉ xs1 →
-    msubst A (@to_vtmap _ (xs0 ++ [x1] ++ xs1 ++ [x2] ++ xs2)
+    msubst A (@to_vtmap _ _ (xs0 ++ [x1] ++ xs1 ++ [x2] ++ xs2)
                 (ts0 ++ [t1] ++ ts1 ++ [t2] ++ ts2) Hl1) ≡
-    msubst A (@to_vtmap _ (xs0 ++ [x2] ++ xs1 ++ [x1] ++ xs2)
+    msubst A (@to_vtmap _ _ (xs0 ++ [x2] ++ xs1 ++ [x1] ++ xs2)
                 (ts0 ++ [t2] ++ ts1 ++ [t1] ++ ts2) Hl2).
   Proof with auto.
     intros. unfold to_vtmap.
@@ -1073,9 +1075,9 @@ Section semantics.
       `{!OfSameLength xs0 ts0} `{!OfSameLength xs1 ts1}
       {Hl1 Hl2} :
     x1 ≠ x2 →
-    msubst A (@to_vtmap _ (xs0 ++ [x1] ++ [x2] ++ xs1)
+    msubst A (@to_vtmap _ _ (xs0 ++ [x1] ++ [x2] ++ xs1)
                 (ts0 ++ [t1] ++ [t2] ++ ts1) Hl1) ≡
-    msubst A (@to_vtmap _ (xs0 ++ [x2] ++ [x1] ++ xs1)
+    msubst A (@to_vtmap _ _ (xs0 ++ [x2] ++ [x1] ++ xs1)
                 (ts0 ++ [t2] ++ [t1] ++ ts1) Hl2).
   Proof with auto.
     intros.
