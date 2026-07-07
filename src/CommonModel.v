@@ -1,49 +1,49 @@
 From Stdlib Require Import Reals.Reals.
-From Coq Require Import ZArith.ZArith.
+From Stdlib Require Import ZArith.ZArith.
 From Stdlib Require Import Strings.String.
 From stdpp Require Import listset.
+From MRC Require Import RefCalc.
 
-
-Parameter variable : Type.
-Parameter formula : Type → Type.
-
-Inductive value :=
+Inductive Value :=
   | VUnit
   | VNat (n : nat)
   | VInt (i : Z)
   | VReal (r : R)
   | VStr (s : string)
-  | VPair (v1 v2 : value)
-  | VList (l : list value)
-  | VFinSet (s : listset value)
+  | VPair (v1 v2 : Value)
+  | VList (l : list Value)
+  | VFinSet (s : listset Value)
   | VUnknown.
 
-Inductive value_ty :=
+Inductive Value_Ty :=
   | TEmpty
   | TUnit
   | TNat
   | TInt
   | TReal
   | TStr
-  | TPair (τ1 τ2 : value_ty)
-  | TList (τ : value_ty)
-  | TSet (τ : value_ty)
-  | TRel (τ1 τ2 : value_ty)
-  | TFun (τ1 τ2 : value_ty)
-  | TFinSet (τ : value_ty) (* finite powerset *)
-  | TSetComp (τ : value_ty) (P : value → formula value)
-  | TUnion (τ1 τ2 : value_ty)
-  | TIntersection (τ1 τ2 : value_ty)
-  | TSubtraction (τ1 τ2 : value_ty).
+  | TPair (τ1 τ2 : Value_Ty)
+  | TList (τ : Value_Ty)
+  | TSet (τ : Value_Ty)
+  | TRel (τ1 τ2 : Value_Ty)
+  | TFun (τ1 τ2 : Value_Ty)
+  | TFinSet (τ : Value_Ty) (* finite powerset *)
+  | TSetComp (τ : Value_Ty) (P : Value → formula Value Value_Ty)
+  | TUnion (τ1 τ2 : Value_Ty)
+  | TIntersection (τ1 τ2 : Value_Ty)
+  | TSubtraction (τ1 τ2 : Value_Ty).
 
-Fixpoint hastype (v : value) (τ : value_ty) : formula value :=
+Notation Formula := (formula Value Value_Ty).
+
+Fixpoint hastype (v : Value) (τ : Value_Ty) : Formula :=
   match v, τ with
-  | VUnit, TUnit => true
-  | VNat _, TNat => true
-  | VInt _, TInt => true
-  | VReal _, TReal => true
-  | VStr _, TStr => true
-  | VPair v1 v2, TPair τ1 τ2 => hastype v1 v2 && hastype v1 v2
+  | VUnit, TUnit => <! true !>
+  | VNat _, TNat => <! true !>
+  | VInt _, TInt => <! true !>
+  | VReal _, TReal => <! true !>
+  | VStr _, TStr => <! true !>
+  | VPair v1 v2, TPair τ1 τ2 => <! $(hastype v1 τ2) ∧ $(hastype v2 τ2) !>
+  | _, _ => <! false !> end.
   | VList l, TList τ => ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *)
   | VFinSet s, TFinSet τ =>  ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *)
   | VFinSet s, TFinRel τ1 τ2 => hastype v (TSet (τ1 * τ2))

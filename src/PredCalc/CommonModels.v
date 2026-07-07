@@ -96,12 +96,34 @@ Notation "t ≥ u" := (term_ge t u)
                           u custom term at level 60,
                           no associativity) : refiney_scope.
 
+Class ModelWithTypes (M : model) := {
+  hastype : value M → value_ty M → formulaM M;
+}.
+
+Notation "t ∈ ty" := (hastype t ty)
+                      (in custom term_relation at level 60,
+                          t custom term at level 60,
+                          ty custom term_ty at level 60,
+                          no associativity) : refiney_scope.
+
+Notation "t ∉ ty" := (FNot (hastype t ty))
+                      (in custom term_relation at level 60,
+                          t custom term at level 60,
+                          ty custom term_ty at level 60,
+                          no associativity) : refiney_scope.
+
+
+
+Definition tautology {M : model} (A : formulaM M) : Prop :=
+  ∀ σ, feval σ A.
+
 Class ModelWithNat (M : model) := {
+  nat_with_types : ModelWithTypes M;
   nat_to_value : nat → value M;
   nat_ty : value_ty M;
-  nat_to_value_ty : ∀ n, hastype M (nat_to_value n) nat_ty;
+  nat_to_value_ty : ∀ n, tautology (hastype (nat_to_value n) nat_ty);
   value_to_nat : value M → option nat;
-  hastype_nat_ty : ∀ v, hastype M v nat_ty ↔ ∃ n, value_to_nat v = Some n;
+  hastype_nat_ty : ∀ v, tautology (hastype v nat_ty) ↔ ∃ n, value_to_nat v = Some n;
   value_to_nat_nat_to_value : ∀ n, value_to_nat (nat_to_value n) = Some n;
   nat_with_sum :: ModelWithSum M;
   nat_sum_fdef : ∀ v1 v2 n1 n2,

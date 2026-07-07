@@ -181,7 +181,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_fvars_FEqList x ts1 ts2 Hsl Q1 Q2 :
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts1)) Q1 →
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts2)) Q2 →
-    SetUnfoldElemOf x (formula_fvars (@FEqList _ value_ty _ ts1 ts2 Hsl)) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars (@FEqList _ _ ts1 ts2 Hsl)) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. rewrite fvars_eqlist. set_solver. Qed.
 
 End set_solver.

@@ -11,7 +11,6 @@ Open Scope bool_scope.
 
 Section syntax.
   Context {value : Type}.
-  Context {value_ty : Type}.
   Context {sym : symbols}.
   Local Notation fsym := (symbols_fsym sym).
   Local Notation psym := (symbols_psym sym).
@@ -75,7 +74,6 @@ Section syntax.
   | AT_True
   | AT_False
   | AT_Eq (t1 t2 : term)
-  | AT_HasType (t : term) (ty : value_ty)
   | AT_Pred (p : psym) (args : list (term)).
 
   Unset Elimination Schemes.
@@ -107,7 +105,6 @@ Section syntax.
   Definition subst_af af x a :=
     match af with
     | AT_Eq t₁ t₂ => AT_Eq (subst_term t₁ x a) (subst_term t₂ x a)
-    | AT_HasType t ty => AT_HasType (subst_term t x a) ty
     | AT_Pred sym args => AT_Pred sym (map (λ arg, subst_term arg x a) args)
     | _ => af
     end.
@@ -122,7 +119,6 @@ Section syntax.
   Definition af_fvars af : gset variable :=
     match af with
     | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
-    | AT_HasType t ty => term_fvars t
     | AT_Pred _ args => ⋃ (term_fvars <$> args)
     | _ => ∅
     end.
@@ -606,18 +602,6 @@ Notation "t '≠' u" := (FNot (FAtom (AT_Eq t u)))
                            u custom term at level 60,
                            no associativity) : refiney_scope.
 
-Notation "t ∈ ty" := (FAtom (AT_HasType t ty))
-                      (in custom term_relation at level 60,
-                          t custom term at level 60,
-                          ty custom term_ty at level 60,
-                          no associativity) : refiney_scope.
-
-Notation "t ∉ ty" := (FNot (FAtom (AT_HasType t ty)))
-                      (in custom term_relation at level 60,
-                          t custom term at level 60,
-                          ty custom term_ty at level 60,
-                          no associativity) : refiney_scope.
-
 
 Notation "<! e !>" := e (e custom formula) : refiney_scope.
 
@@ -782,7 +766,6 @@ Section semantics.
     | AT_True => True
     | AT_False => False
     | AT_Eq t1 t2 => ∃ v, teval σ t1 v ∧ teval σ t2 v
-    | AT_HasType t ty => ∃ v, teval σ t v ∧ hastype M v ty
     | AT_Pred p args => ∃ vargs, teval_list σ args vargs ∧ peval p vargs
   end.
 
@@ -833,8 +816,8 @@ Arguments formula value : clear implicits.
 Arguments state M : clear implicits.
 
 Notation termM M := (term (value M) (model_symbols M)).
-Notation atomic_formulaM M := (atomic_formula (value M) (value_ty M) (model_symbols M)).
-Notation formulaM M := (formula (value M) (value_ty M) (model_symbols M)).
+Notation atomic_formulaM M := (atomic_formula (value M) (model_symbols M)).
+Notation formulaM M := (formula (value M) (model_symbols M)).
 
 Hint Constructors teval : core.
 

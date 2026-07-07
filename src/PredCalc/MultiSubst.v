@@ -15,12 +15,11 @@ Open Scope refiney_scope.
 
 Section syntax.
   Context {value : Type}.
-  Context {value_ty : Type}.
   Context {sym : symbols}.
 
   Local Notation term := (term value sym).
-  Local Notation atomic_formula := (atomic_formula value value_ty sym).
-  Local Notation formula := (formula value value_ty sym).
+  Local Notation atomic_formula := (atomic_formula value sym).
+  Local Notation formula := (formula value sym).
   Local Notation final_term := (final_term value sym).
 
   Implicit Types x y : variable.
@@ -44,7 +43,6 @@ Section syntax.
   Definition msubst_af af m :=
     match af with
     | AT_Eq t₁ t₂ => AT_Eq (msubst_term t₁ m) (msubst_term t₂ m)
-    | AT_HasType t ty => AT_HasType (msubst_term t m) ty
     | AT_Pred sym args => AT_Pred sym (map (fun arg => msubst_term arg m) args)
     | _ => af
     end.
@@ -153,7 +151,6 @@ Section syntax.
     intros H.
     destruct af...
     - simpl. simpl in H. do 2 rewrite msubst_term_id by set_solver...
-    - simpl. simpl in H. rewrite msubst_term_id by set_solver...
     - simpl. f_equal. induction args... simpl in H. simpl in *. f_equal.
       + rewrite msubst_term_id... set_solver.
       + apply IHargs. set_solver.
@@ -187,7 +184,6 @@ Section syntax.
     intros. destruct af; simpl...
     - rewrite <- msubst_term_delete_non_free by set_solver.
       rewrite <- msubst_term_delete_non_free by set_solver...
-    - rewrite <- msubst_term_delete_non_free by set_solver...
     - f_equal. induction args... simpl. f_equal.
       + rewrite <- msubst_term_delete_non_free... set_solver.
       + apply IHargs. set_solver.
@@ -217,7 +213,6 @@ Section syntax.
   Proof with auto.
     intros. destruct af; simpl in *...
     - rewrite msubst_term_non_free by set_solver. rewrite msubst_term_non_free by set_solver...
-    - rewrite msubst_term_non_free by set_solver...
     - induction args; simpl... f_equal. f_equal.
       + rewrite msubst_term_non_free by set_solver...
       + forward IHargs by set_solver. inversion IHargs... rewrite H1...
@@ -264,10 +259,9 @@ Section syntax.
   Lemma fvars_msubst_af_superset af xs ts `{!OfSameLength xs ts} :
     af_fvars (msubst_af af (to_vtmap xs ts)) ⊆ af_fvars af ∪ ⋃ (term_fvars <$> ts).
   Proof with auto.
-    destruct af; simpl; [set_solver|set_solver | | |].
+    destruct af; simpl; [set_solver| set_solver | |].
     - pose proof (fvars_msubst_term_superset t1 xs ts).
       pose proof (fvars_msubst_term_superset t2 xs ts). set_solver.
-    - pose proof (fvars_msubst_term_superset t xs ts). set_solver.
     - induction args.
       + simpl. set_solver.
       + simpl. pose proof (fvars_msubst_term_superset a xs ts). set_solver.
@@ -721,9 +715,6 @@ Section semantics.
       + rewrite <- teval_msubst with (m:=m) in H1, H2...
         econstructor. split; [exact H1 | exact H2].
     - split; inversion 1; destruct H1 as [].
-      + rewrite teval_msubst with (mv:=mv) in H1... econstructor. split; [exact H1 | exact H2].
-      + rewrite <- teval_msubst with (m:=m) in H1... econstructor. split; [exact H1 | exact H2].
-    - split; inversion 1; destruct H1 as [].
       + rename x into vargs. exists vargs. split... clear H0 H2. generalize dependent vargs.
         induction args; intros.
         * inversion H1. subst. constructor.
@@ -883,8 +874,8 @@ Section semantics.
     msubst_af af m = msubst_af (subst_af af x t) (delete x m).
   Proof with auto.
     destruct af; simpl; intros...
-    1-2: simpl; f_equal; apply msubst_term_extract...
-    simpl. f_equal. induction args... simpl. f_equal... apply msubst_term_extract...
+    - simpl; f_equal; apply msubst_term_extract...
+    - simpl. f_equal. induction args... simpl. f_equal... apply msubst_term_extract...
   Qed.
 
   Lemma msubst_extract_l' A x t m :

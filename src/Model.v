@@ -242,10 +242,10 @@ Proof with auto.
   destruct (decide (x ∈ fvars))... contradiction.
 Qed.
 
-Record fdef {value value_ty} {hastype : value → value_ty → Prop} := mkFdef {
+Record fdef {value value_ty} := mkFdef {
   fdef_sig : list value → value_ty;
   fdef_rel : list value → value → Prop;
-  fdef_typing : ∀ args v, fdef_rel args v → hastype v (fdef_sig args);
+  (* fdef_typing : ∀ args v, fdef_rel args v → hastype v (fdef_sig args); *)
   fdef_det : ∀ {args v1 v2}, fdef_rel args v1 → fdef_rel args v2 → v1 = v2;
   fdef_total : ∀ args, ∃ v, fdef_rel args v;
 }.
@@ -267,9 +267,8 @@ Record model := mkModel {
   value : Type;
   value_ty : Type;
   value_bottom : value;
-  hastype : value → value_ty → Prop;
   model_symbols : symbols;
-  fdefs : symbols_fsym model_symbols → @fdef value value_ty hastype;
+  fdefs : symbols_fsym model_symbols → @fdef value value_ty;
   pdefs : symbols_psym model_symbols → @pdef value;
 }.
 
