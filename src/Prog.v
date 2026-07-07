@@ -23,7 +23,7 @@ Section prog.
 
   Unset Elimination Schemes.
   Inductive prog : Type :=
-  | PAsgn (xs : list final_variable) (ts: list final_term) `{OfSameLength _ _ xs ts}
+  | PAsgn (xs : list final_variable) (ts: list final_term) `{!OfSameLength xs ts}
   | PSeq (p1 p2 : prog)
   | PIf (gcmds : list (final_formula * prog))
   | PWhile (g inv : final_formula) (variant : final_term) (p : prog)

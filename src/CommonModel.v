@@ -2,7 +2,7 @@ From Stdlib Require Import Reals.Reals.
 From Stdlib Require Import ZArith.ZArith.
 From Stdlib Require Import Strings.String.
 From stdpp Require Import listset.
-From MRC Require Import RefCalc.
+From MRC Require Export PredCalc.
 
 Inductive Value :=
   | VUnit

@@ -101,34 +101,34 @@ Section refinement.
     - left. done.
   Qed.
 
-  Lemma r_expand_frame_1 xs w pre post `{!FormulaFinal pre} :
-    w ## xs →
-    <! post[_₀\ xs] !> ≡ post →
-    <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>.
-  Proof with auto.
-    intros Hdisjoint H A. simpl. fSimpl.
-    unfold subst_initials.
-    rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
-    erewrite (@eqlist_rewrite _ _ _ (⇑₀ (w ++ xs))). Unshelve.
-    4-5: do 2 rewrite fmap_app; reflexivity.
-    rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
-    rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).
-    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
-    f_equiv. f_equiv.
-    rewrite f_and_comm. rewrite <- f_impl_curry.
-    rewrite fmap_app. rewrite foralllist_app.
-    rewrite f_foralllist_comm.
-    rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>).
-    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
-    setoid_rewrite (f_foralllist_one_point (↑ₓ xs))...
-    rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials.
-    rewrite subst_initials_inverse_l...
-    1: { rewrite H... }
-    intros x ??. set_unfold. destruct H1. clear H2.
-    destruct H1 as [[[] |] |]; [set_solver|set_solver|].
-    apply formula_is_final in H1. naive_solver.
-    Unshelve. typeclasses eauto.
-  Qed.
+  (* Lemma r_expand_frame_1 xs w pre post `{!FormulaFinal pre} : *)
+  (*   w ## xs → *)
+  (*   <! post[_₀\ xs] !> ≡ post → *)
+  (*   <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>. *)
+  (* Proof with auto. *)
+  (*   intros Hdisjoint H A. simpl. fSimpl. *)
+  (*   unfold subst_initials. *)
+  (*   rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point... *)
+  (*   erewrite <- (@eqlist_rewrite _ _ _ (⇑₀ (w ++ xs))). Unshelve. *)
+  (*   3-4: do 2 rewrite fmap_app; reflexivity. *)
+  (*   rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app. *)
+  (*   rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)). *)
+  (*   2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. } *)
+  (*   f_equiv. f_equiv. *)
+  (*   rewrite f_and_comm. rewrite <- f_impl_curry. *)
+  (*   rewrite fmap_app. rewrite foralllist_app. *)
+  (*   rewrite f_foralllist_comm. *)
+  (*   rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>). *)
+  (*   2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. } *)
+  (*   setoid_rewrite (f_foralllist_one_point (↑ₓ xs))... *)
+  (*   rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials. *)
+  (*   rewrite subst_initials_inverse_l... *)
+  (*   1: { rewrite H... } *)
+  (*   intros x ??. set_unfold. destruct H1. clear H2. *)
+  (*   destruct H1 as [[[] |] |]; [set_solver|set_solver|]. *)
+  (*   apply formula_is_final in H1. naive_solver. *)
+  (*   Unshelve. typeclasses eauto. *)
+  (* Qed. *)
 
   (* Law 3.2 *)
   Lemma r_skip w pre post `{!FormulaFinal pre} :

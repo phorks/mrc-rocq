@@ -5,6 +5,7 @@ From MRC Require Import Tactics.
 From MRC Require Import Stdppp.
 From MRC Require Import Model.
 From MRC Require Import PredCalc.Basic.
+From MRC Require Import PredCalc.Variables.
 Import EqNotations.
 
 Class ModelWithSum (M : model) := sum_sym : model_fsym M.
@@ -97,7 +98,8 @@ Notation "t ≥ u" := (term_ge t u)
                           no associativity) : refiney_scope.
 
 Class ModelWithTypes (M : model) := {
-  hastype : value M → value_ty M → formulaM M;
+  hastype : termM M → value_ty M → formulaM M;
+  hastype_final_final :: ∀ t ty, TermFinal t → FormulaFinal (hastype t ty);
 }.
 
 Notation "t ∈ ty" := (hastype t ty)
@@ -118,12 +120,12 @@ Definition tautology {M : model} (A : formulaM M) : Prop :=
   ∀ σ, feval σ A.
 
 Class ModelWithNat (M : model) := {
-  nat_with_types : ModelWithTypes M;
+  nat_with_types :: ModelWithTypes M;
   nat_to_value : nat → value M;
   nat_ty : value_ty M;
-  nat_to_value_ty : ∀ n, tautology (hastype (nat_to_value n) nat_ty);
+  nat_to_value_ty : ∀ n, tautology (hastype (TConst $ nat_to_value n) nat_ty);
   value_to_nat : value M → option nat;
-  hastype_nat_ty : ∀ v, tautology (hastype v nat_ty) ↔ ∃ n, value_to_nat v = Some n;
+  hastype_nat_ty : ∀ v, tautology (hastype (TConst v) nat_ty) ↔ ∃ n, value_to_nat v = Some n;
   value_to_nat_nat_to_value : ∀ n, value_to_nat (nat_to_value n) = Some n;
   nat_with_sum :: ModelWithSum M;
   nat_sum_fdef : ∀ v1 v2 n1 n2,

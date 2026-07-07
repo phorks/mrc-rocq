@@ -406,7 +406,7 @@ Arguments final_term value : clear implicits.
 Arguments final_formula value : clear implicits.
 
 Notation final_termM M := (final_term (value M) (model_symbols M)).
-Notation final_formulaM M := (final_formula (value M) (value_ty M) (model_symbols M)).
+Notation final_formulaM M := (final_formula (value M) (model_symbols M)).
 
 Section lemmas.
   Context {value : Type}.
