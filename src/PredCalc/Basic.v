@@ -694,6 +694,10 @@ Section semantics.
 
   Definition state := gmap variable value.
 
+  Inductive TotalFRel (R : list value → value → Prop) : list value → value → Prop :=
+    | TotalFRel_Known : ∀ args v, R args v → TotalFRel R args v
+    | TotalFRel_Unknown : ∀ args, (∀ v, ¬ R args v) → TotalFRel R args ⊥.
+
   Definition fn_eval fn vargs v : Prop := fdef_rel (fdefs M fn) vargs v.
 
   Inductive teval (σ : state) : term → value → Prop :=

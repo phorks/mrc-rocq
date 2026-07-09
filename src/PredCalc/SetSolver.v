@@ -16,7 +16,6 @@ From MRC Require Import PredCalc.Variables.
 Section set_solver.
   Context {M : model}.
   Local Notation value := (value M).
-  Local Notation value_ty := (value_ty M).
   Local Notation sym := (model_symbols M).
   Local Notation term := (termM M).
   Local Notation formula := (formulaM M).

@@ -561,7 +561,7 @@ Section refinement.
     let var₀ := <! $(as_term var) [[ₜ ↑ₓ w \ ⇑₀ w ]] !> in
     <{ *w : [inv, inv ∧ ¬ g] }> ⊑
       <{ while g invariant inv variant var ⟶
-         *w : [inv ∧ g, inv ∧ ⌜var ∈ ℕ⌝ ∧ ⌜0 ≤ var⌝ ∧ ⌜var < var₀⌝] end }>.
+         *w : [inv ∧ g, inv ∧ ⌜var ∈ₜ ℕ⌝ ∧ ⌜0 ≤ var⌝ ∧ ⌜var < var₀⌝] end }>.
   Proof with auto.
     intros Hnodup ? A. simpl. unfold modified_vars. simpl.
     rewrite (f_foralllist_permute (set_to_list (as_var_set (list_to_set w))) (↑ₓ w)).

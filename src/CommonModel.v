@@ -11,9 +11,61 @@ Inductive Value :=
   | VReal (r : R)
   | VStr (s : string)
   | VPair (v1 v2 : Value)
-  | VList (l : list Value)
-  | VFinSet (s : listset Value)
+  | VSeq (l : list Value)
+  | VBag (s : listset Value)
   | VUnknown.
+
+Inductive FSym :=
+  | FSum
+  | FSub
+  | FMul
+  | FSqrt
+  | FFloor
+  | FLen (* #as *)
+  | FConcat (* as ++ bs *)
+  | FIndex (* as[i] *)
+  | FToBag (* bag as *)
+  | FPrefix (* as↑n *)
+  | FSuffix (* as↓n *)
+.
+
+Global Instance FSym_EqDecision : EqDecision FSym.
+Proof. solve_decision. Qed.
+
+Inductive PSym :=
+  | Lt
+  | In
+  | IsUnit
+  | IsNat
+  | IsInt
+  | IsReal.
+
+Global Instance PSym_EqDecision : EqDecision PSym.
+Proof. solve_decision. Qed.
+
+Definition Symbols := Model.mkSymbols FSym FSym_EqDecision PSym PSym_EqDecision.
+
+Notation Term := (term Value Symbols).
+Notation Formula := (formula Value Symbols).
+
+Inductive FSum_rel : list Value → Value → Prop :=
+  | FSum_IntInt : ∀ i1 i2, FSum_rel [VInt i1; VInt i2] (VInt (i1 + i2))
+  | FSum_IntReal : ∀ i r, FSum_rel [VInt i; VReal r] (VReal (IZR i + r))
+  | FSum_RealInt : ∀ r i, FSum_rel [VReal r; VInt i] (VReal (r + IZR i))
+.
+
+Inductive FSum_rel_total : list Value → Value → Prop :=
+  | FSum_Total : ∀ args v, (FSum_rel args v ∨ v = VUnknown ∧ ∀ v', ¬ FSum_rel args v') → FSum_rel_total args v.
+
+Program Definition FSum_fdef : @Model.fdef Value := {| Model.fdef_rel := FSum_rel |}.
+Next Obligation.
+  inversion H; inversion H0; try congruence.
+Qed.
+Next Obligation.
+
+
+Proof.
+  refine {[ Model.fdef_rel = FSum_rel ]}.
 
 Inductive Value_Ty :=
   | TEmpty
@@ -28,12 +80,12 @@ Inductive Value_Ty :=
   | TRel (τ1 τ2 : Value_Ty)
   | TFun (τ1 τ2 : Value_Ty)
   | TFinSet (τ : Value_Ty) (* finite powerset *)
-  | TSetComp (τ : Value_Ty) (P : Value → formula Value Value_Ty)
+  | TSetComp (τ : Value_Ty) (P : Term → Formula)
   | TUnion (τ1 τ2 : Value_Ty)
   | TIntersection (τ1 τ2 : Value_Ty)
   | TSubtraction (τ1 τ2 : Value_Ty).
 
-Notation Formula := (formula Value Value_Ty).
+Definition Model := Model.mkModel Value Value_Ty VUnknown Symbols.
 
 Fixpoint hastype (v : Value) (τ : Value_Ty) : Formula :=
   match v, τ with

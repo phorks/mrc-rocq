@@ -500,7 +500,6 @@ Section semantic.
   Context {M : model}.
 
   Local Notation value := (value M).
-  Local Notation value_ty := (value_ty M).
   Local Notation sym := (model_symbols M).
   Local Notation term := (termM M).
   Local Notation atomic_formula := (atomic_formulaM M).

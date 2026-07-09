@@ -124,7 +124,7 @@ Section prog.
         <! ∀* $(set_to_list (Δ p)),
             (inv ∧ g ⇒ $(wp p inv)) ∧
             (inv ∧ ¬ g ⇒ A) ∧
-            (inv ∧ g ⇒ ⌜var ∈ ℕ⌝) ∧
+            (inv ∧ g ⇒ ⌜var ∈ₜ ℕ⌝) ∧
             (inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
     | PSpec w pre post =>
         <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
@@ -196,7 +196,7 @@ Section prog.
     mkAsgnArgs opens (x :: xs) (t :: ts) _.
 
   Definition split_asgn_list (xs : list final_variable) (rhs : list asgn_rhs_term)
-    `{H : OfSameLength _ _ xs rhs} : asgn_args :=
+    `{H : !OfSameLength xs rhs} : asgn_args :=
     of_same_length_rect
       id
         (λ rec x t args,
@@ -614,7 +614,7 @@ Notation "'if' | g : gs → p 'fi'" := (PIf (gcmd_comprehension gs (λ g, p)))
     : refiney_scope.
 
 Notation "'while' A 'invariant' I 'variant' v ⟶ p 'end'" :=
-  (PWhile A (<!! I ∧ ⌜v ∈ ℕ⌝ !!>) v p)
+  (PWhile A (<!! I ∧ ⌜v ∈ₜ ℕ⌝ !!>) v p)
     (in custom prog at level 95,
         A custom formula,
         I custom formula,
