@@ -698,7 +698,20 @@ Section semantics.
     | TotalFRel_Known : ∀ args v, R args v → TotalFRel R args v
     | TotalFRel_Unknown : ∀ args, (∀ v, ¬ R args v) → TotalFRel R args ⊥.
 
-  Definition fn_eval fn vargs v : Prop := fdef_rel (fdefs M fn) vargs v.
+  (* Note: I think this axiom can be used to derive lem, similar to [feval_lem], we assume it
+      locally. *)
+  Axiom TotalFRel_total :
+    ∀ R : list value → value → Prop, ∀ args : list value, ∃ v, TotalFRel R args v.
+
+  Definition fn_eval fn vargs v : Prop := TotalFRel (fdef_rel (fdefs M fn)) vargs v.
+
+  Lemma fn_eval_det {fn vargs v1 v2} : fn_eval fn vargs v1 → fn_eval fn vargs v2 → v1 = v2.
+  Proof with auto.
+    intros. inversion H; inversion H0; subst...
+    - eapply fdef_det; done.
+    - specialize (H4 v1). done.
+    - specialize (H1 v2). done.
+  Qed.
 
   Inductive teval (σ : state) : term → value → Prop :=
   | TEval_Const : ∀ v, teval σ (TConst v) v
@@ -726,7 +739,7 @@ Section semantics.
              (λ args vargs1 _, ∀ vargs2, teval_list σ args vargs2 → vargs1 = vargs2)).
     - intros. inversion H...
     - intros. inversion H; subst...
-    - intros. inversion H0; subst. apply H in H3. subst vargs0. eapply fdef_det; done.
+    - intros. inversion H0; subst. apply H in H3. subst vargs0. by eapply fn_eval_det.
     - inversion 1...
     - intros. destruct vargs2.
       + inversion H1.
@@ -746,7 +759,8 @@ Section semantics.
         + forward IHargs. { intros. apply H. right... }
           destruct IHargs as [vargs ?]. destruct (H a) as [v Hv]; [left; auto|].
           exists (v :: vargs). constructor... }
-      pose proof (fdef_total (fdefs M f) vargs) as [v Hv]. exists v. by econstructor.
+      pose proof (TotalFRel_total (fdef_rel (fdefs M f)) vargs) as [v Hv]. exists v.
+      by econstructor.
   Qed.
 
   Lemma teval_list_det {σ} args vargs1 vargs2 :

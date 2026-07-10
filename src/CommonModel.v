@@ -1,19 +1,178 @@
-From Stdlib Require Import Reals.Reals.
-From Stdlib Require Import ZArith.ZArith.
-From Stdlib Require Import Strings.String.
+From Stdlib Require Import Reals ZArith String Sorting.
 From stdpp Require Import listset.
-From MRC Require Export PredCalc.
+From MRC Require Export PredCalc ListBag Prelude Tactics.
 
-Inductive Value :=
+Global Instance R_EqDecision : EqDecision R.
+Proof with auto.
+  intros x y. apply Req_dec_T.
+Qed.
+
+Global Instance Rle_Decision {r1 r2} : Decision (Rle r1 r2) := Rle_dec r1 r2.
+Global Instance Rlt_Decision {r1 r2} : Decision (Rlt r1 r2) := Rlt_dec r1 r2.
+
+Definition Rleb (r1 r2 : R) := bool_decide (Rle r1 r2).
+Definition Rltb (r1 r2 : R) := bool_decide (Rlt r1 r2).
+
+Definition Rcompare (r1 r2 : R) : comparison :=
+  if decide (r1 = r2) then Eq else if Rltb r1 r2 then Lt else Gt.
+
+Inductive ValueRaw :=
   | VUnit
   | VNat (n : nat)
   | VInt (i : Z)
   | VReal (r : R)
   | VStr (s : string)
-  | VPair (v1 v2 : Value)
-  | VSeq (l : list Value)
-  | VBag (s : listset Value)
+  | VPair (v1 v2 : ValueRaw)
+  | VSeq (l : list ValueRaw)
+  | VBag (l : list ValueRaw)
   | VUnknown.
+
+Fixpoint vraw_eq_dec (x y : ValueRaw) : {x = y} + {x <> y}.
+Proof.
+  decide equality; try solve_trivial_decision.
+  - eapply list_eq_dec. Unshelve. unfold EqDecision, Decision. apply vraw_eq_dec.
+  - destruct l; destruct l0; decide equality.
+Defined.
+
+Global Instance ValueRaw_EqDecision : EqDecision ValueRaw.
+Proof.
+  unfold EqDecision, Decision. apply vraw_eq_dec.
+Qed.
+
+Definition vraw_eqb (x y : ValueRaw) : bool := bool_decide (x = y).
+
+Fixpoint vraw_constructor_idx (v : ValueRaw) : nat :=
+  match v with
+  | VUnit => 0
+  | VNat n => 1
+  | VInt i => 2
+  | VReal r => 3
+  | VStr s => 4
+  | VPair v1 v2 => 5
+  | VSeq l => 6
+  | VBag l => 7
+  | VUnknown => 8
+  end.
+
+Fixpoint vraw_compare (x y : ValueRaw) : comparison :=
+  match x, y with
+  | VUnit, VUnit => Eq
+  | VNat n1, VNat n2 => nat_compare_alt n1 n2
+  | VInt i1, VInt i2 => Z.compare i1 i2
+  | VReal r1, VReal r2 => Rcompare r1 r2
+  | VStr s1, VStr s2 => compare s1 s2
+  | VPair p1 p2, VPair q1 q2 =>
+      match vraw_compare p1 q1 with
+      | Eq => vraw_compare p2 q2
+      | c => c
+      end
+  | VSeq l1, VSeq l2 => list_compare vraw_compare l1 l2
+  | VBag l1, VBag l2 => list_compare vraw_compare l1 l2
+  | VUnknown, VUnknonw => Eq
+  | x, y => nat_compare_alt (vraw_constructor_idx x) (vraw_constructor_idx y)
+  end.
+
+Definition vraw_le (x y : ValueRaw) := vraw_compare x y = Lt ∨ vraw_compare x y = Eq.
+
+Global Instance vraw_le_dec : RelDecision vraw_le.
+Proof. intros x y. solve_decision. Qed.
+
+Fixpoint sortedb {A} (compare : A → A → comparison) (l : list A) : bool :=
+  match l with
+  | [] => true
+  | x :: [] => true
+  | x :: (y :: _) as rest =>
+      match compare x y with
+      | Gt => false
+      | _ => sortedb compare rest
+      end
+  end.
+
+
+Fixpoint value_invariant (v : ValueRaw) : bool :=
+  match v with
+  | VUnit => true
+  | VNat n => true
+  | VInt i => true
+  | VReal r => true
+  | VStr s => true
+  | VPair v1 v2 => value_invariant v1 && value_invariant v2
+  | VSeq l =>
+      let fix list_value_invariant (l : list ValueRaw) : bool :=
+        match l with
+        | [] => true
+        | x :: xs => value_invariant x && list_value_invariant xs
+        end
+      in
+      list_value_invariant l
+  | VBag l =>
+      let fix list_value_invariant (l : list ValueRaw) : bool :=
+        match l with
+        | [] => true
+        | x :: xs => value_invariant x && list_value_invariant xs
+        end
+      in
+      sortedb vraw_compare l && list_value_invariant l
+  | VUnknown => true
+  end.
+
+Lemma value_invariant_seq_unfold {l} :
+  value_invariant (VSeq l) = forallb value_invariant l.
+Proof with auto. reflexivity. Qed.
+
+Lemma value_invariant_bag_unfold {l} :
+  value_invariant (VBag l) = sortedb vraw_compare l && forallb value_invariant l.
+Proof with auto. reflexivity. Qed.
+
+Definition Value := {v : ValueRaw | value_invariant v = true}.
+
+Lemma value_invariant_pi : forall v (p q : value_invariant v = true), p = q.
+Proof. intros v p q. apply Eqdep_dec.UIP_dec. apply Bool.bool_dec. Qed.
+
+Lemma value_eq_iff {v1 v2 : Value} : v1 = v2 ↔ `v1 = `v2.
+Proof with auto.
+  destruct v1, v2. simpl. split; intros.
+  - inversion H...
+  - subst x0. f_equal. apply value_invariant_pi.
+Qed.
+
+Fixpoint Value_eq_dec (x y : Value) : {x = y} + {x <> y}.
+Proof.
+  destruct x as [x i1]. destruct y as [y i2]. destruct (decide (x = y)).
+  - subst. left. f_equal. apply value_invariant_pi.
+  - right. intros contra. by inversion contra.
+Qed.
+
+Global Instance Value_EqDecision : EqDecision Value.
+Proof.
+  unfold EqDecision, Decision. apply Value_eq_dec.
+Qed.
+
+Lemma value_invariant_value (v : Value) : value_invariant (`v) = true.
+Proof. by destruct v. Qed.
+
+Notation "`* xs" := (map proj1_sig xs) (at level 10, format "`* xs") : stdpp_scope.
+
+Program Definition mkUnknown : Value := VUnknown.
+Program Definition mkUnit : Value := VUnit.
+Program Definition mkNat (n : nat) : Value := VNat n.
+Program Definition mkInt (i : Z) : Value := VInt i.
+Program Definition mkReal (r : R) : Value := VReal r.
+Program Definition mkStr (s : string) : Value := VStr s.
+Program Definition mkSeq (l : list Value) : Value := VSeq (`*l).
+Next Obligation.
+  epose proof value_invariant_seq_unfold. simpl in H. rewrite H. clear H.
+  induction l; auto. simpl. rewrite andb_true_iff. split; auto. apply value_invariant_value.
+Qed.
+Program Definition mkBag (l : list Value) (H : sortedb vraw_compare (`*l) = true) : Value
+  := VBag (`*l).
+Next Obligation.
+  rewrite andb_true_iff. split; [assumption|]. clear H.
+  epose proof value_invariant_seq_unfold. simpl in H. rewrite H. clear H.
+  induction l; auto. simpl. rewrite andb_true_iff. split; auto. apply value_invariant_value.
+Qed.
+
+Global Instance Value_Bottom : Bottom Value := mkUnknown.
 
 Inductive FSym :=
   | FSum
@@ -21,6 +180,9 @@ Inductive FSym :=
   | FMul
   | FSqrt
   | FFloor
+  | FToNat
+  | FToInt
+  | FToReal
   | FLen (* #as *)
   | FConcat (* as ++ bs *)
   | FIndex (* as[i] *)
@@ -49,20 +211,181 @@ Notation Term := (term Value Symbols).
 Notation Formula := (formula Value Symbols).
 
 Inductive FSum_rel : list Value → Value → Prop :=
+  | FSum_NN : ∀ n1 n2, FSum_rel [mkNat n1; mkNat n2] (mkNat (n1 + n2))
+  | FSum_NZ : ∀ n i, FSum_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n + i))
+  | FSum_ZN : ∀ i n, FSum_rel [mkInt i; mkNat n] (mkInt (i + Z.of_nat n))
+  | FSum_NR : ∀ n r, FSum_rel [mkNat n; mkReal r] (mkReal (INR n + r))
+  | FSum_RN : ∀ r n, FSum_rel [mkReal r; mkNat n] (mkReal (r + INR n))
+  | FSum_ZZ : ∀ i1 i2, FSum_rel [mkInt i1; mkInt i2] (mkInt (i1 + i2))
+  | FSum_ZR : ∀ i r, FSum_rel [mkInt i; mkReal r] (mkReal (IZR i + r))
+  | FSum_RZ : ∀ r i, FSum_rel [mkReal r; mkInt i] (mkReal (r + IZR i))
+.
+
+Program Definition FSum_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSum_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: inversion H3; subst; done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FSub_rel : list Value → Value → Prop :=
+  | FSub_NN : ∀ n1 n2, n1 > n2 → FSub_rel [mkNat n1; mkNat n2] (mkNat (n1 - n2))
+  | FSub_NZ : ∀ n i, FSub_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n - i))
+  | FSub_ZN : ∀ i n, FSub_rel [mkInt i; mkNat n] (mkInt (i - Z.of_nat n))
+  | FSub_NR : ∀ n r, FSub_rel [mkNat n; mkReal r] (mkReal (INR n - r))
+  | FSub_RN : ∀ r n, FSub_rel [mkReal r; mkNat n] (mkReal (r - INR n))
+  | FSub_ZZ : ∀ i1 i2, FSub_rel [mkInt i1; mkInt i2] (mkInt (i1 - i2))
+  | FSub_ZR : ∀ i r, FSub_rel [mkInt i; mkReal r] (mkReal (IZR i - r))
+  | FSub_RZ : ∀ r i, FSub_rel [mkReal r; mkInt i] (mkReal (r - IZR i))
+.
+
+Program Definition FSub_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSub_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H5; subst; done).
+  all: try (inversion H4; subst; done).
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FMult_rel : list Value → Value → Prop :=
+  | FMult_NN : ∀ n1 n2, FMult_rel [mkNat n1; mkNat n2] (mkNat (n1 * n2))
+  | FMult_NZ : ∀ n i, FMult_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n * i))
+  | FMult_ZN : ∀ i n, FMult_rel [mkInt i; mkNat n] (mkInt (i * Z.of_nat n))
+  | FMult_NR : ∀ n r, FMult_rel [mkNat n; mkReal r] (mkReal (INR n * r))
+  | FMult_RN : ∀ r n, FMult_rel [mkReal r; mkNat n] (mkReal (r * INR n))
+  | FMult_ZZ : ∀ i1 i2, FMult_rel [mkInt i1; mkInt i2] (mkInt (i1 * i2))
+  | FMult_ZR : ∀ i r, FMult_rel [mkInt i; mkReal r] (mkReal (IZR i * r))
+  | FMult_RZ : ∀ r i, FMult_rel [mkReal r; mkInt i] (mkReal (r * IZR i))
+.
+
+Program Definition FMult_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FMult_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FSqrt_rel : list Value → Value → Prop :=
+  | FSqrt_N : ∀ (r2 : nat) r, (0 <= r)%R → (r ^ 2)%R = INR r2 → FSqrt_rel [mkNat r2] (mkReal r)
+  | FSqrt_Z : ∀ (r2 : Z) r, (0 <= r)%R → (r ^ 2)%R = IZR r2 → FSqrt_rel [mkInt r2] (mkReal r)
+  | FSqrt_R : ∀ r2 r, (0 <= r)%R → (r ^ 2)%R = r2 → FSqrt_rel [mkReal r2] (mkReal r)
+.
+
+Program Definition FSqrt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSqrt_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H7; subst; done).
+  all: subst; inversion H7; subst; f_equal; apply Rsqr_inj; try done; unfold Rsqr; simpl in *.
+  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
+  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
+  - do 2 rewrite Rmult_1_r in H3. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FFloor_rel : list Value → Value → Prop :=
+  | FFloor_N : ∀ n : nat, FFloor_rel [mkNat n] (mkNat n)
+  | FFloor_Z : ∀ i : Z, FFloor_rel [mkInt i] (mkInt i)
+  | FFloor_R : ∀ r (i : Z), (IZR i <= r < IZR i + 1)%R → FFloor_rel [mkReal r] (mkInt i)
+.
+
+Program Definition FFloor_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FFloor_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  inversion H5. subst r0. f_equal. apply Zfloor_eq in H1, H4. lia.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FToNat_rel : list Value → Value → Prop :=
+  | FToNat_N : ∀ n : nat, FToNat_rel [mkNat n] (mkNat n)
+  | FToNat_Z : ∀ i : Z, (0 ≤ i)%Z → FToNat_rel [mkInt i] (mkNat (Z.to_nat i))
+  | FToNat_R : ∀ r n, r = INR n → FToNat_rel [mkReal r] (mkNat n)
+.
+
+Program Definition FToNat_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToNat_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  all: try (inversion H5; subst; done).
+  inversion H5; inversion H; inversion H0; subst. f_equal. apply INR_eq in H2. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FToInt_rel : list Value → Value → Prop :=
+  | FToInt_N : ∀ n : nat, FToInt_rel [mkNat n] (mkInt (Z.of_nat n))
+  | FToInt_Z : ∀ i : Z, FToInt_rel [mkInt i] (mkInt i)
+  | FToInt_R : ∀ r i, r = IZR i → FToInt_rel [mkReal r] (mkInt i)
+.
+
+Program Definition FToInt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToInt_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  inversion H5; inversion H; inversion H0; subst. apply eq_IZR in H2. f_equal. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FToReal_rel : list Value → Value → Prop :=
+  | FToReal_N : ∀ n : nat, FToReal_rel [mkNat n] (mkReal (INR n))
+  | FToReal_Z : ∀ i : Z, FToReal_rel [mkInt i] (mkReal (IZR i))
+  | FToReal_R : ∀ r, FToReal_rel [mkReal r] (mkReal r)
+.
+
+Program Definition FToReal_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToReal_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Inductive FLen_rel : list Value → Value → Prop :=
+  | FLen_Seq : ∀ l, FLen_rel [mkSeq l] (mkNat (length l))
+  | FLen_Bag : ∀ l H, FLen_rel [mkBag l H] (mkNat (length l))
+.
+
+Program Definition FLen_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FLen_rel |}.
+Next Obligation.
+  inversion H; inversion H0; try congruence; subst.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+  (* | FSum *)
+  (* | FSub *)
+  (* | FMul *)
+  (* | FSqrt *)
+  (* | FFloor *)
+  (* | FLen (* #as *) *)
+  (* | FConcat (* as ++ bs *) *)
+  (* | FIndex (* as[i] *) *)
+  (* | FToBag (* bag as *) *)
+  (* | FPrefix (* as↑n *) *)
+  (* | FSuffix (* as↓n *) *)
+Inductive FSum_rel : list Value → Value → Prop :=
   | FSum_IntInt : ∀ i1 i2, FSum_rel [VInt i1; VInt i2] (VInt (i1 + i2))
   | FSum_IntReal : ∀ i r, FSum_rel [VInt i; VReal r] (VReal (IZR i + r))
   | FSum_RealInt : ∀ r i, FSum_rel [VReal r; VInt i] (VReal (r + IZR i))
 .
-
-Inductive FSum_rel_total : list Value → Value → Prop :=
-  | FSum_Total : ∀ args v, (FSum_rel args v ∨ v = VUnknown ∧ ∀ v', ¬ FSum_rel args v') → FSum_rel_total args v.
-
-Program Definition FSum_fdef : @Model.fdef Value := {| Model.fdef_rel := FSum_rel |}.
-Next Obligation.
-  inversion H; inversion H0; try congruence.
-Qed.
-Next Obligation.
-
 
 Proof.
   refine {[ Model.fdef_rel = FSum_rel ]}.

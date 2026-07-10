@@ -242,12 +242,13 @@ Proof with auto.
   destruct (decide (x ∈ fvars))... contradiction.
 Qed.
 
-Record fdef {value} := mkFdef {
+Record fdef {value} `{Bottom value} := mkFdef {
   (* fdef_sig : list value → value_ty; *)
   fdef_rel : list value → value → Prop;
   (* fdef_typing : ∀ args v, fdef_rel args v → hastype v (fdef_sig args); *)
   fdef_det : ∀ {args v1 v2}, fdef_rel args v1 → fdef_rel args v2 → v1 = v2;
-  fdef_total : ∀ args, ∃ v, fdef_rel args v;
+  fdef_known : ∀ args, ¬ fdef_rel args ⊥;
+  (* fdef_total : ∀ args, ∃ v, fdef_rel args v; *)
 }.
 
 Record pdef {value} := mkPdef {
@@ -265,9 +266,10 @@ Record symbols := mkSymbols {
 
 Record model := mkModel {
   value : Type;
-  value_bottom : value;
+  value_bottom :: Bottom value;
+  (* is_bottom_dec :: ∀ v : value, Decision (v = ⊥); *)
   model_symbols : symbols;
-  fdefs : symbols_fsym model_symbols → @fdef value;
+  fdefs : symbols_fsym model_symbols → @fdef value _;
   pdefs : symbols_psym model_symbols → @pdef value;
 }.
 
@@ -279,6 +281,6 @@ Global Notation model_psym M := (symbols_psym (model_symbols M)).
 Global Instance model_psym_EqDecision {M} : EqDecision (model_psym M) :=
   (symbols_psym_EqDecision (model_symbols M)).
 
-Global Instance model_value_bottom {M} : Bottom (value M) := value_bottom M.
+(* Global Instance model_value_bottom {M} : Bottom (value M) := value_bottom M. *)
 Global Instance model_value_Inhabited {M} : Inhabited (value M) :=
   populate (value_bottom M).

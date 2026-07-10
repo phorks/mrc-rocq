@@ -227,7 +227,7 @@ Section subst.
           (* inversion f0; subst; rewrite H1 in H5; [| discriminate]. *)
           (* inversion H5; subst fdef0. clear H5. *)
           pose proof (Heq := teval_list_det _ _ _ H4 t). subst.
-          pose proof (Heq := fdef_det _ f H6). subst.
+          pose proof (Heq := fn_eval_det f H6). subst.
           constructor. rewrite (lookup_total_insert σ)...
         * inversion H1. subst. apply TEval_App with vargs... apply H with t'...
       + intros. symmetry in H0. apply map_eq_nil in H0. subst. constructor...
@@ -543,7 +543,7 @@ Section subst.
 
   Lemma teval_delete_bottom_from_state σ x t v :
     x ∉ dom σ →
-    teval (<[x:=value_bottom M]> σ) t v ↔ teval σ t v.
+    teval (<[x:=⊥]> σ) t v ↔ teval σ t v.
   Proof with auto.
     intros. generalize dependent v. induction t; intros.
     - split; inversion 1...
@@ -573,7 +573,7 @@ Section subst.
 
   Lemma afeval_delete_bottom_from_state σ x af :
     x ∉ dom σ →
-    afeval (<[x:=value_bottom M]> σ) af ↔ afeval σ af.
+    afeval (<[x:=⊥]> σ) af ↔ afeval σ af.
   Proof with auto.
     intros. destruct af...
     - simpl; setoid_rewrite teval_delete_bottom_from_state...
@@ -586,7 +586,7 @@ Section subst.
 
   Lemma feval_delete_bottom_from_state σ x A :
     x ∉ dom σ →
-    feval (<[x:=value_bottom M]> σ) A ↔ feval σ A.
+    feval (<[x:=⊥]> σ) A ↔ feval σ A.
   Proof with auto.
     intros. induction A; simp feval.
     2-5: naive_solver.
