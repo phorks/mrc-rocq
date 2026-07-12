@@ -2,36 +2,26 @@ From Stdlib Require Import Reals ZArith String Sorting.
 From stdpp Require Import listset.
 From MRC Require Export PredCalc ListBag Prelude Tactics.
 
-Global Instance R_EqDecision : EqDecision R.
-Proof with auto.
-  intros x y. apply Req_dec_T.
-Qed.
-
-Global Instance Rle_Decision {r1 r2} : Decision (Rle r1 r2) := Rle_dec r1 r2.
-Global Instance Rlt_Decision {r1 r2} : Decision (Rlt r1 r2) := Rlt_dec r1 r2.
-
-Definition Rleb (r1 r2 : R) := bool_decide (Rle r1 r2).
-Definition Rltb (r1 r2 : R) := bool_decide (Rlt r1 r2).
-
-Definition Rcompare (r1 r2 : R) : comparison :=
-  if decide (r1 = r2) then Eq else if Rltb r1 r2 then Lt else Gt.
-
 Inductive ValueRaw :=
   | VUnit
   | VNat (n : nat)
   | VInt (i : Z)
   | VReal (r : R)
   | VStr (s : string)
-  | VPair (v1 v2 : ValueRaw)
+  (* | VPair (v1 v2 : ValueRaw) *)
   | VSeq (l : list ValueRaw)
-  | VBag (l : list ValueRaw)
+  | VBag (b : listbag ValueRaw)
   | VUnknown.
 
 Fixpoint vraw_eq_dec (x y : ValueRaw) : {x = y} + {x <> y}.
 Proof.
   decide equality; try solve_trivial_decision.
   - eapply list_eq_dec. Unshelve. unfold EqDecision, Decision. apply vraw_eq_dec.
-  - destruct l; destruct l0; decide equality.
+  - destruct b as [l1], b0 as [l2]. assert (Decision (l1 = l2)).
+    { eapply list_eq_dec. Unshelve. unfold EqDecision, Decision. apply vraw_eq_dec. }
+    destruct H.
+    + left. by f_equal.
+    + right. intros contra. by inversion contra.
 Defined.
 
 Global Instance ValueRaw_EqDecision : EqDecision ValueRaw.
@@ -76,18 +66,6 @@ Definition vraw_le (x y : ValueRaw) := vraw_compare x y = Lt ∨ vraw_compare x 
 
 Global Instance vraw_le_dec : RelDecision vraw_le.
 Proof. intros x y. solve_decision. Qed.
-
-Fixpoint sortedb {A} (compare : A → A → comparison) (l : list A) : bool :=
-  match l with
-  | [] => true
-  | x :: [] => true
-  | x :: (y :: _) as rest =>
-      match compare x y with
-      | Gt => false
-      | _ => sortedb compare rest
-      end
-  end.
-
 
 Fixpoint value_invariant (v : ValueRaw) : bool :=
   match v with

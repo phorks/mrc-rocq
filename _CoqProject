@@ -21,4 +21,5 @@ src/Prog.v
 src/Refinement.v
 src/RefCalc.v
 src/Examples/Common.v
+src/Comparable.v
 src/ListBag.v
