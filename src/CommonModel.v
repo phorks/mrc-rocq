@@ -87,7 +87,7 @@ Section vraw_compare.
     (P VUnknown) →
     (∀ x, P x).
   Proof.
-    intros Hunit Unat Hint Hreal Hstr Hseq Hbag Hunknown. destruct x; try done.
+    intros Hunit Hnat Hint Hreal Hstr Hseq Hbag Hunknown. destruct x; try done.
     - apply Hseq. induction l; simpl; [done|]. intros. destruct H.
       + subst x. by apply vraw_ind'.
       + by apply IHl.
@@ -311,7 +311,7 @@ Variant FSym :=
   | FToNat
   | FToInt
   | FToReal
-  (* | FLen (* #as *) *)
+  | FLen (* #as *)
   (* | FConcat (* as ++ bs *) *)
   (* | FIndex (* as[i] *) *)
   (* | FToBag (* bag as *) *)
@@ -545,6 +545,7 @@ Definition Fdefs (fsym : FSym) : @Model.fdef Value _ :=
   | FToNat => FToNat_fdef
   | FToInt => FToInt_fdef
   | FToReal => FToReal_fdef
+  | FLen => FLen_fdef
   end.
 
 Variant PLt_rel : vec Value 2 → Prop :=
@@ -586,36 +587,92 @@ Inductive Value_Ty :=
   (* | TPair (τ1 τ2 : Value_Ty) *)
   | TSeq (τ : Value_Ty)
   | TBag (τ : Value_Ty)
-  | TSet (τ : Value_Ty)
-  | TRel (τ1 τ2 : Value_Ty)
-  | TFun (τ1 τ2 : Value_Ty)
-  | TFinSet (τ : Value_Ty) (* finite powerset *)
-  | TSetComp (τ : Value_Ty) (P : Term → Formula)
-  | TUnion (τ1 τ2 : Value_Ty)
-  | TIntersection (τ1 τ2 : Value_Ty)
-  | TSubtraction (τ1 τ2 : Value_Ty).
+  (* | TSet (τ : Value_Ty) *)
+  (* | TRel (τ1 τ2 : Value_Ty) *)
+  (* | TFun (τ1 τ2 : Value_Ty) *)
+  (* | TFinSet (τ : Value_Ty) (* finite powerset *) *)
+  (* | TSetComp (τ : Value_Ty) (P : Term → Formula) *)
+  (* | TUnion (τ1 τ2 : Value_Ty) *)
+  (* | TIntersection (τ1 τ2 : Value_Ty) *)
+  (* | TSubtraction (τ1 τ2 : Value_Ty). *)
+.
 
+Definition term_length t : Term := @TApp Value Symbols FLen [t].
 
-Fixpoint hastype (v : Value) (τ : Value_Ty) : Formula :=
-  match v, τ with
+Notation "# t" := (term_length t)
+                      (in custom term at level 40,
+                          t custom term,
+                          no associativity) : refiney_scope.
+
+Definition value_to_term v : Term := TConst v.
+Coercion value_to_term : Value >-> Term.
+
+Definition nat_to_term_nat (n : nat) : Term := @TConst Value Symbols (mkNat n).
+
+Coercion nat_to_term_nat : nat >-> Term.
+
+(* Check ValueRaw_rec. *)
+(* Fixpoint value_rec' {A} : *)
+(*   A → *)
+(*   (∀ n : nat, A) → *)
+(*   (∀ i : Z, A) → *)
+(*   (∀ r : R, A) → *)
+(*   (∀ s : String.string, A) → *)
+(*   (∀ l : list Value, A) → *)
+(*   (∀ l : list Value, sorted_b l → A) → *)
+(*   A → *)
+(*   (∀ x : Value, A). *)
+(* Proof. *)
+(*   intros Funit Fnat Fint Freal Fstr Fseq Fbag Funknown ?. destruct x. destruct x. *)
+(*   - exact Funit. *)
+(*   - exact (Fnat n). *)
+(*   - exact (Fint i0). *)
+(*   - exact (Freal r). *)
+(*   - exact (Fstr s). *)
+(*   - clear Funit Fnat Fint Freal Fstr Fbag Funknown value_rec'. induction l. *)
+(*     + exact (Fseq []). *)
+(*     +  *)
+(*   - apply Hseq. induction l; simpl; [done|]. intros. destruct H. *)
+(*     + subst x. by apply vraw_ind'. *)
+(*     + by apply IHl. *)
+(*   - apply Hbag. induction (listbag_car b); simpl; [done|]. intros. destruct H. *)
+(*     + subst x. by apply vraw_ind'. *)
+(*     + by apply IHl. *)
+(* Qed. *)
+(* Fixpoint value_rec' {A : Type} : *)
+(*   (VUnit → A) → *)
+(*   (∀ n, VNat n → ) *)
+
+Fixpoint value_hastype (v : Value) (τ : Value_Ty) : Formula :=
+  match `v, τ with
   | VUnit, TUnit => <! true !>
   | VNat _, TNat => <! true !>
   | VInt _, TInt => <! true !>
   | VReal _, TReal => <! true !>
   | VStr _, TStr => <! true !>
-  | VPair v1 v2, TPair τ1 τ2 => <! $(hastype v1 τ2) ∧ $(hastype v2 τ2) !>
-  | _, _ => <! false !> end.
-  | VList l, TList τ => ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *)
-  | VFinSet s, TFinSet τ =>  ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *)
-  | VFinSet s, TFinRel τ1 τ2 => hastype v (TSet (τ1 * τ2))
-  | VFinSet s, TFun τ1 τ2 => hastype v (TRel τ1 τ2) ∧ ∀ a b1 b2, (a, b1) ∈ s → (a, b2) ∈ s → b1 = b2
-  | VFinSet s, TSet τ => ∀ v, v ∈ s → hastype v τ
-  | _, TSetComp τ P => hastype v τ ∧ P v
-  | _, TUnion τ1 τ2 => hastype v τ1 ∨ hastype v τ2
-  | _, TIntersection τ1 τ2 => hastype v τ1 ∧ hastype v τ2
-  | _, TSubtraction τ1 τ2 => hastype v τ1 ∧ ¬ hastype v τ2
-  | _, _ => false
-  end.
+  | VSeq _, TEmpty => <! ⌜# v = 0⌝ !>
+  | VSeq l, TSeq τ => list_hastype l τ
+  | _, TUnknown => <! true !>
+  | _, _ => <! false !>
+  (* | VPair v1 v2, TPair τ1 τ2 => <! $(hastype v1 τ2) ∧ $(hastype v2 τ2) !> *)
+  (* | _, _ => <! false !> end. *)
+  (* | VList l, TList τ => ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *) *)
+  (* | VFinSet s, TFinSet τ =>  ∀ v, v ∈ l → hastype v τ (* define contains as a function symbol and ∈ notation for formula *) *)
+  (* | VFinSet s, TFinRel τ1 τ2 => hastype v (TSet (τ1 * τ2)) *)
+  (* | VFinSet s, TFun τ1 τ2 => hastype v (TRel τ1 τ2) ∧ ∀ a b1 b2, (a, b1) ∈ s → (a, b2) ∈ s → b1 = b2 *)
+  (* | VFinSet s, TSet τ => ∀ v, v ∈ s → hastype v τ *)
+  (* | _, TSetComp τ P => hastype v τ ∧ P v *)
+  (* | _, TUnion τ1 τ2 => hastype v τ1 ∨ hastype v τ2 *)
+  (* | _, TIntersection τ1 τ2 => hastype v τ1 ∧ hastype v τ2 *)
+  (* | _, TSubtraction τ1 τ2 => hastype v τ1 ∧ ¬ hastype v τ2 *)
+  (* | _, _ => false *)
+  end
+with list_hastype (l : list Value) (τ : Value_Ty) : Formula :=
+  match l with
+  | [] => <! true !>
+  | x :: xs => <! $(value_hastype x τ) ∧ $(list_hastype xs τ) !>
+  end
+.
 
 Inductive hastype : value → value_ty → Prop :=
   | VTUnit : hastype VUnit TUnit
