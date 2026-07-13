@@ -1,13 +1,15 @@
-From Stdlib Require Import Reals ZArith String Sorting.
+From Stdlib Require Import Reals ZArith Sorting.
 From stdpp Require Import listset.
-From MRC Require Export PredCalc ListBag Prelude Tactics.
+From MRC Require Export PredCalc Comparable ListBag Prelude Tactics.
+
+Notation compare := Comparable.compare.
 
 Inductive ValueRaw :=
   | VUnit
   | VNat (n : nat)
   | VInt (i : Z)
   | VReal (r : R)
-  | VStr (s : string)
+  | VStr (s : String.string)
   (* | VPair (v1 v2 : ValueRaw) *)
   | VSeq (l : list ValueRaw)
   | VBag (b : listbag ValueRaw)
@@ -31,41 +33,162 @@ Qed.
 
 Definition vraw_eqb (x y : ValueRaw) : bool := bool_decide (x = y).
 
-Fixpoint vraw_constructor_idx (v : ValueRaw) : nat :=
-  match v with
-  | VUnit => 0
-  | VNat n => 1
-  | VInt i => 2
-  | VReal r => 3
-  | VStr s => 4
-  | VPair v1 v2 => 5
-  | VSeq l => 6
-  | VBag l => 7
-  | VUnknown => 8
+
+Section vraw_compare.
+  Local Definition vraw_constructor_idx (v : ValueRaw) : nat :=
+    match v with
+    | VUnit => 0
+    | VNat n => 1
+    | VInt i => 2
+    | VReal r => 3
+    | VStr s => 4
+    | VSeq l => 5
+    | VBag l => 6
+    | VUnknown => 7
+    end.
+
+  Fixpoint vraw_compare (x y : ValueRaw) : comparison :=
+    match x, y with
+    | VUnit, VUnit => Eq
+    | VNat n1, VNat n2 => compare n1 n2
+    | VInt i1, VInt i2 => compare i1 i2
+    | VReal r1, VReal r2 => compare r1 r2
+    | VStr s1, VStr s2 => compare s1 s2
+    | VSeq l1, VSeq l2 => list_compare vraw_compare l1 l2
+    | VBag l1, VBag l2 => listbag_compare vraw_compare l1 l2
+    | VUnknown, VUnknown => Eq
+    | x, y => compare (vraw_constructor_idx x) (vraw_constructor_idx y)
+    end.
+
+  Local Lemma compare_nat_False (x y : nat) : x ≠ y → compare x y = Eq ↔ False.
+  Proof.
+    unfold compare, nat_comparable. intros. destruct (x ?= y) eqn:E; try done.
+    apply Nat.compare_eq_iff in E. done.
+  Qed.
+
+  Local Lemma compare_nat_True (x : nat) : compare x x = Eq ↔ True.
+  Proof.
+    unfold compare, nat_comparable. intros. destruct (x ?= x) eqn:E; try done.
+    - apply Nat.compare_lt_iff in E. lia.
+    - apply Nat.compare_gt_iff in E. lia.
+  Qed.
+
+  Lemma compare_ne {A} `{CompareEq A} {x y : A} : x ≠ y → compare x y ≠ Eq.
+  Proof. intros ? contra. by apply compare_eq_iff in contra. Qed.
+
+  Fixpoint value_ind' (P : ValueRaw → Prop) :
+    (P VUnit) →
+    (∀ n, P (VNat n)) →
+    (∀ i, P (VInt i)) →
+    (∀ r, P (VReal r)) →
+    (∀ s, P (VStr s)) →
+    (∀ l, (∀ x, In x l → P x) → P (VSeq l)) →
+    (∀ b, (∀ x, In x (listbag_car b) → P x) → P (VBag b)) →
+    (P VUnknown) →
+    (∀ x, P x).
+  Proof.
+    intros Hunit Unat Hint Hreal Hstr Hseq Hbag Hunknown. destruct x; try done.
+    - apply Hseq. induction l; simpl; [done|]. intros. destruct H.
+      + subst x. by apply value_ind'.
+      + by apply IHl.
+    - apply Hbag. induction (listbag_car b); simpl; [done|]. intros. destruct H.
+      + subst x. by apply value_ind'.
+      + by apply IHl.
+  Qed.
+
+  Ltac vauto_aux :=
+  repeat lazymatch goal with
+  | |- context[?x = ?y] =>
+      try solve [rewrite compare_nat_False; done]
   end.
 
-Fixpoint vraw_compare (x y : ValueRaw) : comparison :=
-  match x, y with
-  | VUnit, VUnit => Eq
-  | VNat n1, VNat n2 => nat_compare_alt n1 n2
-  | VInt i1, VInt i2 => Z.compare i1 i2
-  | VReal r1, VReal r2 => Rcompare r1 r2
-  | VStr s1, VStr s2 => compare s1 s2
-  | VPair p1 p2, VPair q1 q2 =>
-      match vraw_compare p1 q1 with
-      | Eq => vraw_compare p2 q2
-      | c => c
-      end
-  | VSeq l1, VSeq l2 => list_compare vraw_compare l1 l2
-  | VBag l1, VBag l2 => list_compare vraw_compare l1 l2
-  | VUnknown, VUnknonw => Eq
-  | x, y => nat_compare_alt (vraw_constructor_idx x) (vraw_constructor_idx y)
-  end.
+  Ltac vauto_aux2 :=
+    let H := fresh "H" in
+    symmetry; etrans; [split; [injection 1; intros HH; exact HH | intros; by f_equal] |];
+    symmetry; apply compare_eq_iff
+  .
+
+  Ltac vauto y :=
+    destruct y; simpl; intros; vauto_aux; try solve [vauto_aux2].
+
+  Lemma vraw_compare_eq_iff x y :
+    raw_compare_eq_iff vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_eq_iff. induction x using value_ind'; simpl; vauto y; try done.
+    - symmetry. etrans.
+      + split; [injection 1; intros H1; exact H1| intros; by f_equal].
+      + symmetry. apply raw_list_compare_eq_iff. intros x y ??. by apply H.
+    - symmetry. etrans.
+      + split; [injection 1; intros H1; exact H1| intros; by f_equal].
+      + symmetry. apply raw_listbag_compare_eq_iff. intros x y ??. by apply H.
+  Qed.
+
+  Ltac vauto1 y :=
+    destruct y; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; eauto; done]
+                | apply compare_total].
+
+  Lemma vraw_compare_total x y :
+    raw_compare_total vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_total. induction x using value_ind'; simpl; vauto1 y; try done.
+    - apply raw_list_compare_total.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+    - apply raw_listbag_compare_total.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+  Qed.
+
+  Ltac vauto2 y :=
+    destruct y; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; eauto; done]
+                | apply compare_antisym].
+
+  Lemma vraw_compare_antisym x y :
+    raw_compare_antisym vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_antisym. induction x using value_ind'; simpl; vauto2 y; try done.
+    - apply raw_list_compare_antisym.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+    - apply raw_listbag_compare_antisym.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+  Qed.
+
+  Ltac vauto3 y z :=
+    destruct y, z; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; simpl; subst; eauto; done]].
+
+  Lemma vraw_compare_trans x y z :
+    raw_compare_trans vraw_compare x y z.
+  Proof.
+    revert y z. unfold raw_compare_trans.
+    induction x using value_ind'; simpl; vauto3 y z; try done.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - apply raw_list_compare_trans with (ys:=l0); auto.
+      + apply vraw_compare_eq_iff.
+      + apply vraw_compare_antisym.
+      + intros ???????. by apply H.
+    - apply raw_listbag_compare_trans with (b2:=b0); auto.
+      + apply vraw_compare_eq_iff.
+      + apply vraw_compare_antisym.
+      + intros ???????. by apply H.
+  Qed.
+End vraw_compare.
 
 Definition vraw_le (x y : ValueRaw) := vraw_compare x y = Lt ∨ vraw_compare x y = Eq.
 
 Global Instance vraw_le_dec : RelDecision vraw_le.
 Proof. intros x y. solve_decision. Qed.
+
+Global Instance vraw_comparable : Comparable ValueRaw := vraw_compare.
+
+
 
 Fixpoint value_invariant (v : ValueRaw) : bool :=
   match v with
@@ -74,7 +197,6 @@ Fixpoint value_invariant (v : ValueRaw) : bool :=
   | VInt i => true
   | VReal r => true
   | VStr s => true
-  | VPair v1 v2 => value_invariant v1 && value_invariant v2
   | VSeq l =>
       let fix list_value_invariant (l : list ValueRaw) : bool :=
         match l with
@@ -83,14 +205,14 @@ Fixpoint value_invariant (v : ValueRaw) : bool :=
         end
       in
       list_value_invariant l
-  | VBag l =>
+  | VBag b =>
       let fix list_value_invariant (l : list ValueRaw) : bool :=
         match l with
         | [] => true
         | x :: xs => value_invariant x && list_value_invariant xs
         end
       in
-      sortedb vraw_compare l && list_value_invariant l
+      sorted_b (listbag_car b) && list_value_invariant (listbag_car b)
   | VUnknown => true
   end.
 
@@ -98,14 +220,14 @@ Lemma value_invariant_seq_unfold {l} :
   value_invariant (VSeq l) = forallb value_invariant l.
 Proof with auto. reflexivity. Qed.
 
-Lemma value_invariant_bag_unfold {l} :
-  value_invariant (VBag l) = sortedb vraw_compare l && forallb value_invariant l.
+Lemma value_invariant_bag_unfold {b} :
+  value_invariant (VBag b) = sorted_b (listbag_car b) && forallb value_invariant (listbag_car b).
 Proof with auto. reflexivity. Qed.
 
-Definition Value := {v : ValueRaw | value_invariant v = true}.
+Definition Value := {v : ValueRaw | value_invariant v}.
 
-Lemma value_invariant_pi : forall v (p q : value_invariant v = true), p = q.
-Proof. intros v p q. apply Eqdep_dec.UIP_dec. apply Bool.bool_dec. Qed.
+Lemma value_invariant_pi : forall v (p q : value_invariant v), p = q.
+Proof. intros v p q. apply Is_true_pi. Qed.
 
 Lemma value_eq_iff {v1 v2 : Value} : v1 = v2 ↔ `v1 = `v2.
 Proof with auto.
@@ -114,7 +236,7 @@ Proof with auto.
   - subst x0. f_equal. apply value_invariant_pi.
 Qed.
 
-Fixpoint Value_eq_dec (x y : Value) : {x = y} + {x <> y}.
+Fixpoint value_eq_dec (x y : Value) : {x = y} + {x <> y}.
 Proof.
   destruct x as [x i1]. destruct y as [y i2]. destruct (decide (x = y)).
   - subst. left. f_equal. apply value_invariant_pi.
@@ -123,11 +245,99 @@ Qed.
 
 Global Instance Value_EqDecision : EqDecision Value.
 Proof.
-  unfold EqDecision, Decision. apply Value_eq_dec.
+  unfold EqDecision, Decision. apply value_eq_dec.
 Qed.
 
-Lemma value_invariant_value (v : Value) : value_invariant (`v) = true.
+Lemma value_invariant_value (v : Value) : value_invariant (`v).
 Proof. by destruct v. Qed.
+
+Section value_compare.
+  Definition value_compare (v1 v2 : Value) := vraw_compare (`v1) (`v2).
+
+  Section raw_value_compare.
+
+    Local Lemma compare_nat_False (x y : nat) : x ≠ y → compare x y = Eq ↔ False.
+    Proof.
+      unfold compare, nat_comparable. intros. destruct (x ?= y) eqn:E; try done.
+      apply Nat.compare_eq_iff in E. done.
+    Qed.
+
+    Local Lemma compare_nat_True (x : nat) : compare x x = Eq ↔ True.
+    Proof.
+      unfold compare, nat_comparable. intros. destruct (x ?= x) eqn:E; try done.
+      - apply Nat.compare_lt_iff in E. lia.
+      - apply Nat.compare_gt_iff in E. lia.
+    Qed.
+
+    Ltac value_auto :=
+    repeat lazymatch goal with
+    | |- context[?x = ?y] =>
+        try solve [rewrite compare_nat_False; done]
+    end.
+
+  Lemma compare_ne {A} `{CompareEq A} {x y : A} : x ≠ y → compare x y ≠ Eq.
+  Proof. intros ? contra. by apply compare_eq_iff in contra. Qed.
+
+  Lemma vraw_compare_eq_iff :
+    raw_compare_eq_iff value_compare.
+  Proof.
+    unfold value_compare. intros x. setoid_rewrite value_eq_iff. destruct x as [x ix].
+    generalize dependent ix. induction x; simpl.
+    - destruct y as [y iy]. destruct y; simpl; intros; value_auto. done.
+    - destruct y as [y iy]. destruct y eqn:E; simpl; intros; value_auto; simpl in iy.
+      destruct (Nat.eq_dec n n0).
+      + subst. by rewrite compare_nat_True.
+      + rewrite compare_nat_False by assumption. split; intros; try done. inversion H. done.
+    - destruct y as [y iy]. destruct y eqn:E; simpl; intros; value_auto; simpl in iy.
+      destruct (Z.eq_dec i i0).
+      + subst. by rewrite compare_eq_iff.
+      + pose proof (compare_ne n). split; intros; try done. by inversion H0.
+    - destruct y as [y iy]. destruct y eqn:E; simpl; intros; value_auto; simpl in iy.
+      destruct (Req_dec r r0).
+      + subst. by rewrite compare_eq_iff.
+      + pose proof (compare_ne H). split; intros; try done. by inversion H1.
+    - destruct y as [y iy]. destruct y eqn:E; simpl; intros; value_auto; simpl in iy.
+      destruct (strings.String.eq_dec s s0).
+      + subst. by rewrite compare_eq_iff.
+      + pose proof (compare_ne n). split; intros; try done. by inversion H0.
+    - intros.
+    -
+      + subst.
+      + subst. by rewrite compare_eq_iff.
+      + pose proof (compare_ne n). split; intros; try done. inversion H0. done.
+    -
+      +
+      + admit.
+      +
+    intros H xs ys. unfold listbag_compare. rewrite listbag_eq_iff.
+    by apply raw_list_compare_eq_iff.
+  Qed.
+
+  Lemma raw_listbag_compare_total :
+    raw_compare_eq_iff comp →
+    raw_compare_total comp →
+    raw_compare_total listbag_compare.
+  Proof.
+    intros Heq Htotal xs ys. unfold listbag_compare. by apply raw_list_compare_total.
+  Qed.
+
+  Lemma raw_listbag_compare_antisym :
+    raw_compare_eq_iff comp →
+    raw_compare_antisym comp →
+    raw_compare_antisym listbag_compare.
+  Proof.
+    intros Heq Hantisym xs ys. unfold listbag_compare. by apply raw_list_compare_antisym.
+  Qed.
+
+  Lemma raw_listbag_compare_trans :
+    raw_compare_eq_iff comp →
+    raw_compare_antisym comp →
+    raw_compare_trans comp →
+    raw_compare_trans listbag_compare.
+  Proof.
+    intros Heq Hantisym Htrans xs ys zs c. unfold listbag_compare.
+    by apply raw_list_compare_trans.
+  Qed.
 
 Notation "`* xs" := (map proj1_sig xs) (at level 10, format "`* xs") : stdpp_scope.
 

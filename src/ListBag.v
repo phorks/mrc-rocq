@@ -9,9 +9,97 @@ Record listbag (A : Type) := Listbag {
 Arguments listbag_car {_} _ : assert.
 Arguments Listbag {_} _ : assert.
 
+Lemma listbag_eq_iff {A} {b1 b2 : listbag A} :
+  b1 = b2 ↔ listbag_car b1 = listbag_car b2.
+Proof.
+  destruct b1, b2. simpl. split; intros.
+  - by inversion H.
+  - by subst.
+Qed.
+
+Section listbag_compare.
+  Context {A : Type}.
+
+  Section raw_listbag_compare.
+    Context (comp : A → A → comparison).
+
+    Definition listbag_compare (b1 b2 : listbag A)
+      := list_compare comp (listbag_car b1) (listbag_car b2).
+
+    Lemma raw_listbag_compare_eq_iff {b1 b2} :
+      raw_compare_eq_iff_In comp (listbag_car b1) (listbag_car b2) →
+      raw_compare_eq_iff listbag_compare b1 b2.
+    Proof.
+      intros H. unfold listbag_compare, raw_compare_eq_iff. rewrite listbag_eq_iff.
+      by apply raw_list_compare_eq_iff.
+    Qed.
+
+    Lemma raw_listbag_compare_total {b1 b2} :
+      (∀ x y, raw_compare_eq_iff comp x y) →
+      raw_compare_total_In comp (listbag_car b1) (listbag_car b2) →
+      raw_compare_total listbag_compare b1 b2.
+    Proof.
+      intros Heq Htotal. unfold listbag_compare, raw_compare_total.
+      by apply raw_list_compare_total.
+    Qed.
+
+    Lemma raw_listbag_compare_antisym {b1 b2} :
+      (∀ x y, raw_compare_eq_iff comp x y) →
+      raw_compare_antisym_In comp (listbag_car b1) (listbag_car b2) →
+      raw_compare_antisym listbag_compare b1 b2.
+    Proof.
+      intros Heq Hantisym. unfold listbag_compare, raw_compare_antisym.
+      by apply raw_list_compare_antisym.
+    Qed.
+
+    Lemma raw_listbag_compare_trans b1 b2 b3 :
+      (∀ x y, raw_compare_eq_iff comp x y) →
+      (∀ x y, raw_compare_antisym comp x y) →
+      raw_compare_trans_In comp (listbag_car b1) (listbag_car b2) (listbag_car b3) →
+      raw_compare_trans listbag_compare b1 b2 b3.
+    Proof.
+      intros Heq Hantisym Htrans. unfold listbag_compare, raw_compare_trans.
+      by apply raw_list_compare_trans.
+    Qed.
+  End raw_listbag_compare.
+
+  Global Instance listbag_comparable `{Comparable A} : Comparable (listbag A) := listbag_compare compare.
+
+  Global Instance listbag_compare_eq `{CompareEq A} : CompareEq (listbag A).
+  Proof.
+    unfold CompareEq. intros. apply raw_listbag_compare_eq_iff. intros ????. apply compare_eq_iff.
+  Qed.
+
+  Global Instance listbag_compare_total `{CompareEq A, !CompareTotal A} : CompareTotal (listbag A).
+  Proof.
+    unfold CompareTotal. intros. apply raw_listbag_compare_total.
+    - apply compare_eq_iff.
+    - intros x0 y0 ??. apply compare_total.
+  Qed.
+
+  Global Instance listbag_compare_antisym `{CompareEq A, !CompareAntiSym A} : CompareAntiSym (listbag A).
+  Proof.
+    unfold CompareAntiSym. intros. apply raw_listbag_compare_antisym.
+    - intros x0 y0. apply compare_eq_iff.
+    - intros x0 y0 ??. apply compare_antisym.
+  Qed.
+
+  Global Instance listbag_compare_trans `{CompareEq A, !CompareAntiSym A, !CompareTrans A} : CompareTrans (listbag A).
+  Proof.
+    unfold CompareTrans. intros. apply raw_listbag_compare_trans with (b2:=y).
+    - apply compare_eq_iff.
+    - apply compare_antisym.
+    - intros ???????. apply compare_trans.
+    - exact H0.
+    - exact H1.
+  Qed.
+
+  Global Instance listbag_compare_lawful `{LawfulCompare A} : LawfulCompare (listbag A) := {}.
+End listbag_compare.
+
 Section listbag.
   Context {A : Type}.
-  Context `{Comparable A}.
+  Context `{Hlawful : LawfulCompare A}.
   Context `{!EqDecision A}.
   Implicit Types l : list A.
 
@@ -46,13 +134,13 @@ Section listbag.
   Definition comparable_lt := λ x y, compare x y ≠ Gt.
 
   Global Instance comparable_lt_total : Total comparable_lt.
-  Proof. unfold Total, comparable_lt. apply compare_total. Qed.
+  Proof using A Hlawful. unfold Total, comparable_lt. apply compare_total. Qed.
 
-  Global Instance comparable_lt_transitive : Transitive comparable_lt.
-  Proof. unfold Transitive, comparable_lt. apply compare_trans_le. Qed.
+  Global Instance comparable_lt_trans : Transitive comparable_lt.
+  Proof using A Hlawful. unfold Transitive, comparable_lt. apply compare_trans_le. Qed.
 
   Global Instance comparable_lt_antisymm : AntiSymm eq comparable_lt.
-  Proof. unfold AntiSymm, comparable_lt. apply compare_antisym_le. Qed.
+  Proof using A Hlawful. unfold AntiSymm, comparable_lt. apply compare_antisym_le. Qed.
 
   Global Instance comparable_lt_dec : RelDecision comparable_lt.
   Proof. solve_decision. Qed.
@@ -94,7 +182,7 @@ Section listbag.
     := λ b, length (dedup (listbag_car b)).
 
   Lemma merge_sort_sorted_b l : sorted_b (merge_sort comparable_lt l).
-  Proof.
+  Proof using A Hlawful.
     apply sorted_b_sorted. apply Sorted_merge_sort. apply comparable_lt_total.
   Qed.
 
