@@ -50,10 +50,10 @@ Qed.
 Definition is_some {A} (opt : option A) : bool :=
   match opt with | Some x => true | None => false end.
 
-Class InhabitedSigDecision {A} P := decide_inhabited_sig : {x : A | P x} + {∀ x : A, ¬ P x}.
-Arguments InhabitedSigDecision (A P)%_type.
-Notation "{ x ? P }" := (InhabitedSigDecision (fun x => P)) (x binder, at level 0) : type_scope.
-Notation "{ x : A ? P }" := (InhabitedSigDecision (A:=A) (fun x => P)) (x binder, at level 0) : type_scope.
+(* Class InhabitedSigDecision {A} P := decide_inhabited_sig : {x : A | P x} + {∀ x : A, ¬ P x}. *)
+(* Arguments InhabitedSigDecision (A P)%_type. *)
+(* Notation "{ x ? P }" := (InhabitedSigDecision (fun x => P)) (x binder, at level 0) : type_scope. *)
+(* Notation "{ x : A ? P }" := (InhabitedSigDecision (A:=A) (fun x => P)) (x binder, at level 0) : type_scope. *)
 
 Lemma eq_iff : forall (P Q : Prop), P = Q -> (P <-> Q).
 Proof. intros P Q H. rewrite H. apply iff_refl. Qed.

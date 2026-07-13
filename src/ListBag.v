@@ -166,13 +166,13 @@ Section listbag.
     - right. by inversion 1.
   Qed.
 
-  Local Fixpoint dedup_aux (h : A) (t : list A) `{EqDecision A} : list A :=
-    match t with
-    | [] => [h]
-    | h' :: t => if (decide (h = h')) then dedup_aux h t else h :: dedup_aux h' t
+  Local Fixpoint dedup_aux (x : A) (xs : list A) `{EqDecision A} : list A :=
+    match xs with
+    | [] => [x]
+    | x' :: xs => if (decide (x = x')) then dedup_aux x xs else x :: dedup_aux x' xs
     end.
 
-  Local Definition dedup (l : list A) `{EqDecision A} : list A :=
+  Definition dedup (l : list A) `{EqDecision A} : list A :=
     match l with
     | [] => []
     | h :: t => dedup_aux h t
@@ -235,6 +235,8 @@ Section listbag.
   Proof.
     intros b1 b2. unfold union, sorted_listbag_union. apply listbag_union_comm.
   Qed.
+
+  Definition listbag_map f (b : listbag A) := @Listbag A (map f (listbag_car b)).
 
 End listbag.
 
