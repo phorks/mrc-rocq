@@ -141,6 +141,7 @@ Class ModelWithNat (M : model) := {
   nat_sub_fdef : ∀ v1 v2 n1 n2,
       value_to_nat v1 = Some n1 →
       value_to_nat v2 = Some n2 →
+      n1 > n2 →
       fn_eval sub_sym [v1; v2] (nat_to_value (n1 - n2));
   nat_with_mul :: ModelWithMul M;
   nat_mul_fdef : ∀ v1 v2 n1 n2,
