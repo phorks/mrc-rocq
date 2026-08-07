@@ -266,7 +266,9 @@ Record signature := mkSignature {
 
 Record model := mkModel {
   value : Type;
+  value_ty : Type;
   value_bottom :: Bottom value;
+  hastype : value → value_ty → Prop;
   (* is_bottom_dec :: ∀ v : value, Decision (v = ⊥); *)
   model_sgn : signature;
   fdefs : sgn_fsym model_sgn → @fdef value _;

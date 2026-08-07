@@ -6,10 +6,11 @@ From MRC Require Import PredCalc.SyntacticFacts.
 
 Section variables.
   Context {value : Type}.
+  Context {value_ty : Type}.
   Context {sgn : signature}.
 
   Notation term := (term value sgn).
-  Notation formula := (formula value sgn).
+  Notation formula := (formula value value_ty sgn).
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
@@ -105,6 +106,10 @@ Section variables.
   Global Instance eq_atomic_formula_final {t1 t2} `{TermFinal t1} `{TermFinal t2} :
     FormulaFinal <! ⌜t1 = t2⌝ !>.
   Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
+
+  Global Instance hastype_final_final {t ty} `{!TermFinal t}
+    : FormulaFinal (FAtom (AT_HasType t ty)).
+  Proof. intros x H. set_solver. Qed.
 
   Global Instance pred_atomic_formula_final {psym args} `{TermListFinal args} :
     FormulaFinal (FAtom (AT_Pred psym args)).
@@ -406,7 +411,7 @@ Arguments final_term value : clear implicits.
 Arguments final_formula value : clear implicits.
 
 Notation final_termM M := (final_term (value M) (model_sgn M)).
-Notation final_formulaM M := (final_formula (value M) (model_sgn M)).
+Notation final_formulaM M := (final_formula (value M) (value_ty M) (model_sgn M)).
 
 Section lemmas.
   Context {value : Type}.

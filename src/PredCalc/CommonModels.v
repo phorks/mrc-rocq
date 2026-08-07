@@ -97,40 +97,25 @@ Notation "t ≥ u" := (term_ge t u)
                           u custom term at level 60,
                           no associativity) : refiney_scope.
 
-Class ModelWithTypes (M : model) := {
-  value_ty : Type;
-  hastype : termM M → value_ty → formulaM M;
-  hastype_fvars : ∀ t ty, formula_fvars (hastype t ty) ⊆ term_fvars t;
-}.
+(* Class ModelWithTypes (M : model) := { *)
+(*   value_ty : Type; *)
+(*   hastype : termM M → value_ty → formulaM M; *)
+(*   hastype_fvars : ∀ t ty, formula_fvars (hastype t ty) ⊆ term_fvars t; *)
+(* }. *)
 
-Global Instance hastype_final_final {M} `{!ModelWithTypes M} {t ty} `{!TermFinal t}
-  : FormulaFinal (hastype t ty).
-Proof. intros x H. apply hastype_fvars in H. set_solver. Qed.
-
-Notation "t ∈ₜ ty" := (hastype t ty)
-                      (in custom term_relation at level 60,
-                          t custom term at level 60,
-                          ty custom term_ty at level 60,
-                          no associativity) : refiney_scope.
-
-Notation "t ∉ₜ ty" := (FNot (hastype t ty))
-                      (in custom term_relation at level 60,
-                          t custom term at level 60,
-                          ty custom term_ty at level 60,
-                          no associativity) : refiney_scope.
-
-
+(* Global Instance hastype_final_final {M} `{!ModelWithTypes M} {t ty} `{!TermFinal t} *)
+(*   : FormulaFinal (hastype t ty). *)
+(* Proof. intros x H. apply hastype_fvars in H. set_solver. Qed. *)
 
 Definition tautology {M : model} (A : formulaM M) : Prop :=
   ∀ σ, feval σ A.
 
 Class ModelWithNat (M : model) := {
-  nat_with_types :: ModelWithTypes M;
   nat_to_value : nat → value M;
-  nat_ty : value_ty;
-  nat_to_value_ty : ∀ n, tautology (hastype (TConst $ nat_to_value n) nat_ty);
+  nat_ty : value_ty M;
+  nat_to_value_ty : ∀ n, hastype M (nat_to_value n) nat_ty;
   value_to_nat : value M → option nat;
-  hastype_nat_ty : ∀ v, tautology (hastype (TConst v) nat_ty) ↔ ∃ n, value_to_nat v = Some n;
+  hastype_nat_ty : ∀ v, hastype M v nat_ty ↔ ∃ n, value_to_nat v = Some n;
   value_to_nat_nat_to_value : ∀ n, value_to_nat (nat_to_value n) = Some n;
   nat_with_sum :: ModelWithSum M;
   nat_sum_fdef : ∀ v1 v2 n1 n2,
