@@ -6,10 +6,10 @@ From MRC Require Import PredCalc.SyntacticFacts.
 
 Section variables.
   Context {value : Type}.
-  Context {sym : symbols}.
+  Context {sgn : signature}.
 
-  Notation term := (term value sym).
-  Notation formula := (formula value sym).
+  Notation term := (term value sgn).
+  Notation formula := (formula value sgn).
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
@@ -221,7 +221,7 @@ Section variables.
   Qed.
 
   Lemma final_var_list_as_var_disjoint_term_fvars_initial_var_of (xs : list final_variable) :
-    list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar value sym <$> (initial_var_of <$> xs))).
+    list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar value sgn <$> (initial_var_of <$> xs))).
   Proof.
     intros x H1 H2. apply elem_of_union_list in H2 as (fvars&?&?).
     rewrite <- list_fmap_compose in H. set_unfold in H. destruct H as (x0&?&(x'&?&?)).
@@ -405,12 +405,12 @@ Notation "⤊( Bs )" := (as_formula <$> Bs)
 Arguments final_term value : clear implicits.
 Arguments final_formula value : clear implicits.
 
-Notation final_termM M := (final_term (value M) (model_symbols M)).
-Notation final_formulaM M := (final_formula (value M) (model_symbols M)).
+Notation final_termM M := (final_term (value M) (model_sgn M)).
+Notation final_formulaM M := (final_formula (value M) (model_sgn M)).
 
 Section lemmas.
   Context {value : Type}.
-  Context {sym : symbols}.
+  Context {sgn : signature}.
 
   Lemma disjoint_initial_var_of (xs1 xs2 : list final_variable) :
     xs1 ## xs2 →
@@ -429,7 +429,7 @@ Section lemmas.
 
   Lemma disjoint_initial_var_of_term_fvars xs1 xs2 :
     xs1 ## xs2 →
-    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars value sym <$> ⇑ₓ xs2).
+    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars value sgn <$> ⇑ₓ xs2).
   Proof.
     intros. set_unfold. intros x (x'&->&?) ?. apply elem_of_union_list in H1 as (fvars&?&?).
     apply elem_of_list_fmap in H1 as (tx&->&?). rewrite <- list_fmap_compose in H1.

@@ -15,12 +15,12 @@ Open Scope refiney_scope.
 
 Section syntax.
   Context {value : Type}.
-  Context {sym : symbols}.
+  Context {sgn : signature}.
 
-  Local Notation term := (term value sym).
-  Local Notation atomic_formula := (atomic_formula value sym).
-  Local Notation formula := (formula value sym).
-  Local Notation final_term := (final_term value sym).
+  Local Notation term := (term value sgn).
+  Local Notation atomic_formula := (atomic_formula value sgn).
+  Local Notation formula := (formula value sgn).
+  Local Notation final_term := (final_term value sgn).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -317,7 +317,7 @@ Section syntax.
     intros Hdisjoint Hnodup1 Hnodup2 Hfree. induction t...
     - simpl. destruct (decide (x ∈ xs1 ∨ x ∈ xs2)).
       2:{ apply Decidable.not_or in n as [].
-          simpl. replace (to_vtmap xs1 (@TVar value sym <$> xs2) !! x) with (@None term).
+          simpl. replace (to_vtmap xs1 (@TVar value sgn <$> xs2) !! x) with (@None term).
           2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_None... }
           replace (to_vtmap xs1 ts !! x) with (@None term).
           2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_None... }
@@ -330,7 +330,7 @@ Section syntax.
         assert (OfSameLength xs1 xs2).
         { unfold OfSameLength in OfSameLength0. rewrite length_fmap in OfSameLength0... }
         destruct (lookup_of_same_length_l xs2 H) as [x' ?].
-        replace (to_vtmap xs1 (@TVar value sym <$> xs2) !! x) with (Some (@TVar value sym x')).
+        replace (to_vtmap xs1 (@TVar value sgn <$> xs2) !! x) with (Some (@TVar value sgn x')).
         2:{ symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_Some;
             [typeclasses eauto|]. exists i. split_and!...
             - apply list_lookup_fmap_Some. exists x'. split...
@@ -484,19 +484,19 @@ Section syntax.
     intros Hnodup. induction t...
     - simpl. destruct (decide (x ∈ xs)).
       + apply elem_of_list_lookup in e as (i&?).
-        replace (list_to_map (zip xs (@TVar value sym <$> xs)) !! x)
-          with (Some (@TVar value sym x))...
+        replace (list_to_map (zip xs (@TVar value sgn <$> xs)) !! x)
+          with (Some (@TVar value sgn x))...
         symmetry. apply lookup_list_to_map_zip_Some; [typeclasses eauto|].
         exists i. split_and!...
         * rewrite list_lookup_fmap. rewrite H...
         * intros. apply NoDup_lookup with (i:=i) in H0... lia.
-      + replace (list_to_map (zip xs (@TVar value sym <$> xs)) !! x) with (@None term)...
+      + replace (list_to_map (zip xs (@TVar value sgn <$> xs)) !! x) with (@None term)...
         symmetry. apply lookup_list_to_map_zip_None... typeclasses eauto.
     - simpl. f_equal. apply list_eq. intros i. f_equal. clear i. induction args...
       simpl. rewrite H; [| left]... f_equal. apply IHargs. intros. apply H. right...
   Qed.
 
-  Lemma msubst_term_diag t xs `{!OfSameLength xs (@TVar value sym <$> xs)} :
+  Lemma msubst_term_diag t xs `{!OfSameLength xs (@TVar value sgn <$> xs)} :
     NoDup xs →
     msubst_term t (to_vtmap xs (TVar <$> xs)) = t.
   Proof with auto. unfold to_vtmap. apply msubst_term_diag'... Qed.

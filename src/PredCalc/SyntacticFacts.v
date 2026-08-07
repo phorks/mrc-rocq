@@ -7,11 +7,11 @@ From MRC Require Import PredCalc.Basic.
 
 Section syntactic.
   Context {value : Type}.
-  Context {sym : symbols}.
+  Context {sgn : signature}.
 
-  Implicit Types t : term value sym.
-  Implicit Types af : atomic_formula value sym.
-  Implicit Types A B C : formula value sym.
+  Implicit Types t : term value sgn.
+  Implicit Types af : atomic_formula value sgn.
+  Implicit Types A B C : formula value sgn.
   Implicit Types v : value.
 
   Lemma higher_qrank__subst_eq A : ∀ x a r',

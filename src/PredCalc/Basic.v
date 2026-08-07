@@ -11,9 +11,9 @@ Open Scope bool_scope.
 
 Section syntax.
   Context {value : Type}.
-  Context {sym : symbols}.
-  Local Notation fsym := (symbols_fsym sym).
-  Local Notation psym := (symbols_psym sym).
+  Context {sgn : signature}.
+  Local Notation fsym := (sgn_fsym sgn).
+  Local Notation psym := (sgn_psym sgn).
 
   Unset Elimination Schemes.
   Inductive term : Type :=
@@ -833,9 +833,9 @@ Arguments atomic_formula value : clear implicits.
 Arguments formula value : clear implicits.
 Arguments state M : clear implicits.
 
-Notation termM M := (term (value M) (model_symbols M)).
-Notation atomic_formulaM M := (atomic_formula (value M) (model_symbols M)).
-Notation formulaM M := (formula (value M) (model_symbols M)).
+Notation termM M := (term (value M) (model_sgn M)).
+Notation atomic_formulaM M := (atomic_formula (value M) (model_sgn M)).
+Notation formulaM M := (formula (value M) (model_sgn M)).
 
 Hint Constructors teval : core.
 

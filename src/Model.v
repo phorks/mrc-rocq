@@ -257,29 +257,29 @@ Record pdef {value} := mkPdef {
 }.
 
 (* A (first-order) language (or signature) minus the arity function  *)
-Record symbols := mkSymbols {
-  symbols_fsym : Type;
-  symbols_fsym_EqDecision : EqDecision symbols_fsym;
-  symbols_psym : Type;
-  symbols_psym_EqDecision : EqDecision symbols_psym;
+Record signature := mkSignature {
+  sgn_fsym : Type;
+  sgn_fsym_EqDecision : EqDecision sgn_fsym;
+  sgn_psym : Type;
+  sgn_psym_EqDecision : EqDecision sgn_psym;
 }.
 
 Record model := mkModel {
   value : Type;
   value_bottom :: Bottom value;
   (* is_bottom_dec :: ∀ v : value, Decision (v = ⊥); *)
-  model_symbols : symbols;
-  fdefs : symbols_fsym model_symbols → @fdef value _;
-  pdefs : symbols_psym model_symbols → @pdef value;
+  model_sgn : signature;
+  fdefs : sgn_fsym model_sgn → @fdef value _;
+  pdefs : sgn_psym model_sgn → @pdef value;
 }.
 
-Global Notation model_fsym M := (symbols_fsym (model_symbols M)).
+Global Notation model_fsym M := (sgn_fsym (model_sgn M)).
 Global Instance model_fsym_EqDecision {M} : EqDecision (model_fsym M) :=
-  (symbols_fsym_EqDecision (model_symbols M)).
+  (sgn_fsym_EqDecision (model_sgn M)).
 
-Global Notation model_psym M := (symbols_psym (model_symbols M)).
+Global Notation model_psym M := (sgn_psym (model_sgn M)).
 Global Instance model_psym_EqDecision {M} : EqDecision (model_psym M) :=
-  (symbols_psym_EqDecision (model_symbols M)).
+  (sgn_psym_EqDecision (model_sgn M)).
 
 (* Global Instance model_value_bottom {M} : Bottom (value M) := value_bottom M. *)
 Global Instance model_value_Inhabited {M} : Inhabited (value M) :=

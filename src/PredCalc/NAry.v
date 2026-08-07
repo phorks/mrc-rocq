@@ -16,13 +16,13 @@ From MRC Require Import PredCalc.MultiSubst.
 
 Section syntactic.
   Context {value : Type}.
-  Context {sym : symbols}.
+  Context {sgn : signature}.
 
-  Local Notation term := (term value sym).
-  Local Notation atomic_formula := (atomic_formula value sym).
-  Local Notation formula := (formula value sym).
+  Local Notation term := (term value sgn).
+  Local Notation atomic_formula := (atomic_formula value sgn).
+  Local Notation formula := (formula value sgn).
 
-  Local Notation TVar := (@TVar value sym).
+  Local Notation TVar := (@TVar value sgn).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -500,7 +500,7 @@ Section semantic.
   Context {M : model}.
 
   Local Notation value := (value M).
-  Local Notation sym := (model_symbols M).
+  Local Notation sgn := (model_sgn M).
   Local Notation term := (termM M).
   Local Notation atomic_formula := (atomic_formulaM M).
   Local Notation formula := (formulaM M).
@@ -1087,7 +1087,7 @@ Section semantic.
   Global Instance FEqList_of_same_length_pi :
     Proper (forall_relation (λ ts1,
                 forall_relation (λ ts2, respectful universal_relation (=))))
-      (@FEqList value sym).
+      (@FEqList value sgn).
   Proof with auto.
     intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
   Qed.

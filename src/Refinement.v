@@ -571,9 +571,9 @@ Section refinement.
         destruct H0 as [? _]. destruct_or! H0; apply final_formula_final in H0... }
     intros σ. simp feval. simpl. repeat rewrite simpl_feval_foralllist. intros.
     destruct_and! H.
-    assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst _ (model_symbols M) <$> vs)) by
+    assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst _ (model_sgn M) <$> vs)) by
       (apply NoDup_zip_pair_functional; auto).
-    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (@term_fvars _ (model_symbols M) <$> (TConst <$> vs))).
+    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (@term_fvars _ (model_sgn M) <$> (TConst <$> vs))).
     { intros x ??. set_unfold in H3. destruct H3 as (t&?&vt&->&?). simpl in H3. set_solver. }
     rewrite seqsubst_msubst... epose proof (teval_vtmap_total σ _) as [mv ?].
     rewrite feval_msubst by exact H. simp feval. split_and!.
