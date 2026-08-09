@@ -18,15 +18,15 @@ Section set_solver.
   Local Notation value := (value M).
   Local Notation value_ty := (value_ty M).
   Local Notation sgn := (model_sgn M).
-  Local Notation term := (termM M).
-  Local Notation formula := (formulaM M).
+  Local Notation term := (term M).
+  Local Notation formula := (formula M).
 
   Implicit Types A B C : formula.
   Implicit Types xs : list variable.
   Implicit Types ts : list term.
 
   Global Instance set_unfold_elem_of_term_fvars x ts P1 P2 :
-    (∀ t, SetUnfoldElemOf x (@term_fvars value sgn t) (P1 t)) →
+    (∀ t, SetUnfoldElemOf x (@term_fvars M t) (P1 t)) →
     (∀ t, SetUnfoldElemOf t ts (P2 t)) →
     SetUnfoldElemOf x
       (⋃ (term_fvars <$> ts))
@@ -38,7 +38,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_term_fvars_of_initial_vars x w Q :
     SetUnfoldElemOf (to_final_var x) w Q →
     SetUnfoldElemOf x
-      (⋃ (term_fvars <$> (@TVar value sgn <$> (initial_var_of <$> w))))
+      (⋃ (term_fvars <$> (@TVar M <$> (initial_var_of <$> w))))
       (¬ var_final x ∧ Q).
   Proof with auto.
     constructor. set_unfold. split.
@@ -52,7 +52,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_term_fvars_of_vars x w Q :
     SetUnfoldElemOf (to_final_var x) w Q →
     SetUnfoldElemOf x
-      (⋃ (term_fvars <$> (@TVar value sgn <$> (as_var <$> w))))
+      (⋃ (term_fvars <$> (@TVar M <$> (as_var <$> w))))
       (var_final x ∧ Q).
   Proof with auto.
     constructor. set_unfold. split.
@@ -181,7 +181,7 @@ Section set_solver.
   Global Instance set_unfold_elem_of_fvars_FEqList x ts1 ts2 Hsl Q1 Q2 :
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts1)) Q1 →
     SetUnfoldElemOf x (⋃ (term_fvars <$> ts2)) Q2 →
-    SetUnfoldElemOf x (formula_fvars (@FEqList _ value_ty _ ts1 ts2 Hsl)) (Q1 ∨ Q2).
+    SetUnfoldElemOf x (formula_fvars (@FEqList M ts1 ts2 Hsl)) (Q1 ∨ Q2).
   Proof with auto. intros. constructor. rewrite fvars_eqlist. set_solver. Qed.
 
 End set_solver.

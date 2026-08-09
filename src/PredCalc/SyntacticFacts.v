@@ -6,13 +6,14 @@ From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.Basic.
 
 Section syntactic.
-  Context {value : Type}.
-  Context {value_ty : Type}.
-  Context {sgn : signature}.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
 
-  Implicit Types t : term value sgn.
-  Implicit Types af : atomic_formula value value_ty sgn.
-  Implicit Types A B C : formula value value_ty sgn.
+  Implicit Types t : term M.
+  Implicit Types af : atomic_formula M.
+  Implicit Types A B C : formula M.
   Implicit Types v : value.
 
   Lemma higher_qrank__subst_eq A : ∀ x a r',

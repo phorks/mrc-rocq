@@ -16,18 +16,18 @@ Section refinement.
   Context {M : model}.
   Context `{MNat : ModelWithNat M}.
   Local Notation value := (value M).
-  Local Notation prog := (@prog value (value_ty M) (model_sgn M)).
+  Local Notation prog := (prog M).
   Local Notation state := (state M).
-  Local Notation term := (termM M).
-  Local Notation formula := (formulaM M).
-  Local Notation final_term := (final_termM M).
-  Local Notation final_formula := (final_formulaM M).
+  Local Notation term := (term M).
+  Local Notation formula := (formula M).
+  Local Notation final_term := (final_term M).
+  Local Notation final_formula := (final_formula M).
 
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.
   Implicit Types w xs : list final_variable.
   Implicit Types gs : list final_formula.
-  Implicit Types rhs : list (@asgn_rhs_term value (Model.model_sgn M)).
+  Implicit Types rhs : list (@asgn_rhs_term M).
   Implicit Types p : prog.
   (* Implicit Types ts : list term. *)
 
@@ -303,8 +303,8 @@ Section refinement.
           assert (xs ## w) by set_solver.
           erewrite <- H4; clear H4... rewrite msubst_term_app_comm...
           opose proof (msubst_term_trans t (↑ₓ w ++ ↑ₓ xs) (↑₀ w ++ ↑₀ xs) (⇑ₓ w ++ ⇑ₓ xs)).
-             trans (msubst_term t (to_vtmap (↑ₓ w ++ ↑ₓ xs) ((@TVar value _ <$> (as_var <$> w)) ++
-                                                           (@TVar value _ <$> (as_var <$> xs))))).
+             trans (msubst_term t (to_vtmap (↑ₓ w ++ ↑ₓ xs) ((@TVar M <$> (as_var <$> w)) ++
+                                                           (@TVar M <$> (as_var <$> xs))))).
              -- symmetry. etrans.
                 ++ rewrite <- H4; clear dependent H4 H ts₀; [reflexivity| | | | ].
                    ** set_solver.
@@ -433,7 +433,7 @@ Section refinement.
     assert (asgn_opens0 = Prog.asgn_opens (split_asgn_list xs rhs)) as Heq1 by (rewrite E3; done).
     assert (asgn_xs = Prog.asgn_xs (split_asgn_list xs rhs)) as Heq2 by (rewrite E3; done).
     assert (asgn_ts = Prog.asgn_ts (split_asgn_list xs rhs)) as Heq3 by (rewrite E3; done).
-    clear E1 E2 E3. simpl. repeat rewrite wp_varlist. simpl. rewrite f_forall_ty_unknown.
+    clear E1 E2 E3. simpl. repeat rewrite wp_varlist. simpl. rewrite f_forall_ty_top.
     rewrite f_forall_elim with (t:=t). rewrite simpl_subst_foralllist.
     2:{ intros contra. apply elem_of_list_fmap in contra. destruct contra as (x'&?&?).
         apply as_var_inj in H3. subst. eapply elem_of_submseteq in H4;
@@ -547,7 +547,7 @@ Section refinement.
 
   Coercion nat_to_term : nat >-> term.
 
-  Arguments raw_initial_var name : simpl never.
+  (* Arguments raw_initial_var name : simpl never. *)
 
   Global Instance fresh_var_final x fvars `{VarFinal x} : VarFinal (fresh_var x fvars).
   Proof with auto.
@@ -586,9 +586,9 @@ Section refinement.
         destruct H0 as [? _]. destruct_or! H0; apply final_formula_final in H0... }
     intros σ. simp feval. simpl. repeat rewrite simpl_feval_foralllist. intros.
     destruct_and! H.
-    assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst _ (model_sgn M) <$> vs)) by
+    assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst M <$> vs)) by
       (apply NoDup_zip_pair_functional; auto).
-    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (@term_fvars _ (model_sgn M) <$> (TConst <$> vs))).
+    assert (Haux2 : list_to_set ↑ₓ w ## ⋃ (@term_fvars M <$> (TConst <$> vs))).
     { intros x ??. set_unfold in H3. destruct H3 as (t&?&vt&->&?). simpl in H3. set_solver. }
     rewrite seqsubst_msubst... epose proof (teval_vtmap_total σ _) as [mv ?].
     rewrite feval_msubst by exact H. simp feval. split_and!.

@@ -10,8 +10,8 @@ Section equiv.
   Close Scope stdpp_scope.
 
   Context {M : model}.
-  Local Notation term := (termM M).
-  Local Notation formula := (formulaM M).
+  Local Notation term := (term M).
+  Local Notation formula := (formula M).
   Local Notation state := (state M).
 
   Implicit Types A B C : formula.
@@ -309,8 +309,8 @@ Global Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
 
 Section lemmas.
   Context {M : model}.
-  Implicit Types A B C : formulaM M.
-  Implicit Types t : termM M.
+  Implicit Types A B C : formula M.
+  Implicit Types t : term M.
   Implicit Types σ : state M.
 
   Lemma f_ent_contrapositive A B :

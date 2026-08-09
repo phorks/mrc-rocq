@@ -10,7 +10,7 @@ Import EqNotations.
 
 Class ModelWithSum (M : model) := sum_sym : model_fsym M.
 
-Definition term_sum {M} `{ModelWithSum M} (t u : termM M) : termM M :=
+Definition term_sum {M} `{ModelWithSum M} (t u : term M) : term M :=
   TApp sum_sym [t; u].
 
 Notation "t + u" := (term_sum t u)
@@ -21,7 +21,7 @@ Notation "t + u" := (term_sum t u)
 
 Class ModelWithSub (M : model) := sub_sym : model_fsym M.
 
-Definition term_sub {M} `{ModelWithSub M} (t u : termM M) : termM M :=
+Definition term_sub {M} `{ModelWithSub M} (t u : term M) : term M :=
   TApp sub_sym [t; u].
 
 Notation "t - u" := (term_sub t u)
@@ -31,7 +31,7 @@ Notation "t - u" := (term_sub t u)
                           left associativity) : refiney_scope.
 
 Class ModelWithMul (M : model) := mul_sym : model_fsym M.
-Definition term_mul {M} `{ModelWithMul M} (t u : termM M) : termM M :=
+Definition term_mul {M} `{ModelWithMul M} (t u : term M) : term M :=
   TApp mul_sym [t; u].
 
 Notation "t * u" := (term_mul t u)
@@ -43,6 +43,9 @@ Notation "t * u" := (term_mul t u)
 Class ModelWithOrder (M : model) := {
   lt_sym : model_psym M;
   lt_pdef_arity : pdef_arity (pdefs M lt_sym) = 2;
+  (* we don't define "≤" as "(<) ∨ (=)" since   *)
+  le_sym : model_psym M;
+  le_pdef_arity : pdef_arity (pdefs M le_sym) = 2;
 }.
 
 Definition lt_pdef_rel {M : model} (v1 v2 : value M) `{ModelWithOrder M} : Prop.
@@ -50,16 +53,21 @@ Proof.
   pose proof (pdef_rel (pdefs M lt_sym)). rewrite lt_pdef_arity in X. apply (X [# v1; v2]).
 Defined.
 
-Definition term_lt {M} `{ModelWithOrder M} (t u : termM M) : formulaM M :=
+Definition le_pdef_rel {M : model} (v1 v2 : value M) `{ModelWithOrder M} : Prop.
+Proof.
+  pose proof (pdef_rel (pdefs M le_sym)). rewrite le_pdef_arity in X. apply (X [# v1; v2]).
+Defined.
+
+Definition term_lt {M} `{ModelWithOrder M} (t u : term M) : formula M :=
   FAtom (AT_Pred lt_sym [t; u]).
 
-Definition term_le {M} `{ModelWithOrder M} (t u : termM M) : formulaM M :=
-  FOr (term_lt t u) (FAtom (AT_Eq t u)).
+Definition term_le {M} `{ModelWithOrder M} (t u : term M) : formula M :=
+  FAtom (AT_Pred le_sym [t; u]).
 
-Definition term_gt {M} `{ModelWithOrder M} (t u : termM M) : formulaM M :=
+Definition term_gt {M} `{ModelWithOrder M} (t u : term M) : formula M :=
   term_lt u t.
 
-Definition term_ge {M} `{ModelWithOrder M} (t u : termM M) : formulaM M :=
+Definition term_ge {M} `{ModelWithOrder M} (t u : term M) : formula M :=
   term_le u t.
 
 Notation "t = u" := (FAtom (AT_Eq t u))
@@ -84,7 +92,6 @@ Notation "t ≤ u" := (term_le t u)
                           t custom term at level 60,
                           u custom term at level 60,
                           no associativity) : refiney_scope.
-
 Notation "t > u" := (term_gt t u)
                       (in custom term_relation at level 60,
                           t custom term at level 60,
@@ -97,6 +104,27 @@ Notation "t ≥ u" := (term_ge t u)
                           u custom term at level 60,
                           no associativity) : refiney_scope.
 
+Notation "x ≤ y ≤ z" := (<! ⌜x ≤ y⌝ ∧ ⌜y ≤ z⌝ !>)
+                          (in custom term_relation at level 60,
+                              x custom term at level 60,
+                              y custom term at level 60,
+                              z custom term at level 60) : refiney_scope.
+Notation "x ≤ y < z" := (<! ⌜x ≤ y⌝ ∧ ⌜y < z⌝ !>)
+                          (in custom term_relation at level 60,
+                              x custom term at level 60,
+                              y custom term at level 60,
+                              z custom term at level 60) : refiney_scope.
+Notation "x < y < z" := (<! ⌜x < y⌝ ∧ ⌜y < z⌝ !>)
+                          (in custom term_relation at level 60,
+                              x custom term at level 60,
+                              y custom term at level 60,
+                              z custom term at level 60) : refiney_scope.
+Notation "x < y ≤ z" := (<! ⌜x < y⌝ ∧ ⌜y ≤ z⌝ !>)
+                          (in custom term_relation at level 60,
+                              x custom term at level 60,
+                              y custom term at level 60,
+                              z custom term at level 60) : refiney_scope.
+
 (* Class ModelWithTypes (M : model) := { *)
 (*   value_ty : Type; *)
 (*   hastype : termM M → value_ty → formulaM M; *)
@@ -107,7 +135,7 @@ Notation "t ≥ u" := (term_ge t u)
 (*   : FormulaFinal (hastype t ty). *)
 (* Proof. intros x H. apply hastype_fvars in H. set_solver. Qed. *)
 
-Definition tautology {M : model} (A : formulaM M) : Prop :=
+Definition tautology {M : model} (A : formula M) : Prop :=
   ∀ σ, feval σ A.
 
 Class ModelWithNat (M : model) := {

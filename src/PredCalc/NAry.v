@@ -15,15 +15,16 @@ From MRC Require Import PredCalc.EquivLemmas.
 From MRC Require Import PredCalc.MultiSubst.
 
 Section syntactic.
-  Context {value : Type}.
-  Context {value_ty : Type}.
-  Context {sgn : signature}.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
 
-  Local Notation term := (term value sgn).
-  Local Notation atomic_formula := (atomic_formula value value_ty sgn).
-  Local Notation formula := (formula value value_ty sgn).
+  Local Notation term := (term M).
+  Local Notation atomic_formula := (atomic_formula M).
+  Local Notation formula := (formula M).
 
-  Local Notation TVar := (@TVar value sgn).
+  Local Notation TVar := (@TVar M).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -511,13 +512,12 @@ Notation "A [_₀\ w ]" := (subst_initials A w)
 
 Section semantic.
   Context {M : model}.
-
   Local Notation value := (value M).
   Local Notation value_ty := (value_ty M).
   Local Notation sgn := (model_sgn M).
-  Local Notation term := (termM M).
-  Local Notation atomic_formula := (atomic_formulaM M).
-  Local Notation formula := (formulaM M).
+  Local Notation term := (term M).
+  Local Notation atomic_formula := (atomic_formula M).
+  Local Notation formula := (formula M).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -1101,7 +1101,7 @@ Section semantic.
   Global Instance FEqList_of_same_length_pi :
     Proper (forall_relation (λ ts1,
                 forall_relation (λ ts2, respectful universal_relation (=))))
-      (@FEqList value value_ty sgn).
+      (@FEqList M).
   Proof with auto.
     intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
   Qed.
@@ -1297,7 +1297,7 @@ Section semantic.
   Lemma simpl_feval_existslist σ xs A :
     feval σ <! ∃* xs, A !> ↔
     ∃ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - generalize dependent σ. induction xs as [|x xs IH]; simpl in *; intros.
@@ -1317,7 +1317,7 @@ Section semantic.
   Lemma simpl_feval_foralllist σ xs A :
     feval σ <! ∀* xs, A !> ↔
     ∀ vs (H : OfSameLength xs vs),
-      feval σ (@seqsubst _ _ _ A xs (TConst <$> vs) of_same_length_fmap_r).
+      feval σ (@seqsubst _ A xs (TConst <$> vs) of_same_length_fmap_r).
   Proof with auto.
     split; intros.
     - intros. generalize dependent σ. induction_same_length xs vs as x v...

@@ -14,17 +14,15 @@ Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
 Section syntax.
-  Context {value : Type}.
-  Context {value_ty : Type}.
-  Context {sgn : signature}.
-
-  (* top (unknown) type is required for open assignment *)
-  Context `{ty_unknown : Top value_ty}.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
 
   (* Local Notation term := (term value). *)
-  Local Notation formula := (formula value value_ty sgn).
-  Local Notation final_term := (final_term value sgn).
-  Local Notation final_formula := (final_formula value value_ty sgn).
+  Local Notation formula := (formula M).
+  Local Notation final_term := (final_term M).
+  Local Notation final_formula := (final_formula M).
 
   Unset Elimination Schemes.
   Inductive prog : Type :=
@@ -488,6 +486,8 @@ Section syntax.
 
 End syntax.
 
+Arguments prog M : clear implicits.
+
 Notation "'Δ' p" := (modified_vars p) (at level 50).
 
 Declare Custom Entry asgn_rhs_seq.
@@ -607,7 +607,7 @@ Notation "'|[' 'var' x .. y : ty '⦁' p ']|' " :=
         x constr at level 0, ty custom term_ty, p custom prog) : refiney_scope.
 
 Notation "'|[' 'var*' xs '⦁' y ']|' " :=
-  (PVarList xs (ty_unknown _) y)
+  (PVarList xs ⊤ y)
     (in custom prog at level 95, xs custom variable_list) : refiney_scope.
 
 Notation "'|[' 'con' x .. y : ty '⦁' p ']|' " :=
@@ -616,7 +616,7 @@ Notation "'|[' 'con' x .. y : ty '⦁' p ']|' " :=
         x constr at level 0, ty custom term_ty, p custom prog) : refiney_scope.
 
 Notation "'|[' 'con*' xs '⦁' y ']|' " :=
-  (PConstList xs (ty_unknown _) y)
+  (PConstList xs ⊤ y)
     (in custom prog at level 95, xs custom variable_list) : refiney_scope.
 
 Notation "{ A }" := (PSpec [] (as_final_formula A) <! true !>)
@@ -641,11 +641,11 @@ Section semantics.
   Context {MNat : ModelWithNat M}.
   Local Notation value := (value M).
   Local Notation value_ty := (value_ty M).
-  Local Notation prog := (@prog value value_ty (model_sgn M)).
-  Local Notation term := (termM M).
-  Local Notation formula := (formulaM M).
-  Local Notation final_term := (final_termM M).
-  Local Notation final_formula := (final_formulaM M).
+  Local Notation prog := (prog M).
+  Local Notation term := (term M).
+  Local Notation formula := (formula M).
+  Local Notation final_term := (final_term M).
+  Local Notation final_formula := (final_formula M).
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
@@ -699,7 +699,7 @@ Section semantics.
   Implicit Types pre post : formula.
   Implicit Types w : list final_variable.
   Implicit Types xs : list final_variable.
-  Implicit Types t : termM M.
+  Implicit Types t : term.
 
   Lemma wp_asgn xs ts A `{!OfSameLength xs ts} :
     wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[ ↑ₓ xs \ ⇑ₜ ts]] !>.
@@ -714,24 +714,24 @@ Section semantics.
     simp feval. simpl. exists v. split... apply hastype_unknown.
   Qed.
 
-  Lemma f_forall_ty_unknown x A :
+  Lemma f_forall_ty_top x A :
     <! ∀ x : ⊤, A !> ≡ <! ∀ x, A !>.
   Proof. unfold FForallT. rewrite f_hastype_unknown. fSimpl. Qed.
 
-  Lemma f_exists_ty_unknown x A :
+  Lemma f_exists_ty_top x A :
     <! ∃ x : ⊤, A !> ≡ <! ∃ x, A !>.
   Proof. unfold FExistsT. rewrite f_hastype_unknown. fSimpl. Qed.
 
   Lemma wp_varlist xs p A :
     wp <{ |[ var* xs ⦁ $p ]| }> A ≡ <! ∀* ↑ₓ xs, $(wp p A) !>.
   Proof with auto.
-    induction xs as [|x xs IH]... simpl. rewrite f_forall_ty_unknown. rewrite IH. reflexivity.
+    induction xs as [|x xs IH]... simpl. rewrite f_forall_ty_top. rewrite IH. reflexivity.
   Qed.
 
   Lemma wp_constlist xs p A :
     wp <{ |[ con* xs ⦁ $p ]| }> A ≡ <! ∃* ↑ₓ xs, $(wp p A) !>.
   Proof with auto.
-    induction xs as [|x xs IH]... simpl. rewrite f_exists_ty_unknown. rewrite IH. reflexivity.
+    induction xs as [|x xs IH]... simpl. rewrite f_exists_ty_top. rewrite IH. reflexivity.
   Qed.
 
   Global Instance PVar_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PVar.

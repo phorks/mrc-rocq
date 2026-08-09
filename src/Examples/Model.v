@@ -6,9 +6,7 @@ Notation compare := Comparable.compare.
 
 Inductive ValueRaw :=
   | VUnit
-  | VNat (n : nat)
-  | VInt (i : Z)
-  | VReal (r : R)
+  | VNum (r : R)
   | VStr (s : String.string)
   (* | VPair (v1 v2 : ValueRaw) *)
   | VSeq (l : list ValueRaw)
@@ -38,21 +36,17 @@ Section vraw_compare.
   Local Definition vraw_constructor_idx (v : ValueRaw) : nat :=
     match v with
     | VUnit => 0
-    | VNat n => 1
-    | VInt i => 2
-    | VReal r => 3
-    | VStr s => 4
-    | VSeq l => 5
-    | VBag l => 6
-    | VUnknown => 7
+    | VNum _ => 1
+    | VStr _ => 2
+    | VSeq _ => 3
+    | VBag _ => 4
+    | VUnknown => 5
     end.
 
   Fixpoint vraw_compare (x y : ValueRaw) : comparison :=
     match x, y with
     | VUnit, VUnit => Eq
-    | VNat n1, VNat n2 => compare n1 n2
-    | VInt i1, VInt i2 => compare i1 i2
-    | VReal r1, VReal r2 => compare r1 r2
+    | VNum x, VNum y => compare x y
     | VStr s1, VStr s2 => compare s1 s2
     | VSeq l1, VSeq l2 => list_compare vraw_compare l1 l2
     | VBag l1, VBag l2 => listbag_compare vraw_compare l1 l2
@@ -78,16 +72,14 @@ Section vraw_compare.
 
   Fixpoint vraw_ind' (P : ValueRaw → Prop) :
     (P VUnit) →
-    (∀ n, P (VNat n)) →
-    (∀ i, P (VInt i)) →
-    (∀ r, P (VReal r)) →
+    (∀ x, P (VNum x)) →
     (∀ s, P (VStr s)) →
     (∀ l, (∀ x, In x l → P x) → P (VSeq l)) →
     (∀ b, (∀ x, In x (listbag_car b) → P x) → P (VBag b)) →
     (P VUnknown) →
     (∀ x, P x).
   Proof.
-    intros Hunit Hnat Hint Hreal Hstr Hseq Hbag Hunknown. destruct x; try done.
+    intros Hunit Hnum Hstr Hseq Hbag Hunknown. destruct x; try done.
     - apply Hseq. induction l; simpl; [done|]. intros. destruct H.
       + subst x. by apply vraw_ind'.
       + by apply IHl.
@@ -168,8 +160,6 @@ Section vraw_compare.
     induction x using vraw_ind'; simpl; vauto3 y z; try done.
     - eapply compare_trans; eauto.
     - eapply compare_trans; eauto.
-    - eapply compare_trans; eauto.
-    - eapply compare_trans; eauto.
     - apply raw_list_compare_trans with (ys:=l0); auto.
       + apply vraw_compare_eq_iff.
       + apply vraw_compare_antisym.
@@ -191,10 +181,8 @@ Global Instance vraw_comparable : Comparable ValueRaw := vraw_compare.
 Fixpoint value_invariant (v : ValueRaw) : bool :=
   match v with
   | VUnit => true
-  | VNat n => true
-  | VInt i => true
-  | VReal r => true
-  | VStr s => true
+  | VNum _ => true
+  | VStr _ => true
   | VSeq l =>
       let fix list_value_invariant (l : list ValueRaw) : bool :=
         match l with
@@ -282,9 +270,9 @@ Notation "`* xs" := (map proj1_sig xs) (at level 10, format "`* xs") : stdpp_sco
 
 Definition mkUnknown : Value := VUnknown ↾ I.
 Definition mkUnit : Value := VUnit ↾ I.
-Definition mkNat (n : nat) : Value := VNat n ↾ I.
-Definition mkInt (i : Z) : Value := VInt i ↾ I.
-Definition mkReal (r : R) : Value := VReal r ↾ I.
+Definition mkNum (x : R) : Value := VNum x ↾ I.
+Notation mkInt x := (mkNum (IZR x)).
+Notation mkNat x := (mkNum (INR x)).
 Definition mkStr (s : String.string) : Value := VStr s ↾ I.
 Program Definition mkSeq (l : list Value) : Value := VSeq (`*l).
 Next Obligation.
@@ -308,9 +296,6 @@ Variant FSym :=
   | FMult
   | FSqrt
   | FFloor
-  | FToNat
-  | FToInt
-  | FToReal
   | FLen (* #as *)
   (* | FConcat (* as ++ bs *) *)
   (* | FIndex (* as[i] *) *)
@@ -324,6 +309,7 @@ Proof. solve_decision. Qed.
 
 Inductive PSym :=
   | PLt
+  | PLe
   | PContains.
   (* | IsUnit *)
   (* | IsNat *)
@@ -357,19 +343,8 @@ Inductive Value_Ty :=
 .
 
 
-Local Notation Term' := (term Value Signature).
-Local Notation Formula' := (formula Value Value_Ty Signature).
-
 Variant FSum_rel : list Value → Value → Prop :=
-  | FSum_NN : ∀ n1 n2, FSum_rel [mkNat n1; mkNat n2] (mkNat (n1 + n2))
-  | FSum_NZ : ∀ n i, FSum_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n + i))
-  | FSum_ZN : ∀ i n, FSum_rel [mkInt i; mkNat n] (mkInt (i + Z.of_nat n))
-  | FSum_NR : ∀ n r, FSum_rel [mkNat n; mkReal r] (mkReal (INR n + r))
-  | FSum_RN : ∀ r n, FSum_rel [mkReal r; mkNat n] (mkReal (r + INR n))
-  | FSum_ZZ : ∀ i1 i2, FSum_rel [mkInt i1; mkInt i2] (mkInt (i1 + i2))
-  | FSum_ZR : ∀ i r, FSum_rel [mkInt i; mkReal r] (mkReal (IZR i + r))
-  | FSum_RZ : ∀ r i, FSum_rel [mkReal r; mkInt i] (mkReal (r + IZR i))
-  | FSum_RR : ∀ r1 r2, FSum_rel [mkReal r1; mkReal r2] (mkReal (r1 + r2))
+  | FSum_RR : ∀ r1 r2, FSum_rel [mkNum r1; mkNum r2] (mkNum (r1 + r2))
 .
 
 Program Definition FSum_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSum_rel |}.
@@ -382,16 +357,7 @@ Next Obligation.
 Qed.
 
 Variant FSub_rel : list Value → Value → Prop :=
-  | FSub_NN : ∀ n1 n2, n1 > n2 → FSub_rel [mkNat n1; mkNat n2] (mkNat (n1 - n2))
-  | FSub_NZ : ∀ n i, FSub_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n - i))
-  | FSub_ZN : ∀ i n, FSub_rel [mkInt i; mkNat n] (mkInt (i - Z.of_nat n))
-  | FSub_NR : ∀ n r, FSub_rel [mkNat n; mkReal r] (mkReal (INR n - r))
-  | FSub_RN : ∀ r n, FSub_rel [mkReal r; mkNat n] (mkReal (r - INR n))
-  | FSub_ZZ : ∀ i1 i2, FSub_rel [mkInt i1; mkInt i2] (mkInt (i1 - i2))
-  | FSub_ZR : ∀ i r, FSub_rel [mkInt i; mkReal r] (mkReal (IZR i - r))
-  | FSub_RZ : ∀ r i, FSub_rel [mkReal r; mkInt i] (mkReal (r - IZR i))
-  | FSub_RR : ∀ r1 r2, FSub_rel [mkReal r1; mkReal r2] (mkReal (r1 - r2))
-.
+  | FSub_RR : ∀ r1 r2, FSub_rel [mkNum r1; mkNum r2] (mkNum (r1 - r2)).
 
 Program Definition FSub_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSub_rel |}.
 Next Obligation.
@@ -405,15 +371,7 @@ Next Obligation.
 Qed.
 
 Variant FMult_rel : list Value → Value → Prop :=
-  | FMult_NN : ∀ n1 n2, FMult_rel [mkNat n1; mkNat n2] (mkNat (n1 * n2))
-  | FMult_NZ : ∀ n i, FMult_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n * i))
-  | FMult_ZN : ∀ i n, FMult_rel [mkInt i; mkNat n] (mkInt (i * Z.of_nat n))
-  | FMult_NR : ∀ n r, FMult_rel [mkNat n; mkReal r] (mkReal (INR n * r))
-  | FMult_RN : ∀ r n, FMult_rel [mkReal r; mkNat n] (mkReal (r * INR n))
-  | FMult_ZZ : ∀ i1 i2, FMult_rel [mkInt i1; mkInt i2] (mkInt (i1 * i2))
-  | FMult_ZR : ∀ i r, FMult_rel [mkInt i; mkReal r] (mkReal (IZR i * r))
-  | FMult_RZ : ∀ r i, FMult_rel [mkReal r; mkInt i] (mkReal (r * IZR i))
-  | FMult_RR : ∀ r1 r2, FMult_rel [mkReal r1; mkReal r2] (mkReal (r1 * r2))
+  | FMult_RR : ∀ r1 r2, FMult_rel [mkNum r1; mkNum r2] (mkNum (r1 * r2))
 .
 
 Program Definition FMult_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FMult_rel |}.
@@ -426,86 +384,26 @@ Next Obligation.
 Qed.
 
 Variant FSqrt_rel : list Value → Value → Prop :=
-  | FSqrt_N : ∀ (r2 : nat) r, (0 <= r)%R → (r ^ 2)%R = INR r2 → FSqrt_rel [mkNat r2] (mkReal r)
-  | FSqrt_Z : ∀ (r2 : Z) r, (0 <= r)%R → (r ^ 2)%R = IZR r2 → FSqrt_rel [mkInt r2] (mkReal r)
-  | FSqrt_R : ∀ r2 r, (0 <= r)%R → (r ^ 2)%R = r2 → FSqrt_rel [mkReal r2] (mkReal r)
+  | FSqrt_R : ∀ r2 r, (0 <= r)%R → (r ^ 2)%R = r2 → FSqrt_rel [mkNum r2] (mkNum r)
 .
 
 Program Definition FSqrt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSqrt_rel |}.
 Next Obligation.
-  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
-  all: try (inversion H7; subst; done).
-  all: subst; inversion H7; subst; f_equal; apply Rsqr_inj; try done; unfold Rsqr; simpl in *.
-  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
-  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
-  - do 2 rewrite Rmult_1_r in H3. done.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst. inversion H7. f_equal.
+  apply Rsqr_inj; try done. do 2 rewrite Rmult_1_r in H3. done.
 Qed.
 Next Obligation.
   inversion H.
 Qed.
 
 Variant FFloor_rel : list Value → Value → Prop :=
-  | FFloor_N : ∀ n : nat, FFloor_rel [mkNat n] (mkNat n)
-  | FFloor_Z : ∀ i : Z, FFloor_rel [mkInt i] (mkInt i)
-  | FFloor_R : ∀ r (i : Z), (IZR i <= r < IZR i + 1)%R → FFloor_rel [mkReal r] (mkInt i)
+  | FFloor_R : ∀ r (i : Z), (IZR i <= r < IZR i + 1)%R → FFloor_rel [mkNum r] (mkNum (IZR i))
 .
 
 Program Definition FFloor_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FFloor_rel |}.
 Next Obligation.
-  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
-  all: try (inversion H3; subst; done).
-  all: try (inversion H4; subst; done).
-  inversion H5. subst r0. f_equal. apply Zfloor_eq in H1, H4. lia.
-Qed.
-Next Obligation.
-  inversion H.
-Qed.
-
-Variant FToNat_rel : list Value → Value → Prop :=
-  | FToNat_N : ∀ n : nat, FToNat_rel [mkNat n] (mkNat n)
-  | FToNat_Z : ∀ i : Z, (0 ≤ i)%Z → FToNat_rel [mkInt i] (mkNat (Z.to_nat i))
-  | FToNat_R : ∀ r n, r = INR n → FToNat_rel [mkReal r] (mkNat n)
-.
-
-Program Definition FToNat_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToNat_rel |}.
-Next Obligation.
-  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
-  all: try (inversion H3; subst; done).
-  all: try (inversion H4; subst; done).
-  all: try (inversion H5; subst; done).
-  inversion H5; inversion H; inversion H0; subst. f_equal. apply INR_eq in H2. done.
-Qed.
-Next Obligation.
-  inversion H.
-Qed.
-
-Variant FToInt_rel : list Value → Value → Prop :=
-  | FToInt_N : ∀ n : nat, FToInt_rel [mkNat n] (mkInt (Z.of_nat n))
-  | FToInt_Z : ∀ i : Z, FToInt_rel [mkInt i] (mkInt i)
-  | FToInt_R : ∀ r i, r = IZR i → FToInt_rel [mkReal r] (mkInt i)
-.
-
-Program Definition FToInt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToInt_rel |}.
-Next Obligation.
-  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
-  all: try (inversion H3; subst; done).
-  all: try (inversion H4; subst; done).
-  inversion H5; inversion H; inversion H0; subst. apply eq_IZR in H2. f_equal. done.
-Qed.
-Next Obligation.
-  inversion H.
-Qed.
-
-Variant FToReal_rel : list Value → Value → Prop :=
-  | FToReal_N : ∀ n : nat, FToReal_rel [mkNat n] (mkReal (INR n))
-  | FToReal_Z : ∀ i : Z, FToReal_rel [mkInt i] (mkReal (IZR i))
-  | FToReal_R : ∀ r, FToReal_rel [mkReal r] (mkReal r)
-.
-
-Program Definition FToReal_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToReal_rel |}.
-Next Obligation.
-  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
-  all: try (inversion H3; subst; done).
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst. inversion H5. subst r0.
+  f_equal. apply Zfloor_eq in H1, H4. f_equal. lia.
 Qed.
 Next Obligation.
   inversion H.
@@ -518,29 +416,33 @@ Variant FLen_rel : list Value → Value → Prop :=
 
 Program Definition FLen_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FLen_rel |}.
 Next Obligation.
-  inversion H; inversion H0; try congruence; subst.
-  all: try (inversion H4; subst; done).
-  - inversion H3. f_equal.
+  inversion H; inversion H0; try congruence; subst; try (inversion H4; subst; done); do 2 f_equal.
+  - inversion H3.
     assert (length l = length (`*l)) as -> by (symmetry; apply length_map).
     assert (length l0 = length (`*l0)) as -> by (symmetry; apply length_map).
-    by f_equal.
-  - inversion H5. f_equal. unfold size, listbag_Size.
+    by rewrite H2.
+  - inversion H5. unfold size, listbag_Size.
     destruct b0 as [l1], b as [l2]. simpl in *. clear H0 H H5.
-    f_equal. symmetry. destruct l1 as [|x0 xs].
+    symmetry. destruct l1 as [|x0 xs].
     { simpl. simpl in H3. symmetry in H3. apply map_eq_nil in H3. by subst. }
     destruct l2 as [|y0 ys].
     { simpl. discriminate. }
     simpl. clear H1 H4. generalize dependent ys. generalize dependent y0.
     generalize dependent x0.
     induction xs as [|x xs]; intros.
-    + simpl in H3. destruct ys as [|y ys]; simpl in H3; inversion H3.
-      simpl. f_equal. by apply value_eq_iff.
+    + simpl in H3. destruct ys as [|y ys]; simpl in H3; inversion H3. done.
+
+    (* + simpl in H3. destruct ys as [|y ys]; simpl in H3; inversion H3. simpl. destruct x0, y0. *)
+    (*   simpl in *. f_equal. *)
+    (*   simpl. f_equal. *)
     + destruct ys as [|y ys]; simpl in H3; inversion H3. simpl.
       assert (x = y) as <- by (apply value_eq_iff; exact H1). clear H1.
       assert (x0 = y0) as <- by (apply value_eq_iff; exact H0). clear H0.
       destruct (decide (x0 = x)).
       * apply IHxs. simpl. by f_equal.
-      * f_equal. apply IHxs. simpl. by f_equal.
+      * simpl. erewrite IHxs.
+        -- reflexivity.
+        -- simpl. by f_equal.
 Qed.
 Next Obligation.
   inversion H.
@@ -564,25 +466,20 @@ Definition Fdefs (fsym : FSym) : @Model.fdef Value _ :=
   | FMult => FMult_fdef
   | FSqrt => FSqrt_fdef
   | FFloor => FFloor_fdef
-  | FToNat => FToNat_fdef
-  | FToInt => FToInt_fdef
-  | FToReal => FToReal_fdef
   | FLen => FLen_fdef
   end.
 
 Variant PLt_rel : vec Value 2 → Prop :=
-  | PLt_NN : ∀ n1 n2, n1 < n2 → PLt_rel [# mkNat n1; mkNat n2]
-  | PLt_NZ : ∀ n i, (Z.of_nat n < i)%Z → PLt_rel [# mkNat n; mkInt i]
-  | PLt_ZN : ∀ i n, (i < Z.of_nat n)%Z → PLt_rel [# mkInt i; mkNat n]
-  | PLt_NR : ∀ n r, (INR n < r)%R → PLt_rel [# mkNat n; mkReal r]
-  | PLt_RN : ∀ r n, (r < INR n)%R → PLt_rel [# mkReal r; mkNat n]
-  | PLt_ZZ : ∀ i1 i2, (i1 < i2)%Z → PLt_rel [# mkInt i1; mkInt i2]
-  | PLt_ZR : ∀ i r, (IZR i < r)%R → PLt_rel [# mkInt i; mkReal r]
-  | PLt_RZ : ∀ r i, (r < IZR i)%R → PLt_rel [# mkReal r; mkInt i]
-  | PLt_RR : ∀ r1 r2, (r1 < r2)%R → PLt_rel [# mkReal r1; mkReal r2]
+  | PLt_RR : ∀ r1 r2, (r1 < r2)%R → PLt_rel [# mkNum r1; mkNum r2]
 .
 
 Definition PLt_pdef : @Model.pdef Value := {| Model.pdef_rel := PLt_rel |}.
+
+Variant PLe_rel : vec Value 2 → Prop :=
+  | PLe_RR : ∀ r1 r2, (r1 <= r2)%R → PLe_rel [# mkNum r1; mkNum r2]
+.
+
+Definition PLe_pdef : @Model.pdef Value := {| Model.pdef_rel := PLe_rel |}.
 
 Variant PContains_rel : vec Value 2 → Prop :=
   | PContains_Seq : ∀ v l, v ∈ l → PContains_rel [# v; mkSeq l]
@@ -594,14 +491,15 @@ Definition PContains_pdef : @Model.pdef Value := {| Model.pdef_rel := PContains_
 Definition Pdefs (psym : PSym) : @Model.pdef Value :=
   match psym with
   | PLt => PLt_pdef
+  | PLe => PLe_pdef
   | PContains => PContains_pdef
   end.
 
 Inductive HasType : Value → Value_Ty → Prop :=
   | IsUnit     : HasType mkUnit TUnit
-  | IsNat      : ∀ n, HasType (mkNat n) TNat
-  | IsInt      : ∀ z, HasType (mkInt z) TInt
-  | IsReal     : ∀ r, HasType (mkReal r) TReal
+  | IsNat      : ∀ x n, x = INR n → HasType (mkNum x) TNat
+  | IsInt      : ∀ x n, x = IZR n → HasType (mkNum x) TInt
+  | IsReal     : ∀ r, HasType (mkNum r) TReal
   | IsStr      : ∀ s, HasType (mkStr s) TStr
   | IsEmptySeq : ∀ l, HasType (mkSeq l) TEmpty
   | IsSeq      : ∀ l ty, Forall (λ x, HasType x ty) l → HasType (mkSeq l) (TSeq ty)
@@ -616,39 +514,82 @@ Proof. constructor. Qed.
 Definition Model := Model.mkModel Value mkUnknown Value_Ty
                       HasType TUnknown HasType_Unknown Signature Fdefs Pdefs.
 
-Notation Term := (term Value Signature).
-Notation Formula := (formula Value Value_Ty Signature).
+Notation Term := (term Model).
+Notation Formula := (formula Model).
 
-Definition term_length t : Term := @TApp Value Signature FLen [t].
+Definition term_length t : Term := @TApp Model FLen [t].
 
 Notation "# t" := (term_length t)
                       (in custom term at level 40,
                           t custom term,
                           no associativity) : refiney_scope.
 
-Definition term_sqrt t : Term := @TApp Value Signature FSqrt [t].
+Definition term_sqrt t : Term := @TApp Model FSqrt [t].
 
 Notation "√ t" := (term_sqrt t)
                       (in custom term at level 40,
                           t custom term,
                           no associativity) : refiney_scope.
 
-Definition term_floor t : Term := @TApp Value Signature FFloor [t].
+Definition term_floor t : Term := @TApp Model FFloor [t].
 
 Notation "'⌊' t '⌋'" := (term_floor t)
                       (in custom term at level 40,
                           t custom term,
                           no associativity) : refiney_scope.
 
-Definition value_to_term (v : Value) : Term := TConst v.
+Definition value_to_term (v : Value) : Term := @TConst Model v.
 Coercion value_to_term : Value >-> Term.
 
-Definition nat_to_term_nat (n : nat) : Term := @TConst Value Signature (mkNat n).
+Definition nat_to_term_nat (n : nat) : Term := @TConst Model (mkNat n).
 
 Coercion nat_to_term_nat : nat >-> Term.
 
-Lemma VNat_canon n i : VNat n ↾ i = mkNat n.
+Lemma VNum_canon x i : VNum x ↾ i = mkNum x.
 Proof. simpl in i. by destruct i. Qed.
+
+Definition R_to_int (r : R) : option Z :=
+  if decide (frac_part r = 0%R) then Some (Int_part r) else None.
+Definition R_to_nat (r : R) : option nat :=
+  match R_to_int r with
+  | None => None
+  | Some z => if decide (0 ≤ z)%Z then Some (Z.to_nat z) else None
+  end.
+
+Lemma Int_part_IZR (z : Z) : Int_part (IZR z) = z.
+Proof.
+  unfold Int_part.
+  replace (up (IZR z)) with (z + 1)%Z; [lia|]. apply tech_up.
+  - rewrite plus_IZR. auto with real.
+  - rewrite plus_IZR. auto with real.
+Qed.
+
+Lemma R_to_int_IZR z : R_to_int (IZR z) = Some z.
+Proof.
+  unfold R_to_int, frac_part. rewrite Int_part_IZR. rewrite <- minus_IZR.
+  replace (z - z)%Z with 0%Z by lia. destruct (decide (0%R = 0%R)); done.
+Qed.
+
+Lemma R_to_nat_INR n : R_to_nat (INR n) = Some n.
+Proof.
+  unfold R_to_nat. rewrite INR_IZR_INZ. rewrite R_to_int_IZR.
+  rewrite Nat2Z.id. destruct (decide (0 ≤ Z.of_nat _)%Z); try done.
+  destruct (n0 (Nat2Z.is_nonneg n)).
+Qed.
+
+Lemma R_to_int_Some_inv x z : R_to_int x = Some z → x = IZR z.
+Proof.
+  unfold R_to_int. destruct (decide (frac_part x = 0%R)); try done.
+  inversion 1. clear H. rename H1 into H. destruct (fp_nat x e) as [??]. subst x.
+  f_equal. rewrite Int_part_IZR in H. subst. rewrite Int_part_IZR. done.
+Qed.
+
+Lemma R_to_nat_Some_inv x n : R_to_nat x = Some n → x = INR n.
+Proof.
+  unfold R_to_nat. intros. destruct (R_to_int x) eqn:E; try discriminate.
+  apply R_to_int_Some_inv in E. subst x. destruct (decide (0 ≤ z)%Z); try discriminate.
+  inversion H. clear H. rewrite INR_IZR_INZ. by rewrite Z2Nat.id.
+Qed.
 
 Program Definition Model_WithNat : ModelWithNat Model :=
   {|
@@ -656,42 +597,43 @@ Program Definition Model_WithNat : ModelWithNat Model :=
     nat_ty := TNat;
     value_to_nat :=
       λ v, match v with
-             | VNat n => Some n
+             | VNum x => R_to_nat x
              | _ => None
            end;
     nat_with_sum := FSum;
     nat_with_sub := FSub;
     nat_with_mul := FMult;
-    nat_with_order := {| lt_sym := PLt; lt_pdef_arity := eq_refl |}
+    nat_with_order := {| lt_sym := PLt; lt_pdef_arity := eq_refl; le_sym := PLe; le_pdef_arity := eq_refl |}
   |}.
-Next Obligation. constructor. Qed.
+Next Obligation. apply IsNat with (n:=n). done. Qed.
 Next Obligation.
   split; intros.
-  - inversion H. by exists n.
+  - inversion H. subst. exists n. simpl. apply R_to_nat_INR.
   - destruct H as []. destruct v as [v]. simpl in H. destruct v; try discriminate.
-    simpl. rewrite VNat_canon. constructor.
+    apply R_to_nat_Some_inv in H. subst. rewrite VNum_canon. eapply IsNat. reflexivity.
+Qed.
+Next Obligation. apply R_to_nat_INR. Qed.
+Next Obligation.
+  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
+  apply R_to_nat_Some_inv in H, H0. subst. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNum_canon. rewrite plus_INR. by constructor.
 Qed.
 Next Obligation.
   destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
-  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
-  repeat rewrite VNat_canon. constructor.
+  apply R_to_nat_Some_inv in H, H0. subst. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNum_canon. rewrite minus_INR; try constructor. lia.
 Qed.
 Next Obligation.
   destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
-  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
-  repeat rewrite VNat_canon. by constructor.
+  apply R_to_nat_Some_inv in H, H0. subst. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNum_canon. rewrite mult_INR; try constructor.
 Qed.
 Next Obligation.
   destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
-  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
-  repeat rewrite VNat_canon. constructor.
-Qed.
-Next Obligation.
-  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
-  inversion H. inversion H0. subst n1 n2. unfold lt_pdef_rel. simpl. clear H H0.
+  apply R_to_nat_Some_inv in H, H0. subst. unfold lt_pdef_rel. simpl. repeat rewrite VNum_canon.
   split; intros.
-  - by inversion H.
-  - repeat rewrite VNat_canon. by constructor.
+  - inversion H. subst. by apply INR_lt in H1.
+  - constructor. by apply lt_INR.
 Qed.
 
 Global Existing Instance Model_WithNat.

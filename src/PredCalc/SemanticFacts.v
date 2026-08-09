@@ -8,9 +8,9 @@ From MRC Require Import PredCalc.Basic PredCalc.Equiv PredCalc.SyntacticFacts.
 
 Section subst.
   Context {M : model}.
-  Local Notation term := (termM M).
-  Local Notation atomic_formula := (atomic_formulaM M).
-  Local Notation formula := (formulaM M).
+  Local Notation term := (term M).
+  Local Notation atomic_formula := (atomic_formula M).
+  Local Notation formula := (formula M).
 
   Implicit Types x : variable.
   Implicit Types t : term.

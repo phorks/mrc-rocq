@@ -5,12 +5,13 @@ From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.SyntacticFacts.
 
 Section variables.
-  Context {value : Type}.
-  Context {value_ty : Type}.
-  Context {sgn : signature}.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
 
-  Notation term := (term value sgn).
-  Notation formula := (formula value value_ty sgn).
+  Notation term := (term M).
+  Notation formula := (formula M).
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
@@ -226,7 +227,7 @@ Section variables.
   Qed.
 
   Lemma final_var_list_as_var_disjoint_term_fvars_initial_var_of (xs : list final_variable) :
-    list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar value sgn <$> (initial_var_of <$> xs))).
+    list_to_set (as_var <$> xs) ## ⋃ (term_fvars <$> (@TVar M <$> (initial_var_of <$> xs))).
   Proof.
     intros x H1 H2. apply elem_of_union_list in H2 as (fvars&?&?).
     rewrite <- list_fmap_compose in H. set_unfold in H. destruct H as (x0&?&(x'&?&?)).
@@ -407,15 +408,14 @@ Notation "⤊( Bs )" := (as_formula <$> Bs)
                       (at level 5, only parsing, Bs constr at level 200)
     : refiney_scope.
 
-Arguments final_term value : clear implicits.
-Arguments final_formula value : clear implicits.
-
-Notation final_termM M := (final_term (value M) (model_sgn M)).
-Notation final_formulaM M := (final_formula (value M) (value_ty M) (model_sgn M)).
+Arguments final_term M : clear implicits.
+Arguments final_formula M : clear implicits.
 
 Section lemmas.
-  Context {value : Type}.
-  Context {sgn : signature}.
+  Context {M : model}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
 
   Lemma disjoint_initial_var_of (xs1 xs2 : list final_variable) :
     xs1 ## xs2 →
@@ -434,7 +434,7 @@ Section lemmas.
 
   Lemma disjoint_initial_var_of_term_fvars xs1 xs2 :
     xs1 ## xs2 →
-    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars value sgn <$> ⇑ₓ xs2).
+    list_to_set ↑₀ xs1 ## ⋃ (@term_fvars M <$> ⇑ₓ xs2).
   Proof.
     intros. set_unfold. intros x (x'&->&?) ?. apply elem_of_union_list in H1 as (fvars&?&?).
     apply elem_of_list_fmap in H1 as (tx&->&?). rewrite <- list_fmap_compose in H1.
