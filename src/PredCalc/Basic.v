@@ -96,6 +96,8 @@ Section syntax.
   Definition FImpl A B := FOr (FNot A) B.
   Definition FIff A B := FAnd (FImpl A B) (FImpl B A).
   Definition FForall x A := FNot (FExists x (FNot A)).
+  Definition FExistsT x ty A := FExists x (FAnd (FAtom (AT_HasType x ty)) A).
+  Definition FForallT x ty A := FForall x (FImpl (FAtom (AT_HasType x ty)) A).
 
   Fixpoint subst_term t x a : term :=
     match t with
@@ -636,10 +638,22 @@ Notation "∃ x .. y , A" := (FExists x .. (FExists y A) ..)
                                       (in custom formula at level 99, only parsing) : refiney_scope.
 Notation "∃ x .. y ● A" := (FExists x .. (FExists y A) ..)
                                  (in custom formula at level 99, only printing) : refiney_scope.
+Notation "∃ x .. y ':' ty , A" := (FExistsT x ty .. (FExistsT y ty A) ..)
+                                      (in custom formula at level 99,
+                                          ty custom term_ty, only parsing) : refiney_scope.
+Notation "∃ x .. y ':' ty ● A" := (FExistsT x ty .. (FExistsT y ty A) ..)
+                                 (in custom formula at level 99,
+                                     ty custom term_ty, only printing) : refiney_scope.
 Notation "∀ x .. y , A" := (FForall x .. (FForall y A) ..)
                                  (in custom formula at level 99, only parsing) : refiney_scope.
 Notation "∀ x .. y ● A" := (FForall x .. (FForall y A) ..)
                                  (in custom formula at level 99, only printing) : refiney_scope.
+Notation "∀ x .. y ':' ty , A" := (FForallT x ty .. (FForallT y ty A) ..)
+                                      (in custom formula at level 99,
+                                          ty custom term_ty, only parsing) : refiney_scope.
+Notation "∀ x .. y ':' ty ● A" := (FForallT x ty .. (FForallT y ty A) ..)
+                                 (in custom formula at level 99,
+                                     ty custom term_ty, only printing) : refiney_scope.
 
 
 Notation "A [! x \ t !]" := (subst_formula A x t)

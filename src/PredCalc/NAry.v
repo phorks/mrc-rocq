@@ -58,6 +58,18 @@ Section syntactic.
     | x :: xs => <! ∀ x, $(FForallList xs A) !>
     end.
 
+  Fixpoint FExistsListT xs ty A :=
+    match xs with
+    | [] => A
+    | x :: xs => <! ∃ x : ty, $(FExistsListT xs ty A) !>
+    end.
+
+  Fixpoint FForallListT xs ty A :=
+    match xs with
+    | [] => A
+    | x :: xs => <! ∀ x : ty, $(FForallListT xs ty A) !>
+    end.
+
   Definition FEqList ts1 ts2 `{!OfSameLength ts1 ts2} : formula :=
     FAndList (zip_with (λ t1 t2, <! ⌜t1 = t2⌝ !>) ts1 ts2).
 

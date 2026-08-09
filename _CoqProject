@@ -20,6 +20,7 @@ src/PredCalc.v
 src/Prog.v
 src/Refinement.v
 src/RefCalc.v
-src/Examples/Common.v
 src/Comparable.v
 src/ListBag.v
+src/Examples/Model.v
+src/Examples/Variables.v

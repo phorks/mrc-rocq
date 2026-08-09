@@ -16,7 +16,7 @@ Section refinement.
   Context {M : model}.
   Context `{MNat : ModelWithNat M}.
   Local Notation value := (value M).
-  Local Notation prog := (@prog M).
+  Local Notation prog := (@prog value (value_ty M) (model_sgn M)).
   Local Notation state := (state M).
   Local Notation term := (termM M).
   Local Notation formula := (formulaM M).
@@ -27,7 +27,7 @@ Section refinement.
   Implicit Types pre post : formula.
   Implicit Types w xs : list final_variable.
   Implicit Types gs : list final_formula.
-  Implicit Types rhs : list (@asgn_rhs_term M).
+  Implicit Types rhs : list (@asgn_rhs_term value (Model.model_sgn M)).
   Implicit Types p : prog.
   (* Implicit Types ts : list term. *)
 
@@ -68,6 +68,21 @@ Section refinement.
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre', post] }>.
   Proof.
     intros Hent A. simpl. fSimpl. assumption.
+  Qed.
+
+  (* Law 1.7 *)
+  Lemma r_simple_spec x t `{!TermFinal t} :
+    as_var x ∉ term_fvars t →
+    <{ x := t }> ≡ <{ x : [⌜x = t⌝] }>.
+  Proof with auto.
+    intros Hfree A. simpl. fSimpl. unfold subst_initials. rewrite seqsubst_non_free.
+    - rewrite f_forall_one_point... apply msubst_single.
+    - simpl. set_unfold. intros. destruct H; [|done]. destruct H0.
+      assert (¬ var_final x0).
+      { unfold var_final. subst. simpl. done. }
+      destruct_or! H0; try done.
+      + rename TermFinal0 into H3. unfold TermFinal, term_final in H3. by apply H3 in H0.
+      + pose proof (final_formula_final A). unfold formula_final in H3. by apply H3 in H0.
   Qed.
 
   Lemma r_permute_frame w w' pre post `{!FormulaFinal pre} :
@@ -197,7 +212,7 @@ Section refinement.
     erewrite f_intro_hyp at 1. reflexivity.
   Qed.
 
-  Lemma r_varlist_permute xs xs' (p : prog) :
+  Lemma r_varlist_permute xs xs' p :
     xs ≡ₚ xs' →
     <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
   Proof.
@@ -418,7 +433,7 @@ Section refinement.
     assert (asgn_opens0 = Prog.asgn_opens (split_asgn_list xs rhs)) as Heq1 by (rewrite E3; done).
     assert (asgn_xs = Prog.asgn_xs (split_asgn_list xs rhs)) as Heq2 by (rewrite E3; done).
     assert (asgn_ts = Prog.asgn_ts (split_asgn_list xs rhs)) as Heq3 by (rewrite E3; done).
-    clear E1 E2 E3. simpl. repeat rewrite wp_varlist. simpl.
+    clear E1 E2 E3. simpl. repeat rewrite wp_varlist. simpl. rewrite f_forall_ty_unknown.
     rewrite f_forall_elim with (t:=t). rewrite simpl_subst_foralllist.
     2:{ intros contra. apply elem_of_list_fmap in contra. destruct contra as (x'&?&?).
         apply as_var_inj in H3. subst. eapply elem_of_submseteq in H4;

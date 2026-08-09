@@ -380,15 +380,27 @@ Section subst.
   Qed.
 
   Global Instance fforall_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForall.
-  Proof with auto.
-    intros x ? <- A B H σ. unfold FForall. rewrite H...
-  Qed.
+  Proof with auto. intros x ? <- A B H σ. unfold FForall. rewrite H... Qed.
 
   Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FForall.
   Proof with auto.
     intros x ? <- A B H. unfold FForall. apply f_ent_contrapositive.
     apply f_ent_contrapositive in H. rewrite H. reflexivity.
   Qed.
+
+  Global Instance fexists_ty_proper
+    : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (≡@{formula})) FExistsT.
+  Proof with auto. intros x ? <- ty ? <- A B H σ. unfold FExistsT. rewrite H... Qed.
+
+  Global Instance fexists_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FExistsT.
+  Proof with auto. intros x ? <- ty ? <- A B H. unfold FExistsT. rewrite H... Qed.
+
+  Global Instance fforall_ty_proper
+    : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (≡@{formula})) FForallT.
+  Proof with auto. intros x ? <- ty ? <- A B H σ. unfold FForallT. rewrite H... Qed.
+
+  Global Instance fforall_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FForallT.
+  Proof with auto. intros x ? <- ty ? <- A B H. unfold FForallT. rewrite H... Qed.
 
   Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →

@@ -1,0 +1,697 @@
+From Stdlib Require Import Reals ZArith Sorting.
+From stdpp Require Import listset vector.
+From MRC Require Export PredCalc Comparable ListBag Prelude Tactics Stdppp.
+
+Notation compare := Comparable.compare.
+
+Inductive ValueRaw :=
+  | VUnit
+  | VNat (n : nat)
+  | VInt (i : Z)
+  | VReal (r : R)
+  | VStr (s : String.string)
+  (* | VPair (v1 v2 : ValueRaw) *)
+  | VSeq (l : list ValueRaw)
+  | VBag (b : listbag ValueRaw)
+  | VUnknown.
+
+Fixpoint vraw_eq_dec (x y : ValueRaw) : {x = y} + {x <> y}.
+Proof.
+  decide equality; try solve_trivial_decision.
+  - eapply list_eq_dec. Unshelve. unfold EqDecision, Decision. apply vraw_eq_dec.
+  - destruct b as [l1], b0 as [l2]. assert (Decision (l1 = l2)).
+    { eapply list_eq_dec. Unshelve. unfold EqDecision, Decision. apply vraw_eq_dec. }
+    destruct H.
+    + left. by f_equal.
+    + right. intros contra. by inversion contra.
+Defined.
+
+Global Instance ValueRaw_EqDecision : EqDecision ValueRaw.
+Proof.
+  unfold EqDecision, Decision. apply vraw_eq_dec.
+Qed.
+
+Definition vraw_eqb (x y : ValueRaw) : bool := bool_decide (x = y).
+
+
+Section vraw_compare.
+  Local Definition vraw_constructor_idx (v : ValueRaw) : nat :=
+    match v with
+    | VUnit => 0
+    | VNat n => 1
+    | VInt i => 2
+    | VReal r => 3
+    | VStr s => 4
+    | VSeq l => 5
+    | VBag l => 6
+    | VUnknown => 7
+    end.
+
+  Fixpoint vraw_compare (x y : ValueRaw) : comparison :=
+    match x, y with
+    | VUnit, VUnit => Eq
+    | VNat n1, VNat n2 => compare n1 n2
+    | VInt i1, VInt i2 => compare i1 i2
+    | VReal r1, VReal r2 => compare r1 r2
+    | VStr s1, VStr s2 => compare s1 s2
+    | VSeq l1, VSeq l2 => list_compare vraw_compare l1 l2
+    | VBag l1, VBag l2 => listbag_compare vraw_compare l1 l2
+    | VUnknown, VUnknown => Eq
+    | x, y => compare (vraw_constructor_idx x) (vraw_constructor_idx y)
+    end.
+
+  Local Lemma compare_nat_False (x y : nat) : x ≠ y → compare x y = Eq ↔ False.
+  Proof.
+    unfold compare, nat_comparable. intros. destruct (x ?= y) eqn:E; try done.
+    apply Nat.compare_eq_iff in E. done.
+  Qed.
+
+  Local Lemma compare_nat_True (x : nat) : compare x x = Eq ↔ True.
+  Proof.
+    unfold compare, nat_comparable. intros. destruct (x ?= x) eqn:E; try done.
+    - apply Nat.compare_lt_iff in E. lia.
+    - apply Nat.compare_gt_iff in E. lia.
+  Qed.
+
+  Lemma compare_ne {A} `{CompareEq A} {x y : A} : x ≠ y → compare x y ≠ Eq.
+  Proof. intros ? contra. by apply compare_eq_iff in contra. Qed.
+
+  Fixpoint vraw_ind' (P : ValueRaw → Prop) :
+    (P VUnit) →
+    (∀ n, P (VNat n)) →
+    (∀ i, P (VInt i)) →
+    (∀ r, P (VReal r)) →
+    (∀ s, P (VStr s)) →
+    (∀ l, (∀ x, In x l → P x) → P (VSeq l)) →
+    (∀ b, (∀ x, In x (listbag_car b) → P x) → P (VBag b)) →
+    (P VUnknown) →
+    (∀ x, P x).
+  Proof.
+    intros Hunit Hnat Hint Hreal Hstr Hseq Hbag Hunknown. destruct x; try done.
+    - apply Hseq. induction l; simpl; [done|]. intros. destruct H.
+      + subst x. by apply vraw_ind'.
+      + by apply IHl.
+    - apply Hbag. induction (listbag_car b); simpl; [done|]. intros. destruct H.
+      + subst x. by apply vraw_ind'.
+      + by apply IHl.
+  Qed.
+
+  Ltac vauto_aux :=
+  repeat lazymatch goal with
+  | |- context[?x = ?y] =>
+      try solve [rewrite compare_nat_False; done]
+  end.
+
+  Ltac vauto_aux2 :=
+    let H := fresh "H" in
+    symmetry; etrans; [split; [injection 1; intros HH; exact HH | intros; by f_equal] |];
+    symmetry; apply compare_eq_iff
+  .
+
+  Ltac vauto y :=
+    destruct y; simpl; intros; vauto_aux; try solve [vauto_aux2].
+
+  Lemma vraw_compare_eq_iff x y :
+    raw_compare_eq_iff vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_eq_iff. induction x using vraw_ind'; simpl; vauto y; try done.
+    - symmetry. etrans.
+      + split; [injection 1; intros H1; exact H1| intros; by f_equal].
+      + symmetry. apply raw_list_compare_eq_iff. intros x y ??. by apply H.
+    - symmetry. etrans.
+      + split; [injection 1; intros H1; exact H1| intros; by f_equal].
+      + symmetry. apply raw_listbag_compare_eq_iff. intros x y ??. by apply H.
+  Qed.
+
+  Ltac vauto1 y :=
+    destruct y; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; eauto; done]
+                | apply compare_total].
+
+  Lemma vraw_compare_total x y :
+    raw_compare_total vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_total. induction x using vraw_ind'; simpl; vauto1 y; try done.
+    - apply raw_list_compare_total.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+    - apply raw_listbag_compare_total.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+  Qed.
+
+  Ltac vauto2 y :=
+    destruct y; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; eauto; done]
+                | apply compare_antisym].
+
+  Lemma vraw_compare_antisym x y :
+    raw_compare_antisym vraw_compare x y.
+  Proof.
+    revert y. unfold raw_compare_antisym. induction x using vraw_ind'; simpl; vauto2 y; try done.
+    - apply raw_list_compare_antisym.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+    - apply raw_listbag_compare_antisym.
+      + apply vraw_compare_eq_iff.
+      + intros ????. by apply H.
+  Qed.
+
+  Ltac vauto3 y z :=
+    destruct y, z; simpl; intros;
+      try first [solve [simpl; unfold compare, nat_comparable; simpl; subst; eauto; done]].
+
+  Lemma vraw_compare_trans x y z :
+    raw_compare_trans vraw_compare x y z.
+  Proof.
+    revert y z. unfold raw_compare_trans.
+    induction x using vraw_ind'; simpl; vauto3 y z; try done.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - eapply compare_trans; eauto.
+    - apply raw_list_compare_trans with (ys:=l0); auto.
+      + apply vraw_compare_eq_iff.
+      + apply vraw_compare_antisym.
+      + intros ???????. by apply H.
+    - apply raw_listbag_compare_trans with (b2:=b0); auto.
+      + apply vraw_compare_eq_iff.
+      + apply vraw_compare_antisym.
+      + intros ???????. by apply H.
+  Qed.
+End vraw_compare.
+
+Definition vraw_le (x y : ValueRaw) := vraw_compare x y = Lt ∨ vraw_compare x y = Eq.
+
+Global Instance vraw_le_dec : RelDecision vraw_le.
+Proof. intros x y. solve_decision. Qed.
+
+Global Instance vraw_comparable : Comparable ValueRaw := vraw_compare.
+
+Fixpoint value_invariant (v : ValueRaw) : bool :=
+  match v with
+  | VUnit => true
+  | VNat n => true
+  | VInt i => true
+  | VReal r => true
+  | VStr s => true
+  | VSeq l =>
+      let fix list_value_invariant (l : list ValueRaw) : bool :=
+        match l with
+        | [] => true
+        | x :: xs => value_invariant x && list_value_invariant xs
+        end
+      in
+      list_value_invariant l
+  | VBag b =>
+      let fix list_value_invariant (l : list ValueRaw) : bool :=
+        match l with
+        | [] => true
+        | x :: xs => value_invariant x && list_value_invariant xs
+        end
+      in
+      sorted_b (listbag_car b) && list_value_invariant (listbag_car b)
+  | VUnknown => true
+  end.
+
+Lemma value_invariant_seq_unfold {l} :
+  value_invariant (VSeq l) = forallb value_invariant l.
+Proof with auto. reflexivity. Qed.
+
+Lemma value_invariant_bag_unfold {b} :
+  value_invariant (VBag b) = sorted_b (listbag_car b) && forallb value_invariant (listbag_car b).
+Proof with auto. reflexivity. Qed.
+
+Definition Value := {v : ValueRaw | value_invariant v}.
+
+Lemma value_invariant_pi : forall v (p q : value_invariant v), p = q.
+Proof. intros v p q. apply Is_true_pi. Qed.
+
+Lemma value_eq_iff {v1 v2 : Value} : v1 = v2 ↔ `v1 = `v2.
+Proof with auto.
+  destruct v1, v2. simpl. split; intros.
+  - inversion H...
+  - subst x0. f_equal. apply value_invariant_pi.
+Qed.
+
+Fixpoint value_eq_dec (x y : Value) : {x = y} + {x <> y}.
+Proof.
+  destruct x as [x i1]. destruct y as [y i2]. destruct (decide (x = y)).
+  - subst. left. f_equal. apply value_invariant_pi.
+  - right. intros contra. by inversion contra.
+Qed.
+
+Global Instance Value_EqDecision : EqDecision Value.
+Proof.
+  unfold EqDecision, Decision. apply value_eq_dec.
+Qed.
+
+Lemma value_invariant_value (v : Value) : value_invariant (`v).
+Proof. by destruct v. Qed.
+
+Section value_compare.
+  Definition value_compare (v1 v2 : Value) := vraw_compare (`v1) (`v2).
+
+  Global Instance value_comparable : Comparable Value := value_compare.
+
+  Global Instance value_compare_eq : CompareEq Value.
+  Proof.
+    intros ??. unfold compare, value_comparable, value_compare. rewrite value_eq_iff.
+    apply vraw_compare_eq_iff.
+  Qed.
+
+  Global Instance value_compare_total : CompareTotal Value.
+  Proof.
+    intros ??. unfold compare, value_comparable, value_compare. apply vraw_compare_total.
+  Qed.
+
+  Global Instance value_compare_antisym : CompareAntiSym Value.
+  Proof.
+    intros ??. unfold compare, value_comparable, value_compare. apply vraw_compare_antisym.
+  Qed.
+
+  Global Instance value_compare_trans : CompareTrans Value.
+  Proof.
+    intros ????. unfold compare, value_comparable, value_compare. apply vraw_compare_trans.
+  Qed.
+
+  Global Instance value_compare_lawful : LawfulCompare Value := {}.
+End value_compare.
+
+Notation "`* xs" := (map proj1_sig xs) (at level 10, format "`* xs") : stdpp_scope.
+
+Definition mkUnknown : Value := VUnknown ↾ I.
+Definition mkUnit : Value := VUnit ↾ I.
+Definition mkNat (n : nat) : Value := VNat n ↾ I.
+Definition mkInt (i : Z) : Value := VInt i ↾ I.
+Definition mkReal (r : R) : Value := VReal r ↾ I.
+Definition mkStr (s : String.string) : Value := VStr s ↾ I.
+Program Definition mkSeq (l : list Value) : Value := VSeq (`*l).
+Next Obligation.
+  epose proof value_invariant_seq_unfold. simpl in H. rewrite H. clear H.
+  induction l; auto. simpl. rewrite Is_true_andb. split; auto. apply value_invariant_value.
+Qed.
+Program Definition mkBag (b : listbag Value) (H : sorted_b (`* (listbag_car b))) : Value
+  := VBag (Listbag (`* (listbag_car b))).
+Next Obligation.
+  rewrite Is_true_andb. split; [assumption|]. clear H.
+  epose proof value_invariant_seq_unfold. simpl in H. rewrite H. clear H.
+  destruct b as [l]. induction l; auto. simpl. rewrite Is_true_andb. split; auto.
+  apply value_invariant_value.
+Qed.
+
+Global Instance Value_Bottom : Bottom Value := mkUnknown.
+
+Variant FSym :=
+  | FSum
+  | FSub
+  | FMult
+  | FSqrt
+  | FFloor
+  | FToNat
+  | FToInt
+  | FToReal
+  | FLen (* #as *)
+  (* | FConcat (* as ++ bs *) *)
+  (* | FIndex (* as[i] *) *)
+  (* | FToBag (* bag as *) *)
+  (* | FPrefix (* as↑n *) *)
+  (* | FSuffix (* as↓n *) *)
+.
+
+Global Instance FSym_EqDecision : EqDecision FSym.
+Proof. solve_decision. Qed.
+
+Inductive PSym :=
+  | PLt
+  | PContains.
+  (* | IsUnit *)
+  (* | IsNat *)
+  (* | IsInt *)
+  (* | IsReal. *)
+
+Global Instance PSym_EqDecision : EqDecision PSym.
+Proof. solve_decision. Qed.
+
+Definition Signature := Model.mkSignature FSym FSym_EqDecision PSym PSym_EqDecision.
+
+Inductive Value_Ty :=
+  | TEmpty
+  | TUnit
+  | TNat
+  | TInt
+  | TReal
+  | TStr
+  (* | TPair (τ1 τ2 : Value_Ty) *)
+  | TSeq (τ : Value_Ty)
+  | TBag (τ : Value_Ty)
+  | TUnknown
+  (* | TSet (τ : Value_Ty) *)
+  (* | TRel (τ1 τ2 : Value_Ty) *)
+  (* | TFun (τ1 τ2 : Value_Ty) *)
+  (* | TFinSet (τ : Value_Ty) (* finite powerset *) *)
+  (* | TSetComp (τ : Value_Ty) (P : Term → Formula) *)
+  (* | TUnion (τ1 τ2 : Value_Ty) *)
+  (* | TIntersection (τ1 τ2 : Value_Ty) *)
+  (* | TSubtraction (τ1 τ2 : Value_Ty). *)
+.
+
+
+Local Notation Term' := (term Value Signature).
+Local Notation Formula' := (formula Value Value_Ty Signature).
+
+Variant FSum_rel : list Value → Value → Prop :=
+  | FSum_NN : ∀ n1 n2, FSum_rel [mkNat n1; mkNat n2] (mkNat (n1 + n2))
+  | FSum_NZ : ∀ n i, FSum_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n + i))
+  | FSum_ZN : ∀ i n, FSum_rel [mkInt i; mkNat n] (mkInt (i + Z.of_nat n))
+  | FSum_NR : ∀ n r, FSum_rel [mkNat n; mkReal r] (mkReal (INR n + r))
+  | FSum_RN : ∀ r n, FSum_rel [mkReal r; mkNat n] (mkReal (r + INR n))
+  | FSum_ZZ : ∀ i1 i2, FSum_rel [mkInt i1; mkInt i2] (mkInt (i1 + i2))
+  | FSum_ZR : ∀ i r, FSum_rel [mkInt i; mkReal r] (mkReal (IZR i + r))
+  | FSum_RZ : ∀ r i, FSum_rel [mkReal r; mkInt i] (mkReal (r + IZR i))
+  | FSum_RR : ∀ r1 r2, FSum_rel [mkReal r1; mkReal r2] (mkReal (r1 + r2))
+.
+
+Program Definition FSum_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSum_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: inversion H3; subst; done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FSub_rel : list Value → Value → Prop :=
+  | FSub_NN : ∀ n1 n2, n1 > n2 → FSub_rel [mkNat n1; mkNat n2] (mkNat (n1 - n2))
+  | FSub_NZ : ∀ n i, FSub_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n - i))
+  | FSub_ZN : ∀ i n, FSub_rel [mkInt i; mkNat n] (mkInt (i - Z.of_nat n))
+  | FSub_NR : ∀ n r, FSub_rel [mkNat n; mkReal r] (mkReal (INR n - r))
+  | FSub_RN : ∀ r n, FSub_rel [mkReal r; mkNat n] (mkReal (r - INR n))
+  | FSub_ZZ : ∀ i1 i2, FSub_rel [mkInt i1; mkInt i2] (mkInt (i1 - i2))
+  | FSub_ZR : ∀ i r, FSub_rel [mkInt i; mkReal r] (mkReal (IZR i - r))
+  | FSub_RZ : ∀ r i, FSub_rel [mkReal r; mkInt i] (mkReal (r - IZR i))
+  | FSub_RR : ∀ r1 r2, FSub_rel [mkReal r1; mkReal r2] (mkReal (r1 - r2))
+.
+
+Program Definition FSub_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSub_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H5; subst; done).
+  all: try (inversion H4; subst; done).
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FMult_rel : list Value → Value → Prop :=
+  | FMult_NN : ∀ n1 n2, FMult_rel [mkNat n1; mkNat n2] (mkNat (n1 * n2))
+  | FMult_NZ : ∀ n i, FMult_rel [mkNat n; mkInt i] (mkInt (Z.of_nat n * i))
+  | FMult_ZN : ∀ i n, FMult_rel [mkInt i; mkNat n] (mkInt (i * Z.of_nat n))
+  | FMult_NR : ∀ n r, FMult_rel [mkNat n; mkReal r] (mkReal (INR n * r))
+  | FMult_RN : ∀ r n, FMult_rel [mkReal r; mkNat n] (mkReal (r * INR n))
+  | FMult_ZZ : ∀ i1 i2, FMult_rel [mkInt i1; mkInt i2] (mkInt (i1 * i2))
+  | FMult_ZR : ∀ i r, FMult_rel [mkInt i; mkReal r] (mkReal (IZR i * r))
+  | FMult_RZ : ∀ r i, FMult_rel [mkReal r; mkInt i] (mkReal (r * IZR i))
+  | FMult_RR : ∀ r1 r2, FMult_rel [mkReal r1; mkReal r2] (mkReal (r1 * r2))
+.
+
+Program Definition FMult_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FMult_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FSqrt_rel : list Value → Value → Prop :=
+  | FSqrt_N : ∀ (r2 : nat) r, (0 <= r)%R → (r ^ 2)%R = INR r2 → FSqrt_rel [mkNat r2] (mkReal r)
+  | FSqrt_Z : ∀ (r2 : Z) r, (0 <= r)%R → (r ^ 2)%R = IZR r2 → FSqrt_rel [mkInt r2] (mkReal r)
+  | FSqrt_R : ∀ r2 r, (0 <= r)%R → (r ^ 2)%R = r2 → FSqrt_rel [mkReal r2] (mkReal r)
+.
+
+Program Definition FSqrt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FSqrt_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H7; subst; done).
+  all: subst; inversion H7; subst; f_equal; apply Rsqr_inj; try done; unfold Rsqr; simpl in *.
+  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
+  - rewrite Rmult_1_r in H2, H6. by rewrite H2.
+  - do 2 rewrite Rmult_1_r in H3. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FFloor_rel : list Value → Value → Prop :=
+  | FFloor_N : ∀ n : nat, FFloor_rel [mkNat n] (mkNat n)
+  | FFloor_Z : ∀ i : Z, FFloor_rel [mkInt i] (mkInt i)
+  | FFloor_R : ∀ r (i : Z), (IZR i <= r < IZR i + 1)%R → FFloor_rel [mkReal r] (mkInt i)
+.
+
+Program Definition FFloor_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FFloor_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  inversion H5. subst r0. f_equal. apply Zfloor_eq in H1, H4. lia.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FToNat_rel : list Value → Value → Prop :=
+  | FToNat_N : ∀ n : nat, FToNat_rel [mkNat n] (mkNat n)
+  | FToNat_Z : ∀ i : Z, (0 ≤ i)%Z → FToNat_rel [mkInt i] (mkNat (Z.to_nat i))
+  | FToNat_R : ∀ r n, r = INR n → FToNat_rel [mkReal r] (mkNat n)
+.
+
+Program Definition FToNat_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToNat_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  all: try (inversion H5; subst; done).
+  inversion H5; inversion H; inversion H0; subst. f_equal. apply INR_eq in H2. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FToInt_rel : list Value → Value → Prop :=
+  | FToInt_N : ∀ n : nat, FToInt_rel [mkNat n] (mkInt (Z.of_nat n))
+  | FToInt_Z : ∀ i : Z, FToInt_rel [mkInt i] (mkInt i)
+  | FToInt_R : ∀ r i, r = IZR i → FToInt_rel [mkReal r] (mkInt i)
+.
+
+Program Definition FToInt_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToInt_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+  all: try (inversion H4; subst; done).
+  inversion H5; inversion H; inversion H0; subst. apply eq_IZR in H2. f_equal. done.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FToReal_rel : list Value → Value → Prop :=
+  | FToReal_N : ∀ n : nat, FToReal_rel [mkNat n] (mkReal (INR n))
+  | FToReal_Z : ∀ i : Z, FToReal_rel [mkInt i] (mkReal (IZR i))
+  | FToReal_R : ∀ r, FToReal_rel [mkReal r] (mkReal r)
+.
+
+Program Definition FToReal_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FToReal_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst.
+  all: try (inversion H3; subst; done).
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
+Variant FLen_rel : list Value → Value → Prop :=
+  | FLen_Seq : ∀ l, FLen_rel [mkSeq l] (mkNat (length l))
+  | FLen_Bag : ∀ b H, FLen_rel [mkBag b H] (mkNat (size b))
+.
+
+Program Definition FLen_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FLen_rel |}.
+Next Obligation.
+  inversion H; inversion H0; try congruence; subst.
+  all: try (inversion H4; subst; done).
+  - inversion H3. f_equal.
+    assert (length l = length (`*l)) as -> by (symmetry; apply length_map).
+    assert (length l0 = length (`*l0)) as -> by (symmetry; apply length_map).
+    by f_equal.
+  - inversion H5. f_equal. unfold size, listbag_Size.
+    destruct b0 as [l1], b as [l2]. simpl in *. clear H0 H H5.
+    f_equal. symmetry. destruct l1 as [|x0 xs].
+    { simpl. simpl in H3. symmetry in H3. apply map_eq_nil in H3. by subst. }
+    destruct l2 as [|y0 ys].
+    { simpl. discriminate. }
+    simpl. clear H1 H4. generalize dependent ys. generalize dependent y0.
+    generalize dependent x0.
+    induction xs as [|x xs]; intros.
+    + simpl in H3. destruct ys as [|y ys]; simpl in H3; inversion H3.
+      simpl. f_equal. by apply value_eq_iff.
+    + destruct ys as [|y ys]; simpl in H3; inversion H3. simpl.
+      assert (x = y) as <- by (apply value_eq_iff; exact H1). clear H1.
+      assert (x0 = y0) as <- by (apply value_eq_iff; exact H0). clear H0.
+      destruct (decide (x0 = x)).
+      * apply IHxs. simpl. by f_equal.
+      * f_equal. apply IHxs. simpl. by f_equal.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+  (* | FSum *)
+  (* | FSub *)
+  (* | FMul *)
+  (* | FSqrt *)
+  (* | FFloor *)
+  (* | FLen (* #as *) *)
+  (* | FConcat (* as ++ bs *) *)
+  (* | FIndex (* as[i] *) *)
+  (* | FToBag (* bag as *) *)
+  (* | FPrefix (* as↑n *) *)
+  (* | FSuffix (* as↓n *) *)
+
+Definition Fdefs (fsym : FSym) : @Model.fdef Value _ :=
+  match fsym with
+  | FSum => FSum_fdef
+  | FSub => FSub_fdef
+  | FMult => FMult_fdef
+  | FSqrt => FSqrt_fdef
+  | FFloor => FFloor_fdef
+  | FToNat => FToNat_fdef
+  | FToInt => FToInt_fdef
+  | FToReal => FToReal_fdef
+  | FLen => FLen_fdef
+  end.
+
+Variant PLt_rel : vec Value 2 → Prop :=
+  | PLt_NN : ∀ n1 n2, n1 < n2 → PLt_rel [# mkNat n1; mkNat n2]
+  | PLt_NZ : ∀ n i, (Z.of_nat n < i)%Z → PLt_rel [# mkNat n; mkInt i]
+  | PLt_ZN : ∀ i n, (i < Z.of_nat n)%Z → PLt_rel [# mkInt i; mkNat n]
+  | PLt_NR : ∀ n r, (INR n < r)%R → PLt_rel [# mkNat n; mkReal r]
+  | PLt_RN : ∀ r n, (r < INR n)%R → PLt_rel [# mkReal r; mkNat n]
+  | PLt_ZZ : ∀ i1 i2, (i1 < i2)%Z → PLt_rel [# mkInt i1; mkInt i2]
+  | PLt_ZR : ∀ i r, (IZR i < r)%R → PLt_rel [# mkInt i; mkReal r]
+  | PLt_RZ : ∀ r i, (r < IZR i)%R → PLt_rel [# mkReal r; mkInt i]
+  | PLt_RR : ∀ r1 r2, (r1 < r2)%R → PLt_rel [# mkReal r1; mkReal r2]
+.
+
+Definition PLt_pdef : @Model.pdef Value := {| Model.pdef_rel := PLt_rel |}.
+
+Variant PContains_rel : vec Value 2 → Prop :=
+  | PContains_Seq : ∀ v l, v ∈ l → PContains_rel [# v; mkSeq l]
+  | PContains_Bag : ∀ v b H, v ∈ b → PContains_rel [# v; mkBag b H]
+.
+
+Definition PContains_pdef : @Model.pdef Value := {| Model.pdef_rel := PContains_rel |}.
+
+Definition Pdefs (psym : PSym) : @Model.pdef Value :=
+  match psym with
+  | PLt => PLt_pdef
+  | PContains => PContains_pdef
+  end.
+
+Inductive HasType : Value → Value_Ty → Prop :=
+  | IsUnit     : HasType mkUnit TUnit
+  | IsNat      : ∀ n, HasType (mkNat n) TNat
+  | IsInt      : ∀ z, HasType (mkInt z) TInt
+  | IsReal     : ∀ r, HasType (mkReal r) TReal
+  | IsStr      : ∀ s, HasType (mkStr s) TStr
+  | IsEmptySeq : ∀ l, HasType (mkSeq l) TEmpty
+  | IsSeq      : ∀ l ty, Forall (λ x, HasType x ty) l → HasType (mkSeq l) (TSeq ty)
+  | IsEmptyBag : ∀ l H, HasType (mkBag l H) TEmpty
+  | IsBag      : ∀ b H ty, Forall (λ x, HasType x ty) (listbag_car b)
+                           → HasType (mkBag b H) (TBag ty)
+  | IsUnknown  : ∀ v, HasType v TUnknown.
+
+Lemma HasType_Unknown v : HasType v TUnknown.
+Proof. constructor. Qed.
+
+Definition Model := Model.mkModel Value mkUnknown Value_Ty
+                      HasType TUnknown HasType_Unknown Signature Fdefs Pdefs.
+
+Notation Term := (term Value Signature).
+Notation Formula := (formula Value Value_Ty Signature).
+
+Definition term_length t : Term := @TApp Value Signature FLen [t].
+
+Notation "# t" := (term_length t)
+                      (in custom term at level 40,
+                          t custom term,
+                          no associativity) : refiney_scope.
+
+Definition term_sqrt t : Term := @TApp Value Signature FSqrt [t].
+
+Notation "√ t" := (term_sqrt t)
+                      (in custom term at level 40,
+                          t custom term,
+                          no associativity) : refiney_scope.
+
+Definition term_floor t : Term := @TApp Value Signature FFloor [t].
+
+Notation "'⌊' t '⌋'" := (term_floor t)
+                      (in custom term at level 40,
+                          t custom term,
+                          no associativity) : refiney_scope.
+
+Definition value_to_term (v : Value) : Term := TConst v.
+Coercion value_to_term : Value >-> Term.
+
+Definition nat_to_term_nat (n : nat) : Term := @TConst Value Signature (mkNat n).
+
+Coercion nat_to_term_nat : nat >-> Term.
+
+Lemma VNat_canon n i : VNat n ↾ i = mkNat n.
+Proof. simpl in i. by destruct i. Qed.
+
+Program Definition Model_WithNat : ModelWithNat Model :=
+  {|
+    nat_to_value := λ n, mkNat n;
+    nat_ty := TNat;
+    value_to_nat :=
+      λ v, match v with
+             | VNat n => Some n
+             | _ => None
+           end;
+    nat_with_sum := FSum;
+    nat_with_sub := FSub;
+    nat_with_mul := FMult;
+    nat_with_order := {| lt_sym := PLt; lt_pdef_arity := eq_refl |}
+  |}.
+Next Obligation. constructor. Qed.
+Next Obligation.
+  split; intros.
+  - inversion H. by exists n.
+  - destruct H as []. destruct v as [v]. simpl in H. destruct v; try discriminate.
+    simpl. rewrite VNat_canon. constructor.
+Qed.
+Next Obligation.
+  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
+  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNat_canon. constructor.
+Qed.
+Next Obligation.
+  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
+  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNat_canon. by constructor.
+Qed.
+Next Obligation.
+  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
+  inversion H. inversion H0. subst n1 n2. unfold fn_eval. constructor. simpl.
+  repeat rewrite VNat_canon. constructor.
+Qed.
+Next Obligation.
+  destruct v1 as [v1], v2 as [v2]. destruct v1, v2; try discriminate. simpl in H, H0.
+  inversion H. inversion H0. subst n1 n2. unfold lt_pdef_rel. simpl. clear H H0.
+  split; intros.
+  - by inversion H.
+  - repeat rewrite VNat_canon. by constructor.
+Qed.
+
+Global Existing Instance Model_WithNat.

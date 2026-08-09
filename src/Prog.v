@@ -1,6 +1,7 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
 From Stdlib Require Import Strings.String.
 From stdpp Require Import base gmap.
+From Equations Require Import Equations.
 From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
 From MRC Require Import SeqNotation.
@@ -8,18 +9,22 @@ From MRC Require Import Tactics.
 From MRC Require Import Model.
 From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.
-From Equations Require Import Equations.
 
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
-Section prog.
-  Context {M : model}.
-  Context `{MNat : ModelWithNat M}.
-  Local Notation term := (termM M).
-  Local Notation final_term := (final_termM M).
-  Local Notation formula := (formulaM M).
-  Local Notation final_formula := (final_formulaM M).
+Section syntax.
+  Context {value : Type}.
+  Context {value_ty : Type}.
+  Context {sgn : signature}.
+
+  (* top (unknown) type is required for open assignment *)
+  Context `{ty_unknown : Top value_ty}.
+
+  (* Local Notation term := (term value). *)
+  Local Notation formula := (formula value value_ty sgn).
+  Local Notation final_term := (final_term value sgn).
+  Local Notation final_formula := (final_formula value value_ty sgn).
 
   Unset Elimination Schemes.
   Inductive prog : Type :=
@@ -28,8 +33,8 @@ Section prog.
   | PIf (gcmds : list (final_formula * prog))
   | PWhile (g inv : final_formula) (variant : final_term) (p : prog)
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
-  | PVar (x : final_variable) (p : prog)
-  | PConst (x : final_variable) (p : prog).
+  | PVar (x : final_variable) (ty : value_ty) (p : prog)
+  | PConst (x : final_variable) (ty : value_ty) (p : prog).
   Set Elimination Schemes.
 
   Fixpoint prog_ind P :
@@ -38,8 +43,8 @@ Section prog.
     (∀ gcmds, Forall (λ fp, P fp.2) gcmds → P (PIf gcmds)) →
     (∀ g inv v p, P p → P (PWhile g inv v p)) →
     (∀ w pre post, P (PSpec w pre post)) →
-    (∀ x p, P p → P (PVar x p)) →
-    (∀ x p, P p → P (PConst x p)) →
+    (∀ x ty p, P p → P (PVar x ty p)) →
+    (∀ x ty p, P p → P (PConst x ty p)) →
     ∀ p, P p.
   Proof with auto.
     intros Hasgn Hseq Hif Hwhile Hspec Hvar Hcons. destruct p.
@@ -52,16 +57,16 @@ Section prog.
     - apply Hcons. apply prog_ind...
   Qed.
 
-  Fixpoint PVarList (xs : list final_variable) (p : prog) :=
+  Fixpoint PVarList (xs : list final_variable) (ty : value_ty) (p : prog) :=
     match xs with
     | [] => p
-    | x :: xs => PVar x (PVarList xs p)
+    | x :: xs => PVar x ty (PVarList xs ty p)
     end.
 
-  Fixpoint PConstList (xs : list final_variable) (p : prog) :=
+  Fixpoint PConstList (xs : list final_variable) (ty : value_ty) (p : prog) :=
     match xs with
     | [] => p
-    | x :: xs => PConst x (PConstList xs p)
+    | x :: xs => PConst x ty (PConstList xs ty p)
     end.
 
 
@@ -76,8 +81,8 @@ Section prog.
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
     | PWhile _ _ _ p => modified_final_vars p
     | PSpec w pre post => list_to_set w
-    | PVar x p => modified_final_vars p
-    | PConst x p => modified_final_vars p
+    | PVar x _ p => modified_final_vars p
+    | PConst x _ p => modified_final_vars p
     end.
 
   (* TODO: move it near to as_var_F *)
@@ -95,8 +100,8 @@ Section prog.
                                  formula_fvars (as_formula (fst gcmd))) <$> gcmds)
     | PWhile g inv v p => formula_fvars g ∪ formula_fvars inv ∪ term_fvars v ∪ prog_fvars p
     | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
-    | PVar x p => prog_fvars p ∖ {[as_var x]}
-    | PConst x p => prog_fvars p ∖ {[as_var x]}
+    | PVar x _ p => prog_fvars p ∖ {[as_var x]}
+    | PConst x _ p => prog_fvars p ∖ {[as_var x]}
   end.
 
   Fixpoint any_guard (gcmds : gcmd_list) : formula :=
@@ -110,57 +115,6 @@ Section prog.
     | [] => <! true !>
     | (g, _)::cmds => <! (g ⇔ A) ∧ $(all_cmds cmds A) !>
     end.
-
-  (* TODO: move it *)
-  Definition raw_initial_var name := mkVar name 0 true.
-
-  Fixpoint wp (p : prog) (A : formula) : formula :=
-    match p with
-    | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
-    | PSeq p1 p2 => wp p1 (wp p2 A)
-    | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
-    | PWhile g inv var p =>
-        let var₀ := to_initial_var (fresh_var (raw_var "") (Δ p)) in
-        <! ∀* $(set_to_list (Δ p)),
-            (inv ∧ g ⇒ $(wp p inv)) ∧
-            (inv ∧ ¬ g ⇒ A) ∧
-            (inv ∧ g ⇒ ⌜var ∈ₜ ℕ⌝) ∧
-            (inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
-    | PSpec w pre post =>
-        <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
-    | PVar x p => <! ∀ x, $(wp p A) !>
-    | PConst x p => <! ∃ x, $(wp p A) !>
-    end.
-
-  (* ******************************************************************* *)
-  (* definition and properties of ⊑ and ≡ on prog                        *)
-  (* ******************************************************************* *)
-  Global Instance refines : SqSubsetEq prog := λ p1 p2,
-    ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
-
-  Global Instance pequiv : Equiv prog := λ p1 p2, ∀ A : final_formula, wp p1 A ≡ wp p2 A.
-  Global Instance refines_refl : Reflexive refines.
-  Proof with auto. intros ??.  reflexivity. Qed.
-
-  Global Instance refines_trans : Transitive refines.
-  Proof with auto. intros p1 p2 p3 ?? A... transitivity (wp p2 A); naive_solver. Qed.
-
-  Global Instance pequiv_refl : Reflexive pequiv.
-  Proof with auto. split; done. Qed.
-
-  Global Instance pequiv_sym : Symmetric pequiv.
-  Proof with auto. intros p1 p2. unfold pequiv. intros. symmetry... Qed.
-
-  Global Instance pequiv_trans : Transitive pequiv.
-  Proof with auto. intros p1 p2 p3 ?? A. trans (wp p2 A)... Qed.
-
-  Global Instance pequiv_equiv : Equivalence pequiv.
-  Proof. split; [exact pequiv_refl | exact pequiv_sym | exact pequiv_trans]. Qed.
-
-  Global Instance refines_antisym : Antisymmetric prog pequiv refines.
-  Proof with auto.
-    intros p1 p2 H12 H21. split; intros; [apply H12 in H | apply H21 in H]...
-  Qed.
 
   (* ******************************************************************* *)
   (* some extreme programs                                               *)
@@ -239,12 +193,12 @@ Section prog.
   Definition PAsgnWithOpens (xs : list final_variable) (rhs : list asgn_rhs_term)
                             `{!OfSameLength xs rhs} : prog :=
     let (opens, xs, ts, _) := split_asgn_list xs rhs in
-    PVarList opens (PAsgn xs ts).
+    PVarList opens ⊤ (PAsgn xs ts).
 
   Lemma PAsgnWithOpens_cons_open x xs rhs `{!OfSameLength xs rhs}
       `{!OfSameLength (x :: xs) (OpenRhsTerm :: rhs)} :
     PAsgnWithOpens (x :: xs) (OpenRhsTerm :: rhs) =
-      PVar x (PAsgnWithOpens xs rhs).
+      PVar x ⊤ (PAsgnWithOpens xs rhs).
   Proof.
     simpl. unfold PAsgnWithOpens at 1. erewrite split_asgn_list_cons_open.
     unfold asgn_args_with_open. destruct (split_asgn_list xs rhs) eqn:E.
@@ -532,7 +486,9 @@ Section prog.
   Qed.
 
 
-End prog.
+End syntax.
+
+Notation "'Δ' p" := (modified_vars p) (at level 50).
 
 Declare Custom Entry asgn_rhs_seq.
 Declare Custom Entry asgn_rhs_elem.
@@ -628,28 +584,39 @@ Notation "w : [ p , q ]" :=
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
 
+Notation "w : [ q ]" :=
+  (PSpec w (as_final_formula <! true !>) q)
+    (in custom prog at level 95, no associativity,
+        w custom var_seq at level 94, q custom formula at level 85)
+    : refiney_scope.
+
 Notation ": [ p , q ]" :=
   (PSpec [] (as_final_formula p) q)
     (in custom prog at level 95, no associativity,
         p custom formula at level 85, q custom formula at level 85)
     : refiney_scope.
 
-Notation "'|[' 'var' x '⦁' y ']|' " :=
-  (PVar x y)
+Notation ": [ q ]" :=
+  (PSpec [] (as_final_formula <! true !>) q)
+    (in custom prog at level 95, no associativity, q custom formula at level 85)
+    : refiney_scope.
+
+Notation "'|[' 'var' x .. y : ty '⦁' p ']|' " :=
+  (PVar x ty .. (PVar y ty p) ..)
     (in custom prog at level 95, no associativity,
-        x constr at level 0, y custom prog) : refiney_scope.
+        x constr at level 0, ty custom term_ty, p custom prog) : refiney_scope.
 
 Notation "'|[' 'var*' xs '⦁' y ']|' " :=
-  (PVarList xs y)
+  (PVarList xs (ty_unknown _) y)
     (in custom prog at level 95, xs custom variable_list) : refiney_scope.
 
-Notation "'|[' 'con' x '⦁' y ']|' " :=
-  (PConst x y)
+Notation "'|[' 'con' x .. y : ty '⦁' p ']|' " :=
+  (PConst x ty .. (PConst y ty p) ..)
     (in custom prog at level 95, no associativity,
-        x constr at level 0, y custom prog) : refiney_scope.
+        x constr at level 0, ty custom term_ty, p custom prog) : refiney_scope.
 
 Notation "'|[' 'con*' xs '⦁' y ']|' " :=
-  (PConstList xs y)
+  (PConstList xs (ty_unknown _) y)
     (in custom prog at level 95, xs custom variable_list) : refiney_scope.
 
 Notation "{ A }" := (PSpec [] (as_final_formula A) <! true !>)
@@ -669,20 +636,70 @@ Notation "{ A }" := (PSpec [] (as_final_formula A) <! true !>)
 (* Definition pp3 := <{ x, y, z := y, x, ? }> : @prog M. *)
 (* Definition pp4 := <{ x : [pre, post] }> : @prog M. *)
 
-Section prog.
+Section semantics.
   Context {M : model}.
   Context {MNat : ModelWithNat M}.
   Local Notation value := (value M).
-  Local Notation prog := (@prog M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation prog := (@prog value value_ty (model_sgn M)).
   Local Notation term := (termM M).
   Local Notation formula := (formulaM M).
   Local Notation final_term := (final_termM M).
   Local Notation final_formula := (final_formulaM M).
 
+  Fixpoint wp (p : prog) (A : formula) : formula :=
+    match p with
+    | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
+    | PSeq p1 p2 => wp p1 (wp p2 A)
+    | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
+    | PWhile g inv var p =>
+        let var₀ := to_initial_var (fresh_var (raw_var "") (Δ p)) in
+        <! ∀* $(set_to_list (Δ p)),
+            (inv ∧ g ⇒ $(wp p inv)) ∧
+            (inv ∧ ¬ g ⇒ A) ∧
+            (inv ∧ g ⇒ ⌜var ∈ₜ ℕ⌝) ∧
+            (inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
+    | PSpec w pre post =>
+        <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
+    | PVar x ty p => <! ∀ x : ty, $(wp p A) !>
+    | PConst x ty p => <! ∃ x : ty, $(wp p A) !>
+    end.
+
+  (* ******************************************************************* *)
+  (* definition and properties of ⊑ and ≡ on prog                        *)
+  (* ******************************************************************* *)
+  Global Instance refines : SqSubsetEq prog := λ p1 p2,
+    ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
+
+  Global Instance pequiv : Equiv prog := λ p1 p2, ∀ A : final_formula, wp p1 A ≡ wp p2 A.
+  Global Instance refines_refl : Reflexive refines.
+  Proof with auto. intros ??.  reflexivity. Qed.
+
+  Global Instance refines_trans : Transitive refines.
+  Proof with auto. intros p1 p2 p3 ?? A... transitivity (wp p2 A); naive_solver. Qed.
+
+  Global Instance pequiv_refl : Reflexive pequiv.
+  Proof with auto. split; done. Qed.
+
+  Global Instance pequiv_sym : Symmetric pequiv.
+  Proof with auto. intros p1 p2. unfold pequiv. intros. symmetry... Qed.
+
+  Global Instance pequiv_trans : Transitive pequiv.
+  Proof with auto. intros p1 p2 p3 ?? A. trans (wp p2 A)... Qed.
+
+  Global Instance pequiv_equiv : Equivalence pequiv.
+  Proof. split; [exact pequiv_refl | exact pequiv_sym | exact pequiv_trans]. Qed.
+
+  Global Instance refines_antisym : Antisymmetric prog pequiv refines.
+  Proof with auto.
+    intros p1 p2 H12 H21. split; intros; [apply H12 in H | apply H21 in H]...
+  Qed.
+
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.
   Implicit Types w : list final_variable.
   Implicit Types xs : list final_variable.
+  Implicit Types t : termM M.
 
   Lemma wp_asgn xs ts A `{!OfSameLength xs ts} :
     wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[ ↑ₓ xs \ ⇑ₜ ts]] !>.
@@ -690,35 +707,54 @@ Section prog.
     rewrite PAsgnWithOpens_no_opens. simpl...
   Qed.
 
+  Lemma f_hastype_unknown t :
+    <! ⌜t ∈ₜ ⊤⌝ !> ≡ <! true !>.
+  Proof with auto.
+    intros σ. split; intros _; [done|]. destruct (teval_total σ t) as [v Hv].
+    simp feval. simpl. exists v. split... apply hastype_unknown.
+  Qed.
+
+  Lemma f_forall_ty_unknown x A :
+    <! ∀ x : ⊤, A !> ≡ <! ∀ x, A !>.
+  Proof. unfold FForallT. rewrite f_hastype_unknown. fSimpl. Qed.
+
+  Lemma f_exists_ty_unknown x A :
+    <! ∃ x : ⊤, A !> ≡ <! ∃ x, A !>.
+  Proof. unfold FExistsT. rewrite f_hastype_unknown. fSimpl. Qed.
+
   Lemma wp_varlist xs p A :
     wp <{ |[ var* xs ⦁ $p ]| }> A ≡ <! ∀* ↑ₓ xs, $(wp p A) !>.
-  Proof with auto. induction xs as [|x xs IH]... simpl. rewrite IH. reflexivity. Qed.
+  Proof with auto.
+    induction xs as [|x xs IH]... simpl. rewrite f_forall_ty_unknown. rewrite IH. reflexivity.
+  Qed.
 
   Lemma wp_constlist xs p A :
     wp <{ |[ con* xs ⦁ $p ]| }> A ≡ <! ∃* ↑ₓ xs, $(wp p A) !>.
-  Proof with auto. induction xs as [|x xs IH]... simpl. rewrite IH. reflexivity. Qed.
+  Proof with auto.
+    induction xs as [|x xs IH]... simpl. rewrite f_exists_ty_unknown. rewrite IH. reflexivity.
+  Qed.
 
-  Global Instance PVar_proper : Proper ((=) ==> (≡) ==> (≡@{prog})) PVar.
-  Proof. intros x ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+  Global Instance PVar_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PVar.
+  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
 
-  Global Instance PVarList_proper : Proper ((=) ==> (≡) ==> (≡@{prog})) PVarList.
+  Global Instance PVarList_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PVarList.
   Proof.
-    intros xs ? <- A B ? C. induction xs as [|x xs IH].
+    intros xs ? <- ty ? <- A B ? C. induction xs as [|x xs IH].
     - simpl. apply H.
     - simpl. rewrite IH. reflexivity.
   Qed.
 
-  Global Instance PConst_proper : Proper ((=) ==> (≡) ==> (≡@{prog})) PConst.
-  Proof. intros x ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+  Global Instance PConst_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PConst.
+  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
 
-  Global Instance PConstList_proper : Proper ((=) ==> (≡) ==> (≡@{prog})) PConstList.
+  Global Instance PConstList_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PConstList.
   Proof.
-    intros xs ? <- A B ? C. induction xs as [|x xs IH].
+    intros xs ? <- ty ? <- A B ? C. induction xs as [|x xs IH].
     - simpl. apply H.
     - simpl. rewrite IH. reflexivity.
   Qed.
 
-  Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) (@wp M MNat).
+  Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) wp.
   Proof with auto.
     intros p ? <- A B H. generalize dependent B. generalize dependent A.
     induction p; intros A B Hequiv; intros; simpl; fSimpl;
@@ -735,4 +771,4 @@ Section prog.
   Global Instance wp_proper_pequiv {A : final_formula} : Proper ((≡@{prog}) ==> (≡)) (λ p, wp p A).
   Proof. intros p1 p2 Hp. specialize (Hp A). assumption. Qed.
 
-End prog.
+End semantics.
