@@ -511,7 +511,7 @@ Inductive HasType : Value → Value_Ty → Prop :=
 Lemma HasType_Unknown v : HasType v TUnknown.
 Proof. constructor. Qed.
 
-Definition Model := Model.mkModel Value mkUnknown Value_Ty
+Definition Model := Model.mkModel Value mkUnknown _ Value_Ty
                       HasType TUnknown HasType_Unknown Signature Fdefs Pdefs.
 
 Notation Term := (term Model).

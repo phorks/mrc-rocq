@@ -267,11 +267,11 @@ Record signature := mkSignature {
 Record model := mkModel {
   value : Type;
   value_bottom :: Bottom value;
+  is_bottom_dec :: ∀ v : value, Decision (v = ⊥);
   value_ty : Type;
   hastype : value → value_ty → Prop;
   ty_unknown :: Top value_ty;
   hastype_unknown : ∀ v, hastype v ⊤;
-  (* is_bottom_dec :: ∀ v : value, Decision (v = ⊥); *)
   model_sgn : signature;
   fdefs : sgn_fsym model_sgn → @fdef value _;
   pdefs : sgn_psym model_sgn → @pdef value;

@@ -647,6 +647,14 @@ Section semantics.
   Local Notation final_term := (final_term M).
   Local Notation final_formula := (final_formula M).
 
+  Definition wp_context := gmap variable final_formula.
+
+  Definition wp_var_inv (Γ : gmap variable final_formula) (x : variable) : final_formula :=
+    match Γ !! x with
+    | Some A => A
+    | None => <!! true !!>
+    end.
+
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
     | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>

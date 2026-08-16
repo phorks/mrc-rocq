@@ -266,11 +266,11 @@ Section subst.
   Proof with auto.
     intros Ht. split.
     - destruct af; simpl; inversion 1; subst...
-      + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
+      + destruct_and! H0. apply (teval_subst Ht) in H1, H2. eauto.
       + destruct H0 as []. apply (teval_subst Ht) in H0. eauto.
       + destruct H0 as []. apply (teval_list_subst Ht) in H0. eauto.
     - destruct af; simpl; inversion 1; subst...
-      + destruct H0 as []. apply (teval_subst Ht) in H0, H1. eauto.
+      + destruct_and! H0. apply (teval_subst Ht) in H1, H2. eauto.
       + destruct H0 as []. apply (teval_subst Ht) in H0. eauto.
       + destruct H0 as []. apply (teval_list_subst Ht) in H0. eauto.
   Qed.
