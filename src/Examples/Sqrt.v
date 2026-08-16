@@ -20,12 +20,12 @@ Coercion final_var_to_term : Model.final_variable >-> Term.
 (*   (PVarList xs y) *)
 (*     (in custom prog at level 95, xs custom var_seq, ty custom term_ty, y custom prog) : refiney_scope. *)
 
-Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r := ⌊√ s⌋ ]| }>.
-Definition prog1 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r = ⌊√ s⌋⌝] ]| }>.
-Definition prog2 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ≤ √ s < r + 1⌝] ]| }>.
+(* Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r := ⌊√ s⌋ ]| }>. *)
+Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r = ⌊√ s⌋⌝] ]| }>.
+Definition prog2 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r ≤ √ s < r + 1⌝] ]| }>.
 
-Lemma r1 : spec ≡ prog1.
-Proof. unfold spec, prog1. by rewrite r_simple_spec. Qed.
+(* Lemma r1 : spec ≡ prog1. *)
+(* Proof. unfold spec, prog1. by rewrite r_simple_spec. Qed. *)
 
 Lemma list_to_vec_2_canon {A} (x1 x2 : A) H : list_to_vec_n [x1; x2] H = [#x1; x2].
 Proof.
@@ -128,7 +128,7 @@ Proof with auto.
   - simp feval in H. destruct H as []. simp feval. inversion H. destruct H1. inversion H1.
     clear H1; subst. inversion H7; subst. clear H7. inversion H8. subst. clear H8.
     unfold peval in H2. simpl in H2. specialize (H2 eq_refl). rewrite list_to_vec_2_canon in H2.
-    inversion H2. subst. rename r2 into vx. rename r0 into vy. clear H.
+    inversion H2. subst. rename r2 into vy. rename r1 into vx. clear H.
     inversion H0; clear H0; subst. inversion H; clear H; subst. inversion H0; subst; clear H0.
     inversion H9; subst; clear H9. inversion H10; subst; clear H10.
     unfold term_sum in H6. inversion H6. subst. inversion H8; subst; clear H8.
@@ -136,11 +136,11 @@ Proof with auto.
     subst. clear H8. apply teval_det with (v1:=mkNum vx) in H9... subst v1. inversion H10.
     + subst. simpl in H. inversion H. subst. unfold peval in H1. simpl in H1.
       specialize (H1 eq_refl). inversion H1. subst. apply teval_det with (v1:=mkNum vy) in H7...
-      apply mkNum_eq in H7. subst r2. econstructor. split; [exact H5|]. econstructor.
+      apply mkNum_eq in H7. subst r1. econstructor. split; [exact H5|]. econstructor.
       Unshelve. 3: exact [mkNum vy]. 1: by_constructor. unfold fn_eval. simpl.
       constructor.
       inversion Hx. destruct H0. apply teval_det with (v1:=mkNum vx) in H0... subst x0.
-      inversion H7. subst. rename n into vx. 
+      inversion H7. subst. rename n into vx.
       assert (vx = Zfloor vy) as ->.
       * symmetry. apply Zfloor_eq. lra.
       * constructor. lra.
@@ -224,55 +224,43 @@ Qed.
 (* Global Instance set_simpl_or_false {A B} : SetUnfold A B → SetUnfold (A ∨ False) B | 0. *)
 (* Proof. firstorder. Qed. *)
 
-Lemma r2 : prog1 ≡ prog2.
+Lemma simpl_feval_and {M σ} {A B : formula M} : feval σ <! A ∧ B !> ↔ feval σ A ∧ feval σ B.
+Proof. simp feval. reflexivity. Qed.
+
+Lemma r2 : spec ≡ prog2.
 Proof with auto.
-  unfold prog1, prog2. intros A. simpl.
+  unfold spec, prog2. intros A. simpl.
   rewrite f_subst_initials_no_initials.
   2:{ simpl. set_unfold. intros. destruct H... set_solver. }
   rewrite f_subst_initials_no_initials.
   2:{ simpl. set_unfold. intros. destruct H... set_solver. }
-  unfold FForallT at 1.
   intros σ. split; intros.
   - unfold FForallT in *. rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
-    rewrite @feval_subst with (M:=Model) (v:=v)  in H...
-    rewrite @feval_subst with (M:=Model) (v:=v)...
+    rewrite @feval_subst with (M:=Model) (v:=v) in H |- *...
     rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H0).
     rewrite simpl_feval_fforall in H |- *. intros. specialize (H v0).
     rewrite @feval_subst with (M:=Model) (v:=v0) in H |- *...
     rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1).
     simp feval in *. split; [constructor|]. destruct H as [_ ?].
-    rewrite f_subst_initials_no_initials in H |- *.
-    2:{ simpl. set_unfold. intros. destruct H2... subst x. destruct H3. destruct_or! H2...
-        - clear H H0 H1 H3. rewrite initial_var_of_eq_to_initial_var in H2.
-          apply initial_var_of_eq in H2. done.
-        - apply initial_var_of_elem_of_formula_fvars in H2... }
-    2:{ simpl. set_unfold. intros. destruct H2... subst x. destruct H3. destruct_or! H2...
-        - clear H H0 H1 H3. rewrite initial_var_of_eq_to_initial_var in H2.
-          apply initial_var_of_eq in H2. done.
-        - apply initial_var_of_eq in H2. done.
-        - apply initial_var_of_elem_of_formula_fvars in H2... }
     rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
     rewrite @feval_subst in H |- *...
     rewrite simpl_feval_fimpl in H |- *. intros. apply H.
-    apply ffloor_spec...
-    + admit.
-    + apply H2.
-    simp feval in H |- *.
-    pose proof (@ffloor_spec (<[as_var r:=v1]> $ <[as_var s:=v0]> (<[as_var r:=v]> σ)) r (term_sqrt s)).
-    forward H2.
-    + simp feval. split.
-      * apply IsNat_IsInt in H0. rewrite afeval_delete_state_var_head... simpl. done.
-      * apply term_sqrt_typing_nat...
-    + rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
-      rewrite @feval_subst in H |- *...
-
-    rewrite H2 in H.
-    rewrite ffloor_spec in H.
-    }
-
-    unfold subst_initials in H. rewrite
-    pose proof (@ffloor_spec σ r).
-    unfo
-    rewrite feval_subst in H.
-    simpl in *.
-  by rewrite r_simple_spec. Qed.
+    rewrite simpl_feval_and. simp feval in H2. destruct H2. split... apply ffloor_spec...
+    simp feval. split.
+    + apply IsNat_IsInt...
+    + apply term_sqrt_typing_nat. apply afeval_delete_state_var_head; [set_solver|]...
+  - unfold FForallT in *. rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
+    rewrite @feval_subst with (M:=Model) (v:=v) in H |- *...
+    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H0).
+    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v0).
+    rewrite @feval_subst with (M:=Model) (v:=v0) in H |- *...
+    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1).
+    simp feval in *. split; [constructor|]. destruct H as [_ ?].
+    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
+    rewrite @feval_subst in H |- *...
+    rewrite simpl_feval_fimpl in H |- *. intros. apply H.
+    rewrite simpl_feval_and. simp feval in H2. destruct H2. split... apply ffloor_spec...
+    simp feval. split.
+    + apply IsNat_IsInt...
+    + apply term_sqrt_typing_nat. apply afeval_delete_state_var_head; [set_solver|]...
+Qed.

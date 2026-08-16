@@ -647,12 +647,12 @@ Section semantics.
   Local Notation final_term := (final_term M).
   Local Notation final_formula := (final_formula M).
 
-  Definition wp_context := gmap variable final_formula.
+  Definition ty_ctx := gmap variable value_ty.
 
-  Definition wp_var_inv (Γ : gmap variable final_formula) (x : variable) : final_formula :=
+  Definition get_ty (Γ : ty_ctx) (x : variable) : value_ty :=
     match Γ !! x with
-    | Some A => A
-    | None => <!! true !!>
+    | Some τ => τ
+    | None => ⊤
     end.
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
