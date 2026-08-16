@@ -294,6 +294,7 @@ Variant FSym :=
   | FSum
   | FSub
   | FMult
+  | FPow
   | FSqrt
   | FFloor
   | FLen (* #as *)
@@ -396,6 +397,19 @@ Next Obligation.
   inversion H.
 Qed.
 
+Variant FPow_rel : list Value → Value → Prop :=
+  | FPow_R : ∀ r n, FPow_rel [mkNum r; mkNat n] (mkNum (pow r n))
+.
+
+Program Definition FPow_fdef : @Model.fdef Value _ := {| Model.fdef_rel := FPow_rel |}.
+Next Obligation.
+  apply value_eq_iff. inversion H; inversion H0; simpl; subst. inversion H3. subst r0.
+  apply INR_eq in H4. subst n0. clear H3. f_equal.
+Qed.
+Next Obligation.
+  inversion H.
+Qed.
+
 Variant FFloor_rel : list Value → Value → Prop :=
   | FFloor_R : ∀ r (i : Z), (IZR i <= r < IZR i + 1)%R → FFloor_rel [mkNum r] (mkNum (IZR i))
 .
@@ -464,6 +478,7 @@ Definition Fdefs (fsym : FSym) : @Model.fdef Value _ :=
   | FSum => FSum_fdef
   | FSub => FSub_fdef
   | FMult => FMult_fdef
+  | FPow => FPow_fdef
   | FSqrt => FSqrt_fdef
   | FFloor => FFloor_fdef
   | FLen => FLen_fdef
@@ -523,6 +538,14 @@ Notation "# t" := (term_length t)
                       (in custom term at level 40,
                           t custom term,
                           no associativity) : refiney_scope.
+
+Definition term_pow2 t : Term := @TApp Model FPow [t; @TConst Model (mkNat 2)].
+
+Notation "t '²'" := (term_pow2 t)
+                      (in custom term at level 40,
+                          t custom term,
+                          no associativity) : refiney_scope.
+
 
 Definition term_sqrt t : Term := @TApp Model FSqrt [t].
 
