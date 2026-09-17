@@ -667,38 +667,19 @@ Qed.
 Lemma r7 : prog5 ⊑ prog6.
 Proof with auto.
   unfold prog5, prog6. repeat f_equiv. simpl.
-  opose proof (r_iteration' [q; r] <!! ⌜r+1≠q⌝ !!> (as_final_formula I)
-                                              <!! I ∧ ⌜q - r ∈ₜ TNat⌝ !!>
-                                              <!! I ∧ ⌜r + 1 = q⌝ !!>
-                                              V).
+  opose proof (r_iteration' [q; r] <!! ⌜r+1 ≠ q⌝ !!> (as_final_formula I)
+                <!! I !!>
+                <!! I ∧ ⌜r + 1 = q⌝ !!>
+                V).
   simpl in H.
   etrans.
-  - simpl. apply H.
+  - simpl. apply H...
     + by_constructor; try set_solver.
-    + unfold I. unfold equiv, ffequiv. simpl. intros σ. simp feval. clear H.
-      split; intros H; destruct_and! H; split_and!...
-
-      simpl in *. destruct H0 as (vq&?&?). inversion H2. subst. rename n into nq.
-      destruct H as (vr&?&?). inversion H4. subst. rename n into nr. exists (mkNat (nq - nr)).
-      split.
-      * unfold term_sub. apply TEval_App with (vargs:=[mkNat nq; mkNat nr]).
-        -- by_constructor.
-        -- unfold sub_sym. unfold fn_eval. constructor. simpl.
-           assert (INR (nq - nr) = (INR nq - INR nr)%R).
-           { rewrite minus_INR...  }
-      * apply IsNat with (n:=nq-nr)...
-
-
-
-
-      admit.
     + simpl. fSimpl.
   - unfold to_vtmap. simpl. rewrite fin_maps.lookup_insert.
     rewrite fin_maps.insert_commute... rewrite fin_maps.lookup_insert. simpl.
     apply pequiv_refines. apply PWhile_equiv...
-    + unfold equiv, ffequiv. clear H. simpl. intros σ. simp feval.
-      split; intros; destruct_and! H; split_and!...
-    + clear H. f_equiv.
+    clear H. f_equiv.
       * unfold equiv, ffequiv. simpl. fSimpl.
       * simpl. unfold term_sub at 5.
         intros σ. unfold I. simp feval. split; intros; destruct_and! H; split_and!...
