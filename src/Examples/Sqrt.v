@@ -37,6 +37,17 @@ Definition prog5 : Prog :=
                       q, r := s + 1, 0;
                       q, r : [I, I ∧ ⌜r+1 = q⌝] ]| }>.
 
+Program Definition V : final_term Model := {| as_term := term_sub q r |}.
+Next Obligation. unfold term_final. set_solver. Qed.
+
+Definition prog6 : Prog :=
+  <{ |[ var r s q : ℕ ⦁
+          q, r := s + 1, 0;
+          while ⌜r + 1 ≠ q⌝ invariant I variant V ⟶
+            q, r : [⌜r + 1 ≠ q⌝ ∧ I, I ∧ ⌜0 ≤ q - r < ₀q - ₀r⌝]
+          end
+        ]| }>.
+
 (* Lemma r1 : spec ≡ prog1. *)
 (* Proof. unfold spec, prog1. by rewrite r_simple_spec. Qed. *)
 
@@ -531,14 +542,6 @@ Proof with auto.
     destruct_and! H. split_and!...
 Qed.
 
-Global Instance ref_proper {M} `{!ModelWithNat M} : Proper ((≡@{prog M}) ==> (≡@{prog M}) ==> (↔)) (⊑).
-Proof.
-  intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines. unfold equiv, pequiv, equiv, fequiv in *.
-  split; intros.
-  - intros σ. intros. apply H0. apply H1. apply H. apply H2.
-  - intros σ. intros. apply H0. apply H1. apply H. apply H2.
-Qed.
-
 Lemma feval_forall_equiv_if {σ1 σ2 x1 x2} {A1 A2 : Formula}:
   (∀ v, feval σ1 (<! A1 [x1 \ $(TConst v) ] !>) ↔ feval σ2 (<! A2 [x2 \ $(TConst v) ] !>)) →
   feval σ1 <! ∀ x1, A1 !> ↔ feval σ2 <! ∀ x2, A2 !>.
@@ -628,4 +631,94 @@ Proof with auto.
       { rewrite pow_INR. rewrite plus_INR. done. }
       rewrite H4. apply lt_INR. clear H2 H4 Hs Hs' H1 H3 H H0 σ.
       induction ns; simpl; lia.
+Qed.
+
+Lemma PWhile_equiv g1 g2 I1 I2 v p1 p2 :
+  g1 ≡ g2 →
+  I1 ≡ I2 →
+  Δ p1 = Δ p2 →
+  p1 ≡ p2 →
+  PWhile g1 I1 v p1 ≡ PWhile g2 I2 v p2.
+Proof with auto.
+  (* intros. rewrite H. rewrite H0. clear H g1 H0 I1. intros A. simpl. rewrite H1.  *)
+  (* f_equiv. f_equiv... *)
+  (* - admit. *)
+  (* - f_equiv. f_equiv. f_equiv. opose proof wp_proper_pequiv. *)
+  (*   specialize (H p1 p2 H2). simpl in *. Unshelve. *)
+  (*   2:{ exact <!! ⌜ v < $(to_initial_var (fresh_var String.EmptyString (Δ p2))) ⌝ !!>. } *)
+
+  (* 2:{ repeat f_equiv. } *)
+  (* repeat f_equiv. *)
+  admit.
+Admitted.
+
+(* Global Instance PWhile_proper : Proper ((≡) ==> (≡@{final_formula}) ==> (=) ==> (=) ==> (≡)) PWhile. *)
+(* Proof. *)
+(*   intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv,ffequiv in H0. *)
+(*   rewrite H0. unfold equiv,ffequiv in H. rewrite H. done. *)
+(* Qed. *)
+Lemma Rle_0_minus : forall (r1 r2 : R), (0 <= r2 - r1)%R ↔ (r1 <= r2)%R.
+Proof.
+  intros r1 r2; split.
+  - intros. apply Rge_le. apply Rminus_ge. apply Rle_ge. assumption.
+  - intros. apply Rge_le. apply Rge_minus. apply Rle_ge. assumption.
+Qed.
+
+Lemma r7 : prog5 ⊑ prog6.
+Proof with auto.
+  unfold prog5, prog6. repeat f_equiv. simpl.
+  opose proof (r_iteration' [q; r] <!! ⌜r+1≠q⌝ !!> (as_final_formula I)
+                                              <!! I ∧ ⌜q - r ∈ₜ TNat⌝ !!>
+                                              <!! I ∧ ⌜r + 1 = q⌝ !!>
+                                              V).
+  simpl in H.
+  etrans.
+  - simpl. apply H.
+    + by_constructor; try set_solver.
+    + unfold I. unfold equiv, ffequiv. simpl. intros σ. simp feval. clear H.
+      split; intros H; destruct_and! H; split_and!...
+
+      simpl in *. destruct H0 as (vq&?&?). inversion H2. subst. rename n into nq.
+      destruct H as (vr&?&?). inversion H4. subst. rename n into nr. exists (mkNat (nq - nr)).
+      split.
+      * unfold term_sub. apply TEval_App with (vargs:=[mkNat nq; mkNat nr]).
+        -- by_constructor.
+        -- unfold sub_sym. unfold fn_eval. constructor. simpl.
+           assert (INR (nq - nr) = (INR nq - INR nr)%R).
+           { rewrite minus_INR...  }
+      * apply IsNat with (n:=nq-nr)...
+
+
+
+
+      admit.
+    + simpl. fSimpl.
+  - unfold to_vtmap. simpl. rewrite fin_maps.lookup_insert.
+    rewrite fin_maps.insert_commute... rewrite fin_maps.lookup_insert. simpl.
+    apply pequiv_refines. apply PWhile_equiv...
+    + unfold equiv, ffequiv. clear H. simpl. intros σ. simp feval.
+      split; intros; destruct_and! H; split_and!...
+    + clear H. f_equiv.
+      * unfold equiv, ffequiv. simpl. fSimpl.
+      * simpl. unfold term_sub at 5.
+        intros σ. unfold I. simp feval. split; intros; destruct_and! H; split_and!...
+        clear H2 H4 H5. inversion H3. clear H3. destruct H1 as [].
+        inversion H1. clear H1. subst. inversion H7. subst. clear H7. inversion H8. clear H8.
+        subst. inversion H5. subst. clear H5. unfold term_sub in *. unfold sub_sym in *.
+        simpl. exists v0. split... inversion H4. subst. unfold fn_eval in H7. inversion H7.
+        -- subst v0 args. inversion H5. subst; clear H5. inversion H10; subst; clear H10.
+           inversion H11; subst; clear H11. simpl in H1. inversion H1. subst.
+           rename r1 into vq, r7 into vr. clear H7 H1 H4. simpl in H2. unfold peval in H2.
+           simpl in H2. specialize (H2 eq_refl). rewrite list_to_vec_2_canon in H2.
+           inversion H2. subst.
+           simpl in H, H0. destruct H as (vq'&?&?). destruct H0 as (vr'&?&?).
+           rewrite (teval_det _ _ _ H H8) in *.
+           rewrite (teval_det _ _ _ H0 H6) in *.
+           inversion H1. subst. rename n into nq.
+           inversion H4. subst. rename n into nr.
+           rewrite <- minus_INR.
+           ++ apply IsNat with (nq - nr)...
+           ++ rewrite Rle_0_minus in H3. apply INR_le...
+        -- subst. clear H0 H4 H5 H7 H1. unfold peval in H2. simpl in H2.
+           specialize (H2 eq_refl). rewrite list_to_vec_2_canon in H2. inversion H2.
 Qed.

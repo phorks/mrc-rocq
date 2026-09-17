@@ -570,7 +570,7 @@ Notation "'if' | g : gs → p 'fi'" := (PIf (gcmd_comprehension gs (λ g, p)))
     : refiney_scope.
 
 Notation "'while' A 'invariant' I 'variant' v ⟶ p 'end'" :=
-  (PWhile A (<!! I ∧ ⌜v ∈ₜ ℕ⌝ !!>) v p)
+  (PWhile (as_final_formula A) (<!! I ∧ ⌜v ∈ₜ ℕ⌝ !!>) v p)
     (in custom prog at level 95,
         A custom formula,
         I custom formula,

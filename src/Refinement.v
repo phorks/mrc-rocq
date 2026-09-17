@@ -571,7 +571,7 @@ Section refinement.
     apply fmap_Permutation. apply set_to_list_list_to_set...
   Qed.
 
-  Lemma r_iteration (w : list final_variable) (g inv : final_formula) (var : final_term) (p : prog) :
+  Lemma r_iteration (w : list final_variable) (g : formula) (inv : final_formula) (var : final_term) `{!FormulaFinal g} :
     NoDup w →
     let var₀ := <! $(as_term var) [[ₜ ↑ₓ w \ ⇑₀ w ]] !> in
     <{ *w : [inv, inv ∧ ¬ g] }> ⊑
@@ -583,7 +583,8 @@ Section refinement.
     2:{ apply set_to_list_as_var_set_list_to_set... }
     rewrite f_subst_initials_no_initials.
     2:{ rewrite fvars_foralllist. simpl. intros x ??. set_unfold. destruct H as [].
-        destruct H0 as [? _]. destruct_or! H0; apply final_formula_final in H0... }
+        destruct H0 as [? _]. rename FormulaFinal0 into Final. unfold FormulaFinal in Final.
+        unfold formula_final in Final. destruct_or! H0; try apply final_formula_final in H0... }
     intros σ. simp feval. simpl. repeat rewrite simpl_feval_foralllist. intros.
     destruct_and! H.
     assert (Haux1 : zip_pair_functional ↑ₓ w (@TConst M <$> vs)) by
@@ -656,6 +657,62 @@ Section refinement.
             - apply fresh_var_final. unfold VarFinal, var_final. simpl...
             - apply var_final_as_var. }
         intros v. split; intros; apply teval_det with (v1:=vv) in H4; auto; subst...
+  Qed.
+
+  Global Instance ffequiv : Equiv final_formula := λ F1 F2, as_formula F1 ≡ as_formula F2.
+  Global Instance ffequiv_refl : Reflexive ffequiv.
+  Proof with auto. split; done. Qed.
+
+  Global Instance ffequiv_sym : Symmetric ffequiv.
+  Proof with auto. intros A B. unfold ffequiv. done. Qed.
+
+  Global Instance ffequiv_trans : Transitive ffequiv.
+  Proof with auto. intros A B C ??. unfold ffequiv in *. trans B... Qed.
+
+  Global Instance ffequiv_equiv : Equivalence ffequiv.
+  Proof. split; [exact ffequiv_refl | exact ffequiv_sym | exact ffequiv_trans]. Qed.
+
+  Global Instance PSpec_proper : Proper ((=) ==> (≡) ==> (≡) ==> (≡@{prog})) PSpec.
+  Proof.
+    intros w ? <- A A' ? B B' ?. unfold equiv, ffequiv in H. intros P σ.
+    simpl. rewrite H. rewrite H0. done.
+  Qed.
+
+  Global Instance ref_proper : Proper ((≡@{prog}) ==> (≡@{prog}) ==> (↔)) (⊑).
+  Proof.
+    intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines. unfold equiv, pequiv, equiv, fequiv in *.
+    split; intros.
+    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
+    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
+  Qed.
+
+  Global Instance PWhile_proper : Proper ((≡) ==> (≡@{final_formula}) ==> (=) ==> (=) ==> (≡)) PWhile.
+  Proof.
+    intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv,ffequiv in H0.
+    rewrite H0. unfold equiv,ffequiv in H. rewrite H. done.
+  Qed.
+
+  Lemma pequiv_refines p1 p2 :
+    p1 ≡ p2 → p1 ⊑ p2.
+  Proof. intros. intros A. specialize (H A). rewrite H. reflexivity. Qed.
+
+  Lemma r_iteration'
+    (w : list final_variable) (g : formula) (inv inv' post : final_formula) (var : final_term)
+    `{!FormulaFinal g} :
+    NoDup w →
+    inv ≡ inv' →
+    as_formula post ≡ <! inv ∧ ¬ g !> →
+    let var₀ := <! $(as_term var) [[ₜ ↑ₓ w \ ⇑₀ w ]] !> in
+    <{ *w : [inv, post] }> ⊑
+      <{ while g invariant inv' variant var ⟶
+         *w : [inv ∧ g, inv ∧ ⌜var ∈ₜ ℕ⌝ ∧ ⌜0 ≤ var⌝ ∧ ⌜var < var₀⌝] end }>.
+  Proof with auto.
+    intros. rewrite H1. etrans.
+    - apply r_iteration...
+    - apply pequiv_refines. f_equiv.
+      2: reflexivity.
+      + unfold equiv, ffequiv. simpl. fSimpl...
+      + unfold var₀. done.
   Qed.
 
 End refinement.
