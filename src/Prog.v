@@ -669,8 +669,10 @@ Section semantics.
             (inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
     | PSpec w pre post =>
         <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
-    | PVar x ty p => <! ∀ x : ty, $(wp p A) !>
-    | PConst x ty p => <! ∃ x : ty, $(wp p A) !>
+    | PVar x ty p =>
+        <! ∀ x : ty, $(wp p A) !>
+    | PConst x ty p =>
+        <! ∃ x : ty, $(wp p A) !>
     end.
 
   (* ******************************************************************* *)
