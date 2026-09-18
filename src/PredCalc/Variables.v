@@ -2,6 +2,7 @@ From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Model.
 From MRC Require Import PredCalc.Basic.
+From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
 
 Section variables.
@@ -248,6 +249,19 @@ Section variables.
     to_initial_var x = to_initial_var y →
     x = y.
   Proof with auto. intros. apply to_initial_var_inj'... Qed.
+
+  Global Instance ffequiv : Equiv final_formula := λ F1 F2, as_formula F1 ≡ as_formula F2.
+  Global Instance ffequiv_refl : Reflexive ffequiv.
+  Proof with auto. split; done. Qed.
+
+  Global Instance ffequiv_sym : Symmetric ffequiv.
+  Proof with auto. intros A B. unfold ffequiv. done. Qed.
+
+  Global Instance ffequiv_trans : Transitive ffequiv.
+  Proof with auto. intros A B C ??. unfold ffequiv in *. trans B... Qed.
+
+  Global Instance ffequiv_equiv : Equivalence ffequiv.
+  Proof. split; [exact ffequiv_refl | exact ffequiv_sym | exact ffequiv_trans]. Qed.
 
 End variables.
 

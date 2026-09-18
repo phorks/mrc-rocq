@@ -79,7 +79,7 @@ Section syntax.
     | PIf gcmds => ⋃ ((modified_final_vars ∘ snd) <$> gcmds)
     | PWhile _ _ _ p => modified_final_vars p
     | PSpec w pre post => list_to_set w
-    | PVar x _ p => modified_final_vars p
+    | PVar x _ p => modified_final_vars p ∖ {[x]}
     | PConst x _ p => modified_final_vars p
     end.
 
@@ -661,8 +661,12 @@ Section semantics.
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
     | PWhile g inv var p =>
+        (* let var₀ := *)
+        (*   fresh_var (raw_var "") *)
+        (*     (formula_fvars inv ∪ formula_fvars g ∪ formula_fvars A ∪ term_fvars var ∪ Δ p) in *)
         let var₀ := to_initial_var (fresh_var (raw_var "") (Δ p)) in
         <! ∀* $(set_to_list (Δ p)),
+           (* ∀ var₀, *)
             (inv ∧ g ⇒ $(wp p inv)) ∧
             (inv ∧ ¬ g ⇒ A) ∧
             (inv ∧ g ⇒ ⌜var ∈ₜ ℕ⌝) ∧
@@ -778,7 +782,130 @@ Section semantics.
     - rewrite IHp; [reflexivity|]...
   Qed.
 
+  Global Instance wp_proper_fent : Proper ((=) ==> (⇛) ==> (⇛)) wp.
+  Proof with auto.
+    intros p ? <- A B H. generalize dependent B. generalize dependent A.
+    induction p; intros A B Href.
+    - simpl. rewrite Href. reflexivity.
+    - simpl. apply IHp1. apply IHp2. done.
+    - simpl. fSimpl. induction gcmds; simpl... apply Forall_cons in H as []. f_equiv.
+      + rewrite H; [reflexivity | exact Href].
+      + apply IHgcmds...
+    - simpl. rewrite Href. done.
+    - simpl. rewrite Href. done.
+    - simpl. rewrite IHp; [reflexivity|]...
+    - simpl. rewrite IHp; [reflexivity|]...
+  Qed.
+
   Global Instance wp_proper_pequiv {A : final_formula} : Proper ((≡@{prog}) ==> (≡)) (λ p, wp p A).
   Proof. intros p1 p2 Hp. specialize (Hp A). assumption. Qed.
+
+  Global Instance PSpec_proper : Proper ((=) ==> (≡) ==> (≡) ==> (≡@{prog})) PSpec.
+  Proof.
+    intros w ? <- A A' ? B B' ?. unfold equiv, ffequiv in H. intros P σ.
+    simpl. rewrite H. rewrite H0. done.
+  Qed.
+
+  Global Instance ref_proper : Proper ((≡@{prog}) ==> (≡@{prog}) ==> (↔)) (⊑).
+  Proof.
+    intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines. unfold equiv, pequiv, equiv, fequiv in *.
+    split; intros.
+    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
+    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
+  Qed.
+
+  Global Instance PWhile_proper : Proper ((≡) ==> (≡@{final_formula}) ==> (=) ==> (=) ==> (≡)) PWhile.
+  Proof.
+    intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv,ffequiv in H0.
+    rewrite H0. unfold equiv,ffequiv in H. rewrite H. done.
+  Qed.
+
+  Global Instance PVar_proper_ref : Proper ((=) ==> (=) ==> (⊑) ==> (⊑)) PVar.
+  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+
+
+  Lemma pequiv_refines {p1 p2} :
+    p1 ≡@{prog} p2 → p1 ⊑ p2.
+  Proof. intros. intros A. specialize (H A). rewrite H. reflexivity. Qed.
+
+  Lemma pequiv_refines_iff {p1 p2} :
+    p1 ≡@{prog} p2 ↔ p1 ⊑ p2 ∧ p2 ⊑ p1.
+  Proof with auto.
+    split.
+    - intros. split; apply pequiv_refines...
+    - intros []. unfold equiv, pequiv. intros A σ. specialize (H A σ). specialize (H0 A σ).
+      split; intros.
+      + apply H...
+      + apply H0...
+  Qed.
+
+  Lemma fequiv_fent_iff {A B : formula} :
+    A ≡ B ↔ A ⇛ B ∧ B ⇛ A.
+  Proof with auto.
+    split.
+    - intros. split; intros σ; apply H.
+    - intros []. split; intros...
+  Qed.
+
+  (*
+    The type of [wp p] must be [final_formula → final_formula]. The current definition has two
+    limitations that has forced us to define it as [formula → formula] but the notions of
+    equivalence and refinement are limited to only final formulas. This prevents us from defining
+    proper instances for some constructors like [PSeq] and [PWhile]. The two limitations are
+    as follows:
+    1. PWhile: [var₀] is chosen explicitly as an initial variable. Currently we do this to ensure
+        the chosen new variable is fresh in [inv], [g], [var], and [A]; otherwise it might capture
+        an existing variable. Another benefit of the current approach is that [var₀] doesn't
+        depent on [p]. This allows to prove for example [wp_proper_fequiv] easily.
+      . The correct and tricky way of doing it is to pick a [fresh_var] out
+        of the union of the free variables of all these and also UNIVERSALLY QUANTIFY over it to
+        ensure no unintentional capture happens.
+        The new variable must also be fresh in [p]. (No concept currently corresponds to the set
+        of free variables of a program; prog_fvars doesn't work: e.g., it must consider the free
+        variables in rhs terms of an assignment.)
+    2. PSpec: [post] can contain initial variables. We currently only substitute initial versions
+        of frame variables. This approach allows treating this operation as a regular substitution.
+        A correct approach is to find ALL initial variables inside post and replace them.
+        A new function [initial_vars_of : formula → gset variable] is required for this reason.
+    For the time being, to avoid complicating proofs, and also benefit from the proper instances
+    for sequential composition and iteration, we assume totality of [pequiv] as an axiom.
+   *)
+  Axiom refines_total : ∀ {p1 p2}, p1 ⊑ p2 → (∀ (A : formula), wp p1 A ⇛ wp p2 A).
+
+  Lemma pequiv_total  : ∀ {p1 p2}, p1 ≡ p2 → (∀ (A : formula), wp p1 A ≡ wp p2 A).
+  Proof with auto.
+    intros. apply fequiv_fent_iff. apply pequiv_refines_iff in H as []. split;
+      apply refines_total...
+  Qed.
+
+  Global Instance PSeq_proper_ref : Proper ((⊑) ==> (⊑) ==> (⊑)) PSeq.
+  Proof with auto.
+    intros p1 p1' ? p2 p2' ?. intros A σ ?. simpl in *. apply @refines_total with (p1:=p1)...
+    pose proof (wp_proper_fent p1 p1 eq_refl (wp p2 A) (wp p2' A)). apply H2...
+  Qed.
+
+  Lemma PWhile_equiv g1 g2 I1 I2 v p1 p2 :
+    g1 ≡ g2 →
+    I1 ≡ I2 →
+    Δ p1 = Δ p2 →
+    p1 ≡ p2 →
+    PWhile g1 I1 v p1 ≡ PWhile g2 I2 v p2.
+  Proof with auto.
+    intros. rewrite H. rewrite H0. clear H g1 H0 I1. intros A. simpl. rewrite H1.
+    f_equiv. f_equiv...
+    - fSimpl. unfold equiv, pequiv in H2. apply H2.
+    - fSimpl. pose proof (pequiv_total H2). apply H.
+  Qed.
+
+
+  Lemma r_while_body {g I v p1 p2} :
+    Δ p1 = Δ p2 →
+    p1 ⊑ p2 →
+    PWhile g I v p1 ⊑ PWhile g I v p2.
+  Proof with auto.
+    intros. intros A. simpl. rewrite H. f_equiv. f_equiv...
+    - fSimpl. apply refines_total...
+    - fSimpl. apply refines_total...
+  Qed.
 
 End semantics.

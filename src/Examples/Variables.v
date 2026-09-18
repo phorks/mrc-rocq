@@ -4,6 +4,7 @@ From MRC Require Import RefCalc.
 Definition i := Model.mkFinalVar "i" 0.
 Definition j := Model.mkFinalVar "j" 0.
 Definition k := Model.mkFinalVar "k" 0.
+Definition p := Model.mkFinalVar "p" 0.
 Definition q := Model.mkFinalVar "q" 0.
 Definition r := Model.mkFinalVar "r" 0.
 Definition s := Model.mkFinalVar "s" 0.

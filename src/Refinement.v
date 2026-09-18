@@ -116,34 +116,34 @@ Section refinement.
     - left. done.
   Qed.
 
-  (* Lemma r_expand_frame_1 xs w pre post `{!FormulaFinal pre} : *)
-  (*   w ## xs → *)
-  (*   <! post[_₀\ xs] !> ≡ post → *)
-  (*   <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>. *)
-  (* Proof with auto. *)
-  (*   intros Hdisjoint H A. simpl. fSimpl. *)
-  (*   unfold subst_initials. *)
-  (*   rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point... *)
-  (*   erewrite <- (@eqlist_rewrite _ _ _ (⇑₀ (w ++ xs))). Unshelve. *)
-  (*   3-4: do 2 rewrite fmap_app; reflexivity. *)
-  (*   rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app. *)
-  (*   rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)). *)
-  (*   2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. } *)
-  (*   f_equiv. f_equiv. *)
-  (*   rewrite f_and_comm. rewrite <- f_impl_curry. *)
-  (*   rewrite fmap_app. rewrite foralllist_app. *)
-  (*   rewrite f_foralllist_comm. *)
-  (*   rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>). *)
-  (*   2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. } *)
-  (*   setoid_rewrite (f_foralllist_one_point (↑ₓ xs))... *)
-  (*   rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials. *)
-  (*   rewrite subst_initials_inverse_l... *)
-  (*   1: { rewrite H... } *)
-  (*   intros x ??. set_unfold. destruct H1. clear H2. *)
-  (*   destruct H1 as [[[] |] |]; [set_solver|set_solver|]. *)
-  (*   apply formula_is_final in H1. naive_solver. *)
-  (*   Unshelve. typeclasses eauto. *)
-  (* Qed. *)
+  Lemma r_expand_frame xs w pre post `{!FormulaFinal pre} :
+    w ## xs →
+    <! post[_₀\ xs] !> ≡ post →
+    <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>.
+  Proof with auto.
+    intros Hdisjoint H A. simpl. fSimpl.
+    unfold subst_initials.
+    rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
+    setoid_rewrite <- (@eqlist_rewrite _ _ (⇑₀ (w ++ xs))).
+    2-3: do 2 rewrite fmap_app; reflexivity.
+    rewrite f_eqlist_app. rewrite fmap_app. rewrite foralllist_app.
+    rewrite <- f_impl_curry. rewrite (f_foralllist_impl_unused_l (↑₀ xs)).
+    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
+    f_equiv. f_equiv.
+    rewrite f_and_comm. rewrite <- f_impl_curry.
+    rewrite fmap_app. rewrite foralllist_app.
+    rewrite f_foralllist_comm.
+    rewrite (f_foralllist_impl_unused_l (↑ₓ w) _ <! post ⇒ A !>).
+    2:{ intros ???. rewrite fvars_eqlist in H1. set_solver. }
+    setoid_rewrite (f_foralllist_one_point (↑ₓ xs))...
+    rewrite f_foralllist_one_point... setoid_rewrite <- H at 2. rewrite fold_subst_initials.
+    rewrite subst_initials_inverse_l...
+    1: { rewrite H... }
+    intros x ??. set_unfold. destruct H1. clear H2.
+    destruct H1 as [[[] |] |]; [set_solver|set_solver|].
+    apply formula_is_final in H1. naive_solver.
+    Unshelve. all: typeclasses eauto.
+  Qed.
 
   (* Law 3.2 *)
   Lemma r_skip w pre post `{!FormulaFinal pre} :
@@ -659,43 +659,6 @@ Section refinement.
         intros v. split; intros; apply teval_det with (v1:=vv) in H4; auto; subst...
   Qed.
 
-  Global Instance ffequiv : Equiv final_formula := λ F1 F2, as_formula F1 ≡ as_formula F2.
-  Global Instance ffequiv_refl : Reflexive ffequiv.
-  Proof with auto. split; done. Qed.
-
-  Global Instance ffequiv_sym : Symmetric ffequiv.
-  Proof with auto. intros A B. unfold ffequiv. done. Qed.
-
-  Global Instance ffequiv_trans : Transitive ffequiv.
-  Proof with auto. intros A B C ??. unfold ffequiv in *. trans B... Qed.
-
-  Global Instance ffequiv_equiv : Equivalence ffequiv.
-  Proof. split; [exact ffequiv_refl | exact ffequiv_sym | exact ffequiv_trans]. Qed.
-
-  Global Instance PSpec_proper : Proper ((=) ==> (≡) ==> (≡) ==> (≡@{prog})) PSpec.
-  Proof.
-    intros w ? <- A A' ? B B' ?. unfold equiv, ffequiv in H. intros P σ.
-    simpl. rewrite H. rewrite H0. done.
-  Qed.
-
-  Global Instance ref_proper : Proper ((≡@{prog}) ==> (≡@{prog}) ==> (↔)) (⊑).
-  Proof.
-    intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines. unfold equiv, pequiv, equiv, fequiv in *.
-    split; intros.
-    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
-    - intros σ. intros. apply H0. apply H1. apply H. apply H2.
-  Qed.
-
-  Global Instance PWhile_proper : Proper ((≡) ==> (≡@{final_formula}) ==> (=) ==> (=) ==> (≡)) PWhile.
-  Proof.
-    intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv,ffequiv in H0.
-    rewrite H0. unfold equiv,ffequiv in H. rewrite H. done.
-  Qed.
-
-  Lemma pequiv_refines p1 p2 :
-    p1 ≡ p2 → p1 ⊑ p2.
-  Proof. intros. intros A. specialize (H A). rewrite H. reflexivity. Qed.
-
   Lemma r_iteration'
     (w : list final_variable) (g : formula) (inv inv' post : final_formula) (var : final_term)
     `{!FormulaFinal g} :
@@ -713,6 +676,81 @@ Section refinement.
       2: reflexivity.
       + unfold equiv, ffequiv. simpl. fSimpl...
       + unfold var₀. done.
+  Qed.
+
+  Lemma feval_seqsubst_pi {xs : list variable} {ts H1 H2 σ A} :
+    feval σ (@seqsubst M A xs ts H1) ↔ feval σ (@seqsubst M A xs ts H2).
+  Proof. f_equiv. f_equiv. apply OfSameLength_pi. Qed.
+
+
+
+  (* Law 6.1 *)
+  Lemma r_var_intro {w x ty pre post} `{!FormulaFinal pre} {A : final_formula} :
+    x ∉ w →
+    as_var x ∉ formula_fvars pre →
+    ₀x ∉ formula_fvars post →
+    as_var x ∉ formula_fvars post →
+    as_var x ∉ formula_fvars A →
+    wp <{ *w : [pre, post] }> A ⇛ wp <{ |[ var x : ty ⦁ x, *w : [pre, post] ]| }> A.
+  Proof with auto.
+    intros Hw Hpre Hpost0 Hpost HA σ. simpl. intros. simp feval in H. destruct H. unfold FForallT.
+    rewrite simpl_feval_fforall. intros. rewrite simpl_subst_impl.
+    rewrite simpl_feval_fimpl. intros. rewrite simpl_subst_and. simp feval. split.
+    { rewrite fequiv_subst_non_free... }
+    unfold subst_initials. simpl. rewrite fequiv_subst_trans.
+    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
+        - simpl in contra. set_unfold. destruct contra.
+          + destruct_and! H2. done.
+          + destruct H2 as [_ ?]. rewrite to_final_var_as_var in H2. done.
+        - clear contra. set_solver. }
+    rewrite simpl_seqsubst_forall.
+    2:{ set_solver. }
+    2: { set_unfold. intros contra. destruct contra as []. rewrite to_final_var_as_var in H3.
+         done. }
+    rewrite fequiv_subst_non_free.
+    2:{ simpl. set_unfold. intros contra. destruct contra.
+        apply fvars_seqsubst_superset_vars_not_free_in_terms in H3.
+        - set_unfold. destruct H3.
+          + destruct H3. destruct H3. destruct H3.
+            * set_solver.
+            * apply initial_var_of_elem_of_formula_fvars in H3.
+              pose proof (final_formula_final A). done.
+          + destruct H3. done.
+        - set_solver. }
+    rewrite fforall_unused.
+    - unfold subst_initials in H0. unfold fmap in H0. revert H0. apply feval_seqsubst_pi.
+    - intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
+      + set_unfold. destruct contra.
+        * destruct H2. destruct H2. destruct H2...
+        * destruct H2. rewrite to_final_var_as_var in H3. done.
+      + set_solver.
+  Qed.
+
+  (* Lemma 7.1 *)
+  Lemma r_remove_inv {w pre inv post} `{!FormulaFinal pre} `{!FormulaFinal inv} :
+    list_to_set (↑ₓ w) ## formula_fvars inv →
+    NoDup w →
+    <{ *w : [pre ∧ inv, inv ∧ post] }> ⊑ <{ *w : [pre, post] }>.
+  Proof with auto.
+    intros Hdisj Hnodup. intros A. simpl. intros σ ?. simp feval in *. destruct_and! H.
+    split...
+    unfold subst_initials in *. rewrite seqsubst_msubst in *...
+    epose proof (teval_vtmap_total σ _) as [mv ?].
+    rewrite feval_msubst by exact H0.
+    rewrite feval_msubst in H1 by exact H0.
+    rewrite simpl_feval_foralllist in *. intros. specialize (H1 vs H3).
+    rewrite seqsubst_msubst.
+    2:{ apply NoDup_zip_pair_functional... }
+    2:{ set_unfold. intros. destruct H5 as (?&?&?&?&?). subst. done. }
+    epose proof (teval_vtmap_total _ _) as [mv' ?].
+    rewrite feval_msubst by exact H4.
+    rewrite seqsubst_msubst in H1.
+    2:{ apply NoDup_zip_pair_functional... }
+    2:{ set_unfold. intros. destruct H6 as (?&?&?&?&?). subst. done. }
+    rewrite feval_msubst in H1 by exact H4. rewrite simpl_feval_fimpl in *.
+    intros. apply H1. simp feval. split... rewrite <- feval_msubst by exact H4.
+    rewrite msubst_non_free... rewrite <- feval_msubst by exact H0.
+    rewrite msubst_non_free... set_solver.
   Qed.
 
 End refinement.
