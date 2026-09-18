@@ -80,7 +80,7 @@ Section syntax.
     | PWhile _ _ _ p => modified_final_vars p
     | PSpec w pre post => list_to_set w
     | PVar x _ p => modified_final_vars p ∖ {[x]}
-    | PConst x _ p => modified_final_vars p
+    | PConst x _ p => modified_final_vars p ∖ {[x]}
     end.
 
   (* TODO: move it near to as_var_F *)

@@ -27,6 +27,7 @@ Section refinement.
   Implicit Types pre post : formula.
   Implicit Types w xs : list final_variable.
   Implicit Types gs : list final_formula.
+  Implicit Types g : final_formula.
   Implicit Types rhs : list (@asgn_rhs_term M).
   Implicit Types p : prog.
   (* Implicit Types ts : list term. *)
@@ -540,6 +541,27 @@ Section refinement.
           rewrite IH...
       + fSimpl. forward IH...
   Qed.
+
+  Lemma r_if_2 w pre post g1 g2 `{!FormulaFinal pre} :
+    pre ⇛ <! g1 ∨ g2 !> →
+    <{ *w : [pre, post] }> ⊑ <{ if g1 → *w : [g1 ∧ pre, post] | g2 → *w : [g2 ∧ pre, post] fi }>.
+  Proof with auto.
+    intros proviso.
+    pose proof (r_alternation w pre post [g1; g2]). simpl in H. simpl.
+    apply H. etrans.
+    - apply proviso.
+    - fSimpl. reflexivity.
+  Qed.
+
+  Lemma r_if_2_proper g1 g2 {p1 p1' p2 p2'} :
+    p1 ⊑ p1' →
+    p2 ⊑ p2' →
+    <{ if g1 → $p1 | g2 → $p2 fi }> ⊑ <{ if g1 → $p1' | g2 → $p2' fi }>.
+  Proof with auto.
+    intros. intros A. simpl. fSimpl. rewrite (refines_total H).
+    rewrite (refines_total H0). fSimpl. reflexivity.
+  Qed.
+
 
   (* TODO: move these *)
   Definition nat_to_term (n : nat) : term :=
