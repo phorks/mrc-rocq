@@ -991,5 +991,41 @@ Proof with auto.
                      lra.
 Qed.
 
+
+(* Having this as an invariant of the var block requires proper context management;
+    which Morgan's calculus lacks. I believe it's technically possible to circumvent this
+    by embedding these in the pre and postconditions of the appropriate blocks inside the loop*)
+Parameter var_int : ∀ σ, feval σ <! ⌜p ∈ₜ ℕ⌝ !>.
+
 Lemma r10 : prog8 ⊑ code.
 Proof with auto.
+  unfold prog8, code. do 4 f_equiv. apply r_while_body.
+  { simpl. unfold modified_vars. simpl. set_solver. }
+  f_equiv. f_equiv. apply r_if_2_proper.
+  - apply r_asgn_1. unfold I. intros σ ?. simp feval in *. destruct_and!.
+    repeat rewrite simpl_subst_and. simp feval.
+    simpl. repeat rewrite simpl_subst_af. simpl.
+    unfold term_le, term_lt. repeat rewrite simpl_subst_af. simpl in *.
+    split_and!...
+    + apply var_int.
+    + simp feval. simpl. destruct H0 as (v&?&?).
+      apply term_lt_inv in H1. destruct H1 as (xp&xq&?&?&?).
+      pose proof (teval_det _ _ _ H7 H5). subst v.
+      exists [mkNum xp; mkNum xq]. split.
+      * by_constructor.
+      * unfold peval. intros ?. rewrite list_to_vec_2_canon. clear H9.
+        simpl. constructor...
+  - apply r_asgn_1. unfold I. intros σ ?. simp feval in *. destruct_and!.
+    repeat rewrite simpl_subst_and. simp feval.
+    simpl. repeat rewrite simpl_subst_af. simpl.
+    unfold term_le, term_lt. repeat rewrite simpl_subst_af. simpl in *.
+    split_and!...
+    + apply var_int.
+    + simp feval. simpl. destruct H0 as (v&?&?).
+      apply term_lt_inv in H1. destruct H1 as (xp&xq&?&?&?).
+      pose proof (teval_det _ _ _ H1 H5). subst v.
+      exists [mkNum xp; mkNum xq]. split.
+      * by_constructor.
+      * unfold peval. intros ?. rewrite list_to_vec_2_canon. clear H9.
+        simpl. constructor...
+Qed.
