@@ -664,7 +664,7 @@ Notation "A [! x \ t !]" := (subst_formula A x t)
 Notation "A [ x \ t ]" := (subst_formula A x t)
                             (in custom formula at level 74, left associativity,
                                 A custom formula,
-                                x constr at level 0, t custom formula) : refiney_scope.
+                                x constr at level 0, t custom term) : refiney_scope.
 
 Declare Custom Entry term_seq.
 Declare Custom Entry term_seq_elem.

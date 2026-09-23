@@ -571,16 +571,6 @@ Section refinement.
 
   (* Arguments raw_initial_var name : simpl never. *)
 
-  Global Instance fresh_var_final x fvars `{VarFinal x} : VarFinal (fresh_var x fvars).
-  Proof with auto.
-    unfold VarFinal. generalize dependent x. unfold fresh_var. induction (S (size fvars)); intros.
-    - simpl. apply H.
-    - simpl. destruct (decide (x ∈ fvars)).
-      + apply IHn. unfold VarFinal, var_final in H. destruct x. simpl in H.
-        rewrite H. reflexivity.
-      + apply H.
-  Qed.
-
   Lemma initial_var_of_eq_to_initial_var (x : final_variable) :
     initial_var_of x = to_initial_var x.
   Proof. cbv. reflexivity. Qed.

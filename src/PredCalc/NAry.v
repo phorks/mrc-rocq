@@ -75,6 +75,7 @@ Section syntactic.
     FAndList (zip_with (λ t1 t2, <! ⌜t1 = t2⌝ !>) ts1 ts2).
 
   Definition seqsubst A xs ts `{!OfSameLength xs ts} : formula :=
+    (* fold_right (λ p B, <! B [$(fst p) \ $(snd p)] !>) A (zip xs ts)  *)
     of_same_length_rect id (λ rec x t B, <! $(rec B)[x \ t] !>) A xs ts.
 
   Definition subst_initials A (w : list final_variable) : formula :=

@@ -50,6 +50,13 @@ Section variables.
   Global Instance as_var_var_final {x} : VarFinal (as_var x).
   Proof. reflexivity. Qed.
 
+  Global Instance fresh_var_final x fvars `{VarFinal x} : VarFinal (fresh_var x fvars).
+  Proof with auto.
+    unfold VarFinal. generalize dependent x. unfold fresh_var. induction (S (size fvars)); intros.
+    - simpl. apply H.
+    - simpl. destruct (decide (x ∈ fvars))...
+  Qed.
+
   Lemma var_final_as_var x :
     var_final (as_var x).
   Proof. reflexivity. Qed.
