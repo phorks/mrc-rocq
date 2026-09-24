@@ -1,6 +1,7 @@
 -Q src MRC
 src/Prelude.v
 src/Stdppp.v
+src/Smp.v
 src/SeqNotation.v
 src/Model.v
 src/Tactics.v

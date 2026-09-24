@@ -28,7 +28,7 @@ Section syntax.
   Inductive prog : Type :=
   | PAsgn (xs : list final_variable) (ts: list final_term) `{!OfSameLength xs ts}
   | PSeq (p1 p2 : prog)
-  | PIf (gcmds : list (final_formula * prog))
+  | PIf (gcs : list (final_formula * prog))
   | PWhile (g inv : final_formula) (variant : final_term) (p : prog)
   | PSpec (w : list final_variable) (pre : final_formula) (post : formula)
   | PVar (x : final_variable) (ty : value_ty) (p : prog)
@@ -49,7 +49,7 @@ Section syntax.
   Fixpoint subst_prog p (x x' : final_variable) :=
     match p with
     | PAsgn xs ts => PAsgn
-                       ((λ y, if (decide (y = x)) then x' else x) <$> xs)
+                       ((λ y, if (decide (y = x)) then x' else y) <$> xs)
                        ((λ (t : final_term), as_final_term (subst_term t x (TVar x'))) <$> ts)
     | PSeq p1 p2 => PSeq (subst_prog p1 x x') (subst_prog p2 x x')
     | PIf gcs => PIf ((λ gc : final_formula * prog,
@@ -61,7 +61,7 @@ Section syntax.
                             (as_final_term    $ subst_term v x (TVar x'))
                             (subst_prog p x x')
     | PSpec w pre post => PSpec
-                            ((λ y, if (decide (y = x)) then x else x) <$> w)
+                            ((λ y, if (decide (y = x)) then x' else y) <$> w)
                             (as_final_formula $ subst_formula pre x (TVar x'))
                             (subst_formula post x (TVar x'))
     | PVar y ty p => if (decide (y = x))
@@ -75,7 +75,7 @@ Section syntax.
   Fixpoint prog_ind P :
     (∀ xs ts H, P (@PAsgn xs ts H)) →
     (∀ p1 p2, P p1 → P p2 → P (PSeq p1 p2)) →
-    (∀ gcmds, Forall (λ fp, P fp.2) gcmds → P (PIf gcmds)) →
+    (∀ gcs, Forall (λ fp, P fp.2) gcs → P (PIf gcs)) →
     (∀ g inv v p, P p → P (PWhile g inv v p)) →
     (∀ w pre post, P (PSpec w pre post)) →
     (∀ x ty p, P p → P (PVar x ty p)) →
@@ -85,7 +85,7 @@ Section syntax.
     intros Hasgn Hseq Hif Hwhile Hspec Hvar Hcons. destruct p.
     - apply Hasgn.
     - apply Hseq; apply prog_ind...
-    - apply Hif. induction gcmds... constructor... apply prog_ind...
+    - apply Hif. induction gcs... constructor... apply prog_ind...
     - apply Hwhile. apply prog_ind...
     - apply Hspec.
     - apply Hvar. apply prog_ind...
@@ -96,30 +96,50 @@ Section syntax.
     prog_rank p = prog_rank (subst_prog p x x').
   Proof with auto.
     induction p; simpl; try lia.
-    - induction gcmds... f_equal. simpl. inversion H. subst. rewrite H2. f_equal.
-      specialize (IHgcmds H3). inversion IHgcmds...
+    - induction gcs... f_equal. simpl. inversion H. subst. rewrite H2. f_equal.
+      specialize (IHgcs H3). inversion IHgcs...
     - destruct (decide (x0 = x)); simpl...
     - destruct (decide (x0 = x)); simpl...
   Qed.
 
-  Fixpoint prog_rank_ind P :
+  Lemma prog_rank_ind P :
+      (∀ n,
+          (∀ m, m < n →
+                     ∀ p', prog_rank p' = m → P p') →
+          (∀ p, prog_rank p = n → P p)) →
+      ∀ p, P p.
+  Proof with auto.
+    intros Hind.
+    assert (H : ∀ n p, prog_rank p < n → P p).
+    { induction n; intros p Hrank; [lia|]. apply Hind with (prog_rank p)...
+      intros. apply IHn. lia. }
+    intros p. apply H with (S (prog_rank p)). lia.
+  Qed.
+
+  Fixpoint prog_strong_ind (P : prog → Prop) :
     (∀ xs ts H, P (@PAsgn xs ts H)) →
     (∀ p1 p2, P p1 → P p2 → P (PSeq p1 p2)) →
-    (∀ gcmds, Forall (λ fp, P fp.2) gcmds → P (PIf gcmds)) →
+    (∀ gcs, Forall (λ fp, P fp.2) gcs → P (PIf gcs)) →
     (∀ g inv v p, P p → P (PWhile g inv v p)) →
     (∀ w pre post, P (PSpec w pre post)) →
     (∀ x ty p, (∀ p', prog_rank p' = prog_rank p → P p') → P (PVar x ty p)) →
     (∀ x ty p, (∀ p', prog_rank p' = prog_rank p → P p') → P (PConst x ty p)) →
     ∀ p, P p.
   Proof with auto.
-    intros Hasgn Hseq Hif Hwhile Hspec Hvar Hcons. destruct p.
+    intros Hasgn Hseq Hif Hwhile Hspec Hvar Hcons. induction p using prog_rank_ind.
+    destruct p.
     - apply Hasgn.
-    - apply Hseq; apply prog_rank_ind...
-    - apply Hif. induction gcmds... constructor... apply prog_rank_ind...
-    - apply Hwhile. apply prog_rank_ind...
+    - apply Hseq.
+      + eapply H; [|reflexivity]. subst. simpl. lia.
+      + eapply H; [|reflexivity]. subst. simpl. lia.
+    - apply Hif. generalize dependent n. induction gcs... intros. constructor.
+      + subst. apply H with (m:=prog_rank a.2)... simpl. lia.
+      + eapply IHgcs; [|reflexivity]. intros. eapply H; [|reflexivity]. subst. simpl.
+        simpl in H1. lia.
+    - apply Hwhile. eapply H; [|reflexivity]. subst. simpl. lia.
     - apply Hspec.
-    - apply Hvar. apply prog_rank_ind...
-    - apply Hcons. intros. apply prog_rank_ind...
+    - apply Hvar. intros. eapply H; [|reflexivity]. subst. simpl. rewrite H1. lia.
+    - apply Hcons. intros. eapply H; [|reflexivity]. subst. simpl. rewrite H1. lia.
   Qed.
 
   Fixpoint PVarList (xs : list final_variable) (ty : value_ty) (p : prog) :=
@@ -753,11 +773,11 @@ Section semantics.
     wp (PSpec w pre post) A =>
         <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>;
     wp (PVar x ty p) A =>
-      let x' := as_final_var (fresh_var x (formula_fvars A)) in
-      <! ∀ x' : ty, $(wp (subst_prog p x x') A) !>;
+      let x' := fresh_var x (prog_fvars p ∪ formula_fvars A) in
+      <! ∀ x' : ty, $(wp (subst_prog p x (as_final_var x')) A) !>;
     wp (PConst x ty p) A =>
-        let x' := as_final_var (fresh_var x (formula_fvars A)) in
-        <! ∃ x' : ty, $(wp (subst_prog p x x') A) !>.
+        let x' := fresh_var x (prog_fvars p ∪ formula_fvars A) in
+        <! ∃ x' : ty, $(wp (subst_prog p x (as_final_var x')) A) !>.
   Proof with auto.
     all: try lia.
     - clear wp. induction gcs.
@@ -765,8 +785,8 @@ Section semantics.
       + simpl in H. simpl. destruct H.
         * subst. simpl. lia.
         * specialize (IHgcs H). lia.
-    - simpl. pose proof (@subst_prog_preserves_rank _ p x x'). lia.
-    - simpl. pose proof (@subst_prog_preserves_rank _ p x x'). lia.
+    - simpl. pose proof (@subst_prog_preserves_rank _ p x (as_final_var x')). lia.
+    - simpl. pose proof (@subst_prog_preserves_rank _ p x (as_final_var x')). lia.
   Qed.
 
   Lemma wp_if {gcs A} :
@@ -776,6 +796,240 @@ Section semantics.
     simp wp. f_equal. induction gcs... simpl.
     - simpl. f_equal...
   Qed.
+
+  Lemma wp_subst {p : prog} {x} {A : formula} (y : final_variable) :
+      as_var x ∉ prog_fvars p →
+      as_var y ∉ prog_fvars p →
+      as_var y ∉ formula_fvars A →
+      <! $(wp p A) [x \ y] !> ≡ wp p <! A [x \ y] !>.
+  Proof with auto.
+  Admitted.
+ (*    induction p using prog_strong_ind. *)
+ (*    1-5: admit. *)
+ (*    - intros. simp wp. simpl. *)
+ (*      generalize (@fresh_var_final (as_var x0) (@formula_fvars M A) (@as_var_var_final x0)). *)
+ (*      generalize ((@fresh_var_final (as_var x0) *)
+ (*                   (@formula_fvars M (@subst_formula M A (as_var x) (@TVar M (as_var y)))) *)
+ (*                   (@as_var_var_final x0))). *)
+ (*      intros. remember (fresh_var x0 (formula_fvars A)) as z. *)
+ (*      remember (fresh_var x0 (formula_fvars <! A [x \ y] !>)) as z'. *)
+ (*      unfold FForallT. simpl in H0. *)
+ (*      destruct (decide (as_var x ∈ formula_fvars A)). *)
+ (*      + rewrite fvars_subst_free in Heqz'... *)
+ (*      apply simpl_subst_forall_propagate *)
+ (*      rewrite <- H. *)
+ (*      + setoid_rewrite simpl_subst_forall. *)
+  Lemma PAsgn_eq {xs xs' ts ts' H H'} :
+    xs = xs' →
+    ts = ts' →
+    @PAsgn M xs ts H = @PAsgn M xs' ts' H'.
+  Proof.
+    intros. subst. f_equal. apply OfSameLength_pi.
+  Qed.
+
+  Instance term_final_dec {t : term} : Decision (term_final t).
+  Proof. solve_decision. Qed.
+
+  (* Lemma x {t : term} : @term_final_dec t = @term_final_dec t. *)
+  (*   Proof. unfold term_final_dec. set_Forall_dec *)
+
+(* Global Instance eq_pi {A} (x : A) `{∀ z, Decision (x = z)} (y : A) : *)
+(*   ProofIrrel (x = y). *)
+(* Proof. *)
+(*   set (f z (H : x = z) := *)
+(*     match decide (x = z) return x = z with *)
+(*     | left H => H | right H' => False_rect _ (H' H) *)
+(*     end). *)
+(*   assert (∀ z (H : x = z), *)
+(*     eq_trans (eq_sym (f x (@eq_refl _ x))) H = H) as help. *)
+(*   { intros ? []. destruct (f x eq_refl); tauto. } *)
+(*   intros p q. rewrite <-(help _ p), <-(help _ q). *)
+(*   unfold f at 2 4. destruct (decide _); [reflexivity|]. exfalso; tauto. *)
+(* Qed. *)
+(*   Context {A : Type}. *)
+(*   Definition dep_Forall (l : list A) (P : ∀ x, In x l → Prop) : Prop. *)
+(*   Proof. *)
+(*     induction l. *)
+(*     - exact True. *)
+(*     - assert (Pa := P a). forward (Pa) by (by left). forward IHl. *)
+(*       + intros. apply (P x). by right. *)
+(*       + exact (Pa ∧ IHl). *)
+(*   Defined. *)
+
+(*   Definition dep_Exists (l : list A) (P : ∀ x, In x l → Prop) : Prop. *)
+(*   Proof. *)
+(*     induction l. *)
+(*     - exact False. *)
+(*     - assert (Pa := P a). forward (Pa) by (by left). forward IHl. *)
+(*       + intros. apply (P x). by right. *)
+(*       + exact (Pa ∨ IHl). *)
+(*   Defined. *)
+
+(*   Lemma dep_Forall_spec {l P} : *)
+(*     dep_Forall l P ↔ ∀ x H, P x H. *)
+(*   Proof with auto. *)
+(*     split; intros. *)
+(*     - generalize dependent H0. induction l; simpl; [done|]. intros [->|]. *)
+(*       + destruct H as []... *)
+(*       + apply IHl... destruct H as []. apply H0. *)
+
+(*     induction l; simpl; [done|]. split. *)
+(*     - intros [] ? [->|]... eapply IHl. *)
+(*       + apply H0. *)
+
+(*     - done. split... done. intros _. intros. done. contradiction. *)
+
+(*   Lemma dep_Forall_Exists_dec l (P Q : ∀ x, In x l → Prop) (dec : ∀ x H, {P x H} + {Q x H}) : *)
+(*     {dep_Forall l P} + {dep_Exists l Q}. *)
+(*   Proof with auto. *)
+(*     induction l; simpl... *)
+(*   Qed. *)
+
+(*   Lemma dep_Exists_not_Forall l {P : ∀ x, In x l → Prop} : dep_Exists l (λ x H, ¬ P x H) → ¬ dep_Forall l P. *)
+(*   Proof. *)
+(*     induction l; inversion 1. *)
+(*     - simpl. intros []. done. *)
+(*     - simpl. intros [].  *)
+
+(*          contradiction. Qed. *)
+(*   Lemma Forall_not_Exists l : Forall (not ∘ P) l → ¬Exists P l. *)
+(*   Proof. induction 1; inv 1; contradiction. Qed. *)
+
+(*   Global Instance dep_Forall_dec l {P : ∀ x, In x l → Prop} {dec : ∀ x H, Decision (P x H)} : Decision (dep_Forall l P). *)
+(*   Proof with auto. *)
+(*     destruct (dep_Forall_Exists_dec l P (λ x H, ¬ P x H) dec). *)
+(*     - left. *)
+(*     - *)
+(*     - *)
+(*     match Forall_Exists_dec P (not ∘ P) dec l with *)
+(*     | left H => left H *)
+(*     | right H => right (Exists_not_Forall _ H) *)
+(*     end. *)
+(*   Global Instance Exists_dec l : Decision (Exists P l) := *)
+(*     match Forall_Exists_dec (not ∘ P) P (λ x, swap_if (decide (P x))) l with *)
+(*     | left H => right (Forall_not_Exists _ H) *)
+(*     | right H => left H *)
+(*     end. *)
+
+(* Lemma list_forall_dec (l : list A) (P : ∀ x, In x l → Prop)  : *)
+(*   (∀ x H, Decision (P x H)) → Decision (∀ x H, P x H). *)
+(* Proof. *)
+(*   Forall_dec *)
+(*   Forall_dec *)
+(*   list_forall_dec *)
+(*   assert (@list_forall_dec = @list_forall_dec). *)
+(*   { Set Printing All. unfold list_forall_dec. } *)
+
+(*   refine (λ _, cast_if (decide (Forall P l))). by rewrite <-Forall_forall. *)
+(* Defined. *)
+
+  (* TODO: move it near to as_final_term *)
+  Lemma as_final_term_eq {t t' H H'} :
+    t = t' →
+    @as_final_term M t H = @as_final_term M t' H'.
+  Proof.
+    intros. subst. f_equal. unfold TermFinal, term_final, var_final in H, H'.
+    eq_pi
+
+  set (f z (Hwhat : H = H') :=
+    match decide (H = H') return H = H' with
+    | left Hl => Hl | right Hr => False_rect _ (Hr Hwhat)
+    end).
+  assert (∀ z (H : x = z),
+    eq_trans (eq_sym (f x (eq_refl x))) (f z H) = H) as help.
+  { intros ? []. destruct (f x eq_refl); tauto. }
+  intros p q. rewrite <-(help _ p), <-(help _ q).
+  unfold f at 2 4. destruct (decide _); [reflexivity|]. exfalso; tauto.
+    apply eq_pi.
+
+  Lemma prog_subst_trans {p : prog} {x1 x2 x3} :
+    as_var x2 ∉ prog_fvars p →
+    subst_prog (subst_prog p x1 x2) x2 x3 = subst_prog p x1 x3.
+  Proof with auto.
+    intros. induction p.
+    - simpl. induction_same_length xs ts as x t; simpl; intros; [apply PAsgn_eq|]...
+      pose proof (@of_same_length_rest _ _ _ _ _ _ H').
+      ospecialize (IH H0 _); [set_solver|]. inversion IH. apply PAsgn_eq.
+      + f_equal... destruct (decide (x = x1)).
+        * destruct (decide (x2 = x2)); done.
+        * destruct (decide (x = x2))... simpl in H. set_solver.
+      + f_equal...
+      + induction
+        induction xs as [|x xs]... simpl. f_equal.
+        * destruct (decide (x = x1)).
+          -- destruct (decide (x2 = x2)); done.
+          -- destruct (decide (x = x2))... simpl in H. set_solver.
+        * eapply IHxs. set_solver. Unshelve.
+             ++ subst.
+          --
+      (* generalize  *)
+      (*     (@of_same_length_fmap final_variable final_variable (Variables.final_term M) *)
+      (*        (Variables.final_term M) xs ts *)
+      (*        (fun y : final_variable => *)
+      (*         match *)
+      (*           @decide (@eq final_variable y x1) *)
+      (*             (@decide_rel final_variable final_variable (@eq final_variable) final_variable_eq_dec *)
+      (*                y x1) *)
+      (*           return final_variable *)
+      (*         with *)
+      (*         | @left _ _ _ => x2 *)
+      (*         | @right _ _ _ => x1 *)
+      (*         end) *)
+      (*        (fun t : Variables.final_term M => *)
+      (*         @as_final_term M (@subst_term M (@as_term M t) (as_var x1) (@TVar M (as_var x2))) *)
+      (*           (@subst_term_final M (@as_term M t) (as_var x1) (@TVar M (as_var x2)) *)
+      (*              (@final_term_term_final M t) (@var_term_final M (as_var x2) (@as_var_var_final x2)))) *)
+      (*        H0). *)
+      (* generalize  *)
+      (*  (@of_same_length_fmap final_variable final_variable (Variables.final_term M) *)
+      (*     (Variables.final_term M) xs ts *)
+      (*     (fun y : final_variable => *)
+      (*      match *)
+      (*        @decide (@eq final_variable y x1) *)
+      (*          (@decide_rel final_variable final_variable (@eq final_variable) final_variable_eq_dec y *)
+      (*             x1) *)
+      (*        return final_variable *)
+      (*      with *)
+      (*      | @left _ _ _ => x3 *)
+      (*      | @right _ _ _ => x1 *)
+      (*      end) *)
+      (*     (fun t : Variables.final_term M => *)
+      (*      @as_final_term M (@subst_term M (@as_term M t) (as_var x1) (@TVar M (as_var x3))) *)
+      (*        (@subst_term_final M (@as_term M t) (as_var x1) (@TVar M (as_var x3)) *)
+      (*           (@final_term_term_final M t) (@var_term_final M (as_var x3) (@as_var_var_final x3)))) *)
+      (*     H0). *)
+      intros.
+      assert (((λ y : final_variable, if decide (y = x2) then x3 else x2) <$>
+                 ((λ y : final_variable, if decide (y = x1) then x2 else x1) <$> xs))
+              = ((λ y : final_variable, if decide (y = x1) then x3 else x1) <$> xs)).
+      {
+        induction xs.
+
+      }
+
+
+      apply f_equal.
+      assert (∀ a a' b b', a = a' → b = b' → PAsgn a b = PAsgn a' b').
+
+      f_equal.
+      x2 ∉ formula_fvars A →
+
+      <! A[x1 \ x2][x2 \ t] !> ≡ <! A[x1 \ t] !>.
+  Proof with auto.
+  Lemma wp_var {x ty p A} (y : final_variable) :
+    as_var y ∉ prog_fvars p →
+    as_var y ∉ formula_fvars A →
+    wp (PVar x ty p) A ≡ <! ∀ y : ty, $(wp (subst_prog p x y) A) !>.
+  Proof.
+    intros. simp wp. simpl.
+    generalize (@fresh_var_final (as_var x) (prog_fvars p ∪ formula_fvars A) (@as_var_var_final x)).
+    intros. remember (fresh_var x (prog_fvars p ∪ formula_fvars A)) as x'.
+    apply f_forall_equiv. intros. do 2 rewrite simpl_subst_impl. do 2 rewrite simpl_subst_af.
+    simpl. f_equiv.
+    - destruct (decide (x' = x')); try done. destruct (decide (as_var y = as_var y)); try done.
+    - rewrite <- wp_subst.
+
+ (*    simpl. *)
 
   (* TODO: move these *)
   Lemma seqsubst_extract_l (A : formula) x t xs ts `{!OfSameLength xs ts} :
@@ -827,12 +1081,12 @@ Section semantics.
         * rewrite set_map_singleton. set_solver.
         * set_solver.
     - simpl. unfold as_var_set. set_solver.
-    - simpl. unfold as_var_set. induction gcmds.
+    - simpl. unfold as_var_set. induction gcs.
       + simpl. set_solver.
       + simpl in *. rewrite set_map_union. apply union_subseteq. split.
         * apply union_subseteq_l'. inversion H. subst. etrans; [exact H2|set_solver].
         * apply union_subseteq_r'. etrans.
-          -- apply IHgcmds. inversion H. set_solver.
+          -- apply IHgcs... inversion H. set_solver.
           -- set_solver.
     - simpl. unfold as_var_set. set_solver.
     - unfold as_var_set. simpl. do 2 apply union_subseteq_l'. induction w; set_solver.
@@ -910,7 +1164,7 @@ Section semantics.
     formula_final A →
     formula_final (wp p A).
   Proof with auto.
-    generalize dependent A. induction p using prog_rank_ind; intros.
+    generalize dependent A. induction p using prog_strong_ind; intros.
     - simp wp in *. unfold formula_final. intros. apply fvars_msubst_superset in H1.
       apply elem_of_union in H1 as [|].
       + apply (H0 _ H1).
@@ -922,7 +1176,7 @@ Section semantics.
       + set_unfold in H1. destruct H1 as (B&(gc&->&?)&?). destruct gc. simpl in *.
         apply elem_of_union in H2 as [|].
         * apply (final_formula_final _ _ H2).
-        * unfold elem_of in H1. rewrite Forall_forall in H. specialize (H (f, p) H1).
+        * rewrite Forall_forall in H. unfold elem_of in H1. specialize (H (f, p) H1).
           simpl in H. specialize (H A H0). apply H...
     - simp wp in *. apply FForallList_final. eapply f_and_formula_final. Unshelve.
       + unfold FImpl. eapply f_or_formula_final. Unshelve. apply IHp. apply final_formula_final...
@@ -942,11 +1196,11 @@ Section semantics.
           (* -- apply IHp. intros x ?. simpl in H0. apply elem_of_union in H0 as [|]. *)
           (*    ++ apply (final_term_final v _ H0). *)
           (*    ++ set_unfold in H0. destruct H0; [|contradiction]. subst. by apply fresh_var_final. *)
-    - eapply f_and_formula_final. Unshelve. admit.
+    - eapply f_and_formula_final. Unshelve. simpl. admit.
     - simp wp in *. eapply f_forall_formula_final. Unshelve. unfold FImpl.
-      eapply f_or_formula_final. Unshelve. apply H.
-    - eapply f_exists_formula_final. Unshelve. eapply f_and_formula_final.
-      Unshelve. apply IHp...
+      eapply f_or_formula_final. Unshelve. apply H... symmetry. apply subst_prog_preserves_rank.
+    - simp wp in *. eapply f_forall_formula_final. Unshelve. unfold FImpl.
+      eapply f_and_formula_final. Unshelve. apply H... symmetry. apply subst_prog_preserves_rank.
   Admitted.
 
 
@@ -955,14 +1209,33 @@ Section semantics.
     wp p A ≡ wp p B.
   Proof with auto.
     intros H. generalize dependent B. generalize dependent A.
-    induction p; intros A B Hequiv; intros; simpl; fSimpl;
+    induction p using prog_strong_ind; intros A B Hequiv; intros; (repeat rewrite wp_if); simp wp in *; simpl; fSimpl;
       (try solve [rewrite Hequiv; reflexivity]).
-    - apply IHp1. apply IHp2...
-    - generalize dependent B. generalize dependent A. induction gcmds; intros; simpl...
+    - generalize dependent B. generalize dependent A. induction gcs; intros; simpl...
       apply Forall_cons in H as []. f_equiv.
       + rewrite H; [reflexivity | exact Hequiv].
-      + apply IHgcmds...
-    - f_equiv. apply IHp...
+      + apply IHgcs...
+    - generalize (@Variables.fresh_var_final (as_var x) (@formula_fvars M A) (@as_var_var_final x)) as H1.
+      generalize (@Variables.fresh_var_final (as_var x) (@formula_fvars M B) (@as_var_var_final x)) as H1.
+      intros.
+      remember (fresh_var x (formula_fvars A)) as y.
+      remember (fresh_var x (formula_fvars B)) as z.
+
+
+
+      apply f_forall_equiv. intros. do 2 rewrite simpl_subst_impl. f_equiv.
+      + do 2 rewrite simpl_subst_af. simpl.
+        remember (fresh_var x (formula_fvars A)) as y.
+        remember (fresh_var x (formula_fvars B)) as z.
+        destruct (decide (y = y)); try done.
+        destruct (decide (z = z)); try done.
+      + rewrite H with (A := A) (B:=B)...
+        2:{ symmetry. apply subst_prog_preserves_rank. }
+
+        destruct (decide (as_final_var (fresh_var x (formula_fvars A))
+                           = as_final_var (fresh_var x (formula_fvars A)))).
+
+      f_equiv. apply IHp...
     - f_equiv. apply IHp...
   Qed.
 

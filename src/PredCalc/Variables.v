@@ -1,6 +1,7 @@
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Model.
+From MRC Require Import Smp.
 From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
@@ -16,7 +17,7 @@ Section variables.
 
   Definition var_final (x : variable) := var_is_initial x = false.
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
-  Definition term_list_final (ts : list term) := Forall term_final ts.
+  Definition term_list_final (ts : list term) := ∀ x, x ∈ ts → term_final x.
   Definition formula_final (A : formula) :=
     ∀ x, x ∈ formula_fvars A → var_final x.
 
@@ -65,44 +66,121 @@ Section variables.
     ¬ var_final (initial_var_of x).
   Proof. cbv. discriminate. Qed.
 
-  Class TermFinal (t : term) := term_is_final : term_final t.
-  Class TermListFinal (ts : list term) := term_list_is_final : term_list_final ts.
+  (*
+    [term_final] is not proof irrelevant. We define [term_final'] as a proof irrelevant,
+    equivalent of [term_final].
+  *)
+  Local Notation final_f := (λ x r, bool_decide (var_final x) && r) (only parsing).
+  Local Lemma set_fold_union_bool {X Y : gset variable} {b : bool} :
+    set_fold final_f b (X ∪ Y : gset variable) =
+      set_fold final_f (set_fold final_f b (X : gset variable)) Y.
+  Proof.
+    apply set_fold_union_strong; try typeclasses eauto.
+    - intros. generalize (bool_decide (var_final x)) as b1. intros.
+      destruct b1; destruct b'; simpl; done.
+    - intros. generalize (bool_decide (var_final x1)) as b1.
+      generalize (bool_decide (var_final x2)) as b2. intros.
+      destruct b1; destruct b2; simpl; done.
+  Qed.
+
+  Local Lemma set_fold_union_singleton_bool {x : variable} {X : gset variable} {b : bool} :
+    set_fold final_f b ({[x]} ∪ X : gset variable) =
+      set_fold final_f (bool_decide (var_final x) && b) X.
+  Proof.
+    rewrite set_fold_union_bool. rewrite set_fold_singleton. done.
+  Qed.
+
+  Definition term_final' (t : term) :=
+    set_fold (λ x r, bool_decide (var_final x) && r) true (term_fvars t).
+  Definition term_list_final' (ts : list term) := Forall term_final' ts.
+
+  Lemma set_fold_false (X : gset variable) : set_fold final_f false X = false.
+  Proof with auto.
+    induction X using set_ind_L.
+    - by rewrite set_fold_empty.
+    - rewrite union_comm_L. rewrite set_fold_union_bool. rewrite set_fold_singleton.
+      rewrite IHX. destruct (bool_decide (var_final x)); done.
+  Qed.
+
+  Lemma term_final_alt {t : term} :
+    term_final' t ↔ term_final t.
+  Proof with auto.
+    unfold term_final, term_final'.
+    induction (term_fvars t) using set_ind_L.
+    - rewrite set_fold_empty. split; try done.
+    - split; intros.
+      + rewrite set_fold_union_singleton_bool in H0. set_unfold in H1. destruct H1 as [|].
+        * subst. destruct ((bool_decide (var_final x))) eqn:E.
+          -- apply bool_decide_eq_true in E...
+          -- simpl in H0. rewrite set_fold_false in H0. done.
+        * destruct (bool_decide (var_final x)); simpl in *.
+          -- apply IHg...
+          -- rewrite set_fold_false in H0. done.
+      + rewrite set_fold_union_singleton_bool. destruct (bool_decide (var_final x)) eqn:E.
+        * simpl. apply IHg. intros. apply H0. set_solver.
+        * rewrite bool_decide_eq_false in E. exfalso. apply E. apply H0. set_solver.
+  Qed.
+
+  Lemma term_list_final_alt {ts : list term} :
+    term_list_final' ts ↔ term_list_final ts.
+  Proof.
+    unfold term_list_final, term_list_final'. rewrite <- Forall_forall. f_equiv.
+    intros t. apply term_final_alt.
+  Qed.
+
+  Class TermFinal (t : term) := term_is_final' : term_final' t.
+  Class TermListFinal (ts : list term) := term_list_is_final' : term_list_final' ts.
+
+  Definition term_is_final (t : term) `{TermFinal t} : term_final t.
+  Proof. rewrite <- term_final_alt. apply term_is_final'. Defined.
+
+  Global Instance TermFinal_pi {t : term} : ProofIrrel (term_final' t).
+  Proof with auto. apply Is_true_pi. Qed.
 
   Global Instance term_list_final_nil : TermListFinal [].
-  Proof. unfold TermListFinal, term_list_final. auto. Qed.
+  Proof. unfold TermListFinal, term_list_final'. auto. Qed.
 
   Global Instance term_list_final_cons {t ts} `{TermFinal t} `{TermListFinal ts} :
     TermListFinal (t :: ts).
-  Proof. unfold TermListFinal, term_list_final. auto. Qed.
+  Proof. unfold TermListFinal, term_list_final'. auto. Qed.
 
   Global Instance const_term_final {v} : TermFinal (TConst v).
   Proof. unfold TermFinal, term_final. simpl. intros. set_solver. Qed.
 
   Global Instance var_term_final {x} `{VarFinal x} : TermFinal (TVar x).
   Proof.
-    unfold TermFinal, term_final. simpl. intros. apply elem_of_singleton in H0.
-    subst. auto.
+    unfold TermFinal. rewrite term_final_alt. unfold term_final. simpl.
+    intros. apply elem_of_singleton in H0. subst. auto.
   Qed.
 
   Global Instance app_term_final {fsym args} `{TermListFinal args} :
     TermFinal (TApp fsym args).
   Proof.
-    unfold TermFinal, term_final. simpl. intros.
-    unfold TermListFinal, term_list_final, term_final in H.
+    unfold TermFinal. rewrite term_final_alt. unfold term_final. simpl. intros.
+    unfold TermListFinal in H. rewrite term_list_final_alt in H. unfold term_list_final in H.
     apply elem_of_union_list in H0 as (fvars&?&?). apply elem_of_list_fmap in H0 as (arg&?&?).
-    subst. rewrite Forall_forall in H. apply H with (x:=arg); assumption.
+    subst. apply H with (x:=arg); assumption.
   Qed.
+
+  Global Instance smp_TermFinal {t} :
+    Smp (TermFinal t) (∀ x, x ∈ term_fvars t → var_final x).
+  Proof. constructor. apply term_final_alt. Qed.
+
+  Global Instance smp_term_list_final {ts} :
+    Smp (term_list_final' ts) (∀ x, x ∈ ts → term_final x).
+  Proof. constructor. apply term_list_final_alt. Qed.
 
   Global Instance subst_term_final {t x t'} `{TermFinal t} `{TermFinal t'} :
     TermFinal (subst_term t x t').
   Proof with auto.
-    unfold TermFinal, term_final. intros. destruct (decide (x ∈ term_fvars t)).
+    smp. intros.
+    destruct (decide (x ∈ term_fvars t)).
     - rewrite fvars_subst_term_free with (t':=t') in H1... set_solver.
     - rewrite subst_term_non_free in H1...
   Qed.
 
   Global Instance final_term_term_final {t} : TermFinal (as_term t).
-  Proof. unfold TermFinal. apply (final_term_final t). Defined.
+  Proof. smp. apply (final_term_final t). Defined.
 
   Class FormulaFinal (A : formula) := formula_is_final : formula_final A.
 
@@ -114,11 +192,11 @@ Section variables.
 
   Global Instance eq_atomic_formula_final {t1 t2} `{TermFinal t1} `{TermFinal t2} :
     FormulaFinal <! ⌜t1 = t2⌝ !>.
-  Proof. unfold FormulaFinal, formula_final. set_solver. Qed.
+  Proof. unfold FormulaFinal, formula_final. smp. set_solver. Qed.
 
   Global Instance hastype_final_final {t ty} `{!TermFinal t}
     : FormulaFinal (FAtom (AT_HasType t ty)).
-  Proof. intros x H. set_solver. Qed.
+  Proof. intros x H. smp. set_solver. Qed.
 
   Global Instance pred_atomic_formula_final {psym args} `{TermListFinal args} :
     FormulaFinal (FAtom (AT_Pred psym args)).
@@ -126,7 +204,7 @@ Section variables.
     unfold FormulaFinal, formula_final. simpl. intros.
     unfold TermListFinal, term_list_final, term_final in H.
     apply elem_of_union_list in H0 as (fvars&?&?). apply elem_of_list_fmap in H0 as (arg&?&?).
-    subst. rewrite Forall_forall in H. apply H with (x:=arg); assumption.
+    subst. smp. apply H with (x:=arg); assumption.
   Qed.
 
   Global Instance f_not_formula_final {A} `{FormulaFinal A} : FormulaFinal <! ¬ A !>.
@@ -160,7 +238,7 @@ Section variables.
     FormulaFinal <! A[x \ t] !>.
   Proof.
     unfold FormulaFinal, formula_final. intros. apply fvars_subst_superset in H1.
-    set_solver.
+    smp. set_solver.
   Qed.
 
   Global Instance final_formula_formula_final {A} : FormulaFinal (as_formula A).
@@ -183,6 +261,9 @@ Section variables.
 
   Lemma as_final_term_as_term t : as_final_term (as_term t) = t.
   Proof.
+    destruct t. simpl. unfold as_final_term. simpl.
+    unfold as_final_term, term_is_final. destruct t. simpl. f_equal.
+
     unfold as_final_term, term_is_final. destruct t. simpl. reflexivity.
   Qed.
 
