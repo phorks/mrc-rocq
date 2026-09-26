@@ -3,6 +3,7 @@ From Stdlib Require Import Lists.List. Import ListNotations.
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Stdppp.
+From MRC Require Import Smp.
 From MRC Require Import SeqNotation.
 From MRC Require Import Model.
 From MRC Require Import PredCalc.Basic.
@@ -300,13 +301,17 @@ Section syntax.
     <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
   Proof. unfold FIff, FImpl. simp msubst. reflexivity. Qed.
 
-  Global Instance msubst_formula_final {A xs} {ts : list final_term}
+  Global Instance msubst_formula_final {A xs} `{ts : list final_term}
       `{!FormulaFinal A} `{!OfSameLength xs ts} :
     FormulaFinal <! A[[*xs \ ⇑ₜ ts]] !>.
   Proof with auto.
-    intros x ?. apply fvars_msubst_superset in H. set_unfold. destruct H as [|].
-    - apply formula_is_final in H...
+    apply every_forall. intros x ?. apply fvars_msubst_superset in H. set_unfold.
+    destruct H as [|].
+    - set_solver.
     - apply elem_of_union_list in H as (fvars&?&?). set_unfold. destruct H as (?&->&t&->&?).
+      ProofIrrelevance.proof_irrelevance
+      apply Formula_Fina
+      set_solver.
       apply (final_term_final t) in H0...
   Qed.
 
