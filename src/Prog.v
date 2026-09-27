@@ -100,6 +100,13 @@ Section moveme.
       + rewrite set_to_list_union_singleton_l_perm... set_solver.
   Qed.
 
+  Global Instance set_unfold_elem_of_set_to_list {x : variable} {X : gset variable} P :
+    (∀ x, SetUnfoldElemOf x X (P x)) →
+    SetUnfoldElemOf x
+      (set_to_list X)
+      (P x) | 10.
+  Proof. constructor. rewrite elem_of_set_to_list. apply H. Qed.
+
 Notation "t [ₜ x \ u ]" := (subst_term t x u)
                             (in custom formula at level 74, left associativity,
                                 t custom formula,
@@ -196,8 +203,54 @@ Notation "t [ₜ x \ u ]" := (subst_term t x u)
     - erewrite <- teval_subst with (H:=H0)...
   Qed.
 
+  Definition final_fvars A :=
+    to_final_var <$> (set_to_list (filter var_final (formula_fvars A))).
+  Definition initial_fvars A := filter var_is_initial (set_to_list (formula_fvars A)).
+  Definition finalized_initial_fvars A := to_final_var <$> (initial_fvars A).
+  Definition subst_all_initials A := subst_initials A (final_fvars A).
+
+  Lemma elem_of_initial_fvars {x A} :
+    x ∈ initial_fvars A ↔ x ∈ formula_fvars A ∧ var_is_initial x.
+  Proof.
+    unfold initial_fvars. split; intros.
+    - apply elem_of_list_filter in H. set_solver.
+    - apply elem_of_list_filter. set_solver.
+  Qed.
+
+  Lemma elem_of_final_fvars {x : final_variable} {A} :
+    x ∈ final_fvars A ↔ as_var x ∈ formula_fvars A.
+  Proof.
+    unfold final_fvars. split; intros.
+    - apply elem_of_list_fmap in H as (?&?&?). set_unfold in H0. simpl in H0. destruct H0 as [].
+      symmetry in H. apply as_var_to_final_var_final in H0. subst. rewrite <- H0 in H1.
+      done.
+    - apply elem_of_list_fmap. exists (as_var x).
+      split.
+      + rewrite to_final_var_as_var. done.
+      + set_unfold. split; set_solver.
+  Qed.
+
+  Lemma fresh_var_ne_inv y X :
+    fresh_var y X ≠ y →
+    y ∈ X.
+  Proof with auto.
+    intros. unfold fresh_var in H. induction X using set_ind_L.
+    - unfold fresh_var_aux in H. destruct (decide (y ∈ ∅))... set_solver.
+    - unfold fresh_var_aux in H. simpl in H. destruct (decide (y ∈ _))... set_solver.
+  Qed.
+
+  Lemma fvars_subst_superset' A x (t : term) :
+    formula_fvars (<! A[x \ t] !>) ⊆ (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
+  Proof with auto.
+    destruct (decide (x ∈ formula_fvars A)).
+    - rewrite fvars_subst_free...
+    - rewrite fvars_subst_non_free... set_solver.
+  Qed.
 End moveme.
 
+Notation "A [_₀\*]" := (subst_all_initials A)
+                            (in custom formula at level 74, left associativity,
+                                A custom formula) : refiney_scope.
 Tactic Notation "mk_fresh" uconstr(X) "as" ident(x) :=
   let H := fresh in
   pose proof (fresh_var_fresh ""%string X) as H;
@@ -298,7 +351,11 @@ Section syntax.
     | PIf gcs => ⋃ ((λ gcmd, prog_fvars (snd gcmd) ∪
                                  formula_fvars (as_formula (fst gcmd))) <$> gcs)
     | PWhile g inv v p => formula_fvars g ∪ formula_fvars inv ∪ term_fvars v ∪ prog_fvars p
-    | PSpec w pre post => list_to_set (as_var_F w) ∪ formula_fvars pre ∪ formula_fvars post
+    | PSpec w pre post =>
+        (list_to_set (as_var_F w) ∪
+        formula_fvars pre ∪
+        (formula_fvars post ∖ (list_to_set (initial_fvars post))) ∪
+        list_to_set (as_var_F (finalized_initial_fvars post)))
     | PVar x _ p => prog_fvars p ∖ {[as_var x]}
     | PConst x _ p => prog_fvars p ∖ {[as_var x]}
   end.
@@ -321,7 +378,7 @@ Section syntax.
           -- apply IHgcs... inversion H. set_solver.
           -- set_solver.
     - simpl. unfold as_var_set. set_solver.
-    - unfold as_var_set. simpl. do 2 apply union_subseteq_l'. induction w; set_solver.
+    - unfold as_var_set. simpl. do 3 apply union_subseteq_l'. induction w; set_solver.
     - simpl. set_solver.
     - simpl. set_solver.
   Qed.
@@ -381,7 +438,7 @@ Section syntax.
     | PSpec w pre post => PSpec
                             ((λ y, if (decide (y = x)) then x' else y) <$> w)
                             (as_final_formula $ subst_formula pre x (TVar x'))
-                            (subst_formula post x (TVar x'))
+                            (seqsubst post [₀x; as_var x] [TVar ₀x'; TVar x'])
     | PVar y ty p => if (decide (y = x))
                      then PVar y ty p
                      else PVar y ty (subst_prog p x x')
@@ -473,9 +530,22 @@ Section syntax.
       + apply IHp. set_solver.
     - f_equiv.
       + induction w as [|y xs]... simpl. destruct (decide (y = x)); [subst; set_solver|].
-        f_equal. apply IHxs. set_solver.
+        f_equal. apply IHxs. simpl in H. simpl.
+        contradict H.
+        repeat rewrite elem_of_union in H. rewrite elem_of_difference in H.
+        repeat rewrite elem_of_union. rewrite elem_of_difference.
+        destruct_or! H.
+        1-3: set_solver.
+        right. assumption.
       + apply as_final_formula_eq. apply subst_non_free. set_solver.
-      + apply subst_non_free. set_solver.
+      + simpl in H. repeat rewrite not_elem_of_union in H. destruct_and! H.
+        rewrite subst_non_free.
+        * rewrite subst_non_free... contradict H2. apply elem_of_difference. split...
+          intros contra. apply elem_of_list_to_set in contra. set_solver.
+        * intros contra. apply fvars_subst_superset' in contra. set_unfold in contra.
+          destruct contra; [|set_solver]. destruct H as [_ ?]. apply H1.
+          set_unfold. split... exists x. split...
+          set_unfold.
     - destruct (decide (x0 = x))... f_equal. apply IHp. set_solver.
     - destruct (decide (x0 = x))... f_equal. apply IHp. set_solver.
   Qed.
@@ -1026,7 +1096,7 @@ Section semantics.
             (inv ∧ g ⇒ ⌜var ∈ₜ ℕ⌝) ∧
             (∀ var₀, inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !>
     | PSpec w pre post =>
-        <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\ w] !>
+        <! pre ∧ (∀* ↑ₓ w, post ⇒ A)[_₀\*]  !>
     | PVar x ty p =>
         let x' := fresh_var x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A) in
         <! (∀ x : ty, $(wp p <! A[x \ x'] !>))[x' \ x] !>
@@ -1089,23 +1159,6 @@ Section semantics.
       + apply H...
       + subst. apply fresh_var_final. typeclasses eauto.
   Admitted.
-
-  Lemma fresh_var_ne_inv y X :
-    fresh_var y X ≠ y →
-    y ∈ X.
-  Proof with auto.
-    intros. unfold fresh_var in H. induction X using set_ind_L.
-    - unfold fresh_var_aux in H. destruct (decide (y ∈ ∅))... set_solver.
-    - unfold fresh_var_aux in H. simpl in H. destruct (decide (y ∈ _))... set_solver.
-  Qed.
-
-  Lemma fvars_subst_superset' A x (t : term) :
-    formula_fvars (<! A[x \ t] !>) ⊆ (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
-  Proof with auto.
-    destruct (decide (x ∈ formula_fvars A)).
-    - rewrite fvars_subst_free...
-    - rewrite fvars_subst_non_free... set_solver.
-  Qed.
 
   Lemma fvars_wp {p A} : formula_fvars (wp p A) ⊆ prog_fvars p ∪ formula_fvars A.
   Proof with auto.
