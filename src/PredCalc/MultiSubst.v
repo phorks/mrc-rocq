@@ -110,8 +110,9 @@ Section syntax.
     deduce_rank_eq H. rewrite Hfr. rewrite Hqr. lia.
   Qed.
 
-  Definition to_vtmap (xs : list variable) (ts : list term)
-    `{!OfSameLength xs ts}: gmap variable term := list_to_map (zip xs ts).
+  Definition to_vtmap (xs : list variable) (ts : list term) `{!OfSameLength xs ts}
+      : gmap variable term :=
+    list_to_map (zip xs ts).
 
   Local Notation "t [ [ₜ xs \ ts ] ]" := (msubst_term t (to_vtmap xs ts))
                                            (in custom formula at level 74, left associativity,
@@ -300,7 +301,7 @@ Section syntax.
     <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
   Proof. unfold FIff, FImpl. simp msubst. reflexivity. Qed.
 
-  Global Instance msubst_formula_final {A xs} {ts : list final_term}
+  Global Instance msubst_formula_final {A xs ts}
       `{!FormulaFinal A} `{!OfSameLength xs ts} :
     FormulaFinal <! A[[*xs \ ⇑ₜ ts]] !>.
   Proof with auto.
