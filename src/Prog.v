@@ -100,7 +100,7 @@ Section moveme.
       + rewrite set_to_list_union_singleton_l_perm... set_solver.
   Qed.
 
-  Global Instance set_unfold_elem_of_set_to_list {x : variable} {X : gset variable} P :
+  Global Instance set_unfold_elem_of_set_to_list x (X : gset variable) P :
     (∀ x, SetUnfoldElemOf x X (P x)) →
     SetUnfoldElemOf x
       (set_to_list X)
@@ -203,32 +203,22 @@ Notation "t [ₜ x \ u ]" := (subst_term t x u)
     - erewrite <- teval_subst with (H:=H0)...
   Qed.
 
-  Definition final_fvars A :=
-    to_final_var <$> (set_to_list (filter var_final (formula_fvars A))).
-  Definition initial_fvars A := filter var_is_initial (set_to_list (formula_fvars A)).
-  Definition finalized_initial_fvars A := to_final_var <$> (initial_fvars A).
-  Definition subst_all_initials A := subst_initials A (final_fvars A).
+  Definition var_initial x := var_is_initial x = true.
 
-  Lemma elem_of_initial_fvars {x A} :
-    x ∈ initial_fvars A ↔ x ∈ formula_fvars A ∧ var_is_initial x.
+  Lemma initial_var_of_to_final_var x :
+    var_initial x → ₀(to_final_var x) = x.
   Proof.
-    unfold initial_fvars. split; intros.
-    - apply elem_of_list_filter in H. set_solver.
-    - apply elem_of_list_filter. set_solver.
+    unfold to_final_var, initial_var_of, var_initial. destruct x. simpl. intros; by subst.
   Qed.
 
-  Lemma elem_of_final_fvars {x : final_variable} {A} :
-    x ∈ final_fvars A ↔ as_var x ∈ formula_fvars A.
+  Lemma initial_var_of_to_final_var_inv {x : variable} :
+    ₀(to_final_var x) = x → var_initial x.
   Proof.
-    unfold final_fvars. split; intros.
-    - apply elem_of_list_fmap in H as (?&?&?). set_unfold in H0. simpl in H0. destruct H0 as [].
-      symmetry in H. apply as_var_to_final_var_final in H0. subst. rewrite <- H0 in H1.
-      done.
-    - apply elem_of_list_fmap. exists (as_var x).
-      split.
-      + rewrite to_final_var_as_var. done.
-      + set_unfold. split; set_solver.
+    unfold to_final_var, initial_var_of, var_initial. destruct x. simpl. by inversion 1.
   Qed.
+
+  Lemma initial_var_of_initial x : var_initial ₀x.
+  Proof. done. Qed.
 
   Lemma fresh_var_ne_inv y X :
     fresh_var y X ≠ y →
@@ -246,6 +236,116 @@ Notation "t [ₜ x \ u ]" := (subst_term t x u)
     - rewrite fvars_subst_free...
     - rewrite fvars_subst_non_free... set_solver.
   Qed.
+
+  Definition final_fvars A :=
+    to_final_var <$> (set_to_list (filter var_final (formula_fvars A))).
+  Definition initial_fvars A := filter var_initial (set_to_list (formula_fvars A)).
+  Definition finalized_initial_fvars A := to_final_var <$> (initial_fvars A).
+  Definition subst_all_initials A := subst_initials A (finalized_initial_fvars A).
+
+  Lemma elem_of_initial_fvars {x A} :
+    x ∈ initial_fvars A ↔ x ∈ formula_fvars A ∧ var_initial x.
+  Proof.
+    unfold initial_fvars. split; intros.
+    - apply elem_of_list_filter in H. set_solver.
+    - apply elem_of_list_filter. set_solver.
+  Qed.
+
+  Global Instance set_unfold_elem_of_initial_fvars x A P1 P2 :
+    SetUnfoldElemOf x (formula_fvars A) P1 →
+    SetUnfold (var_initial x) P2 →
+    SetUnfoldElemOf x (initial_fvars A) (P1 ∧ P2).
+  Proof.
+    intros. constructor. rewrite elem_of_initial_fvars.
+    rewrite set_unfold_elem_of by exact H.
+    by rewrite set_unfold with (P:=var_initial x) by exact (H0).
+  Qed.
+
+  Lemma elem_of_final_fvars {x A} :
+    x ∈ final_fvars A ↔ as_var x ∈ formula_fvars A.
+  Proof.
+    unfold final_fvars. split; intros.
+    - apply elem_of_list_fmap in H as (?&?&?). set_unfold in H0. simpl in H0. destruct H0 as [].
+      symmetry in H. apply as_var_to_final_var_final in H0. subst. rewrite <- H0 in H1.
+      done.
+    - apply elem_of_list_fmap. exists (as_var x).
+      split.
+      + rewrite to_final_var_as_var. done.
+      + set_unfold. split; set_solver.
+  Qed.
+
+  Global Instance set_unfold_elem_of_final_fvars x A P :
+    SetUnfoldElemOf (as_var x) (formula_fvars A) P →
+    SetUnfoldElemOf x (final_fvars A) P.
+  Proof.
+    intros. constructor. rewrite elem_of_final_fvars.
+    by rewrite set_unfold_elem_of by exact H.
+  Qed.
+
+  Lemma elem_of_finalized_initial_fvars {x A} :
+    x ∈ finalized_initial_fvars A ↔ ₀x ∈ formula_fvars A.
+  Proof with auto.
+    unfold finalized_initial_fvars. rewrite elem_of_list_fmap.
+    setoid_rewrite elem_of_initial_fvars. split; intros.
+    - destruct H as (y&->&?&?). rewrite initial_var_of_to_final_var...
+    - exists ₀x. rewrite to_final_var_initial_var_of. split_and!... done.
+  Qed.
+
+  Global Instance set_unfold_elem_of_finalized_initial_fvars x A P :
+    SetUnfoldElemOf ₀x (formula_fvars A) P →
+    SetUnfoldElemOf x (finalized_initial_fvars A) P.
+  Proof.
+    intros. constructor. rewrite elem_of_finalized_initial_fvars.
+    by rewrite set_unfold_elem_of by exact H.
+  Qed.
+
+  Lemma var_final_not_initial {x} :
+    var_final x ↔ ¬ var_initial x.
+  Proof. unfold var_final, var_initial. by destruct (var_is_initial x). Qed.
+
+  Lemma var_initial_not_final {x} :
+    var_initial x ↔ ¬ var_final x.
+  Proof. unfold var_final, var_initial. by destruct (var_is_initial x). Qed.
+
+  Lemma var_initial_or_final x :
+    var_initial x ∨ var_final x.
+  Proof. unfold var_initial, var_final. destruct (var_is_initial x); auto. Qed.
+
+  Lemma elem_of_subst_initials_fvars {x w A} :
+    x ∈ formula_fvars (subst_initials A w) ↔
+      (var_final x ∧ (x ∈ formula_fvars A ∨ (to_initial_var x ∈ formula_fvars A
+                                             ∧ to_final_var x ∈ w)))
+      ∨ (var_initial x ∧ x ∈ formula_fvars A ∧ to_final_var x ∉ w).
+  Proof with auto.
+    rewrite fvars_subst_initials. rewrite elem_of_union, elem_of_difference. split; intros.
+    - destruct H.
+      + destruct H. apply not_elem_of_list_to_set in H0. set_unfold in H0.
+        destruct (var_initial_or_final x); [|set_solver].
+        right. split_and!... contradict H0. exists (to_final_var x).
+        rewrite initial_var_of_to_final_var...
+      + set_unfold in H. left. destruct H as (x'&->&?&?). split... right. split...
+        rewrite to_final_var_as_var...
+    - destruct H; [|set_solver]. destruct H. destruct H0; [set_solver|].
+      destruct H0. right. set_unfold. exists (to_final_var x). split...
+      rewrite as_var_to_final_var_final...
+  Qed.
+
+  Lemma elem_of_subst_all_initials_fvars {x A} :
+    x ∈ formula_fvars (subst_all_initials A) ↔
+      var_final x ∧ (x ∈ formula_fvars A ∨ to_initial_var x ∈ formula_fvars A).
+  Proof with auto.
+    unfold subst_all_initials. rewrite elem_of_subst_initials_fvars.
+    split; [|set_solver]. intros [|(?&?&?)]; [set_solver|]. set_unfold in H1.
+    destruct H1. rewrite initial_var_of_to_final_var...
+  Qed.
+
+  Lemma subst_all_initials_final' A :
+    formula_final (subst_all_initials A).
+  Proof. intros x?. apply elem_of_subst_all_initials_fvars in H. naive_solver. Qed.
+
+  Global Instance subst_all_initials_final {A} :
+    FormulaFinal (subst_all_initials A).
+  Proof. intros x?. apply elem_of_subst_all_initials_fvars in H. naive_solver. Qed.
 End moveme.
 
 Notation "A [_₀\*]" := (subst_all_initials A)
@@ -505,6 +605,10 @@ Section syntax.
 
   Local Notation term := (term M).
 
+  (* TODO: Move me *)
+  Global Instance set_unfold_var_initial_as_var x : SetUnfold (var_initial (as_var x)) False.
+  Proof. done. Qed.
+
   Lemma subst_prog_non_free {p x x'} :
     as_var x ∉ prog_fvars p →
     subst_prog p x x' = p.
@@ -540,12 +644,8 @@ Section syntax.
       + apply as_final_formula_eq. apply subst_non_free. set_solver.
       + simpl in H. repeat rewrite not_elem_of_union in H. destruct_and! H.
         rewrite subst_non_free.
-        * rewrite subst_non_free... contradict H2. apply elem_of_difference. split...
-          intros contra. apply elem_of_list_to_set in contra. set_solver.
-        * intros contra. apply fvars_subst_superset' in contra. set_unfold in contra.
-          destruct contra; [|set_solver]. destruct H as [_ ?]. apply H1.
-          set_unfold. split... exists x. split...
-          set_unfold.
+        * rewrite subst_non_free... set_solver.
+        * intros contra. apply fvars_subst_superset' in contra. set_solver.
     - destruct (decide (x0 = x))... f_equal. apply IHp. set_solver.
     - destruct (decide (x0 = x))... f_equal. apply IHp. set_solver.
   Qed.
@@ -1085,7 +1185,7 @@ Section semantics.
 
   Fixpoint wp (p : prog) (A : formula) : formula :=
     match p with
-    | PAsgn xs ts => <! A [[*$(as_var <$> xs) \ *$(as_term <$> ts)]] !>
+    | PAsgn xs ts => <! A [[ *$(as_var <$> xs) \ ⇑ₜ ts]] !>
     | PSeq p1 p2 => wp p1 (wp p2 A)
     | PIf gcs => <! ∨* ⤊(gcs.*1) ∧ ∧* $(map (λ gc, <! $(as_formula gc.1) ⇒ $(wp gc.2 A) !>) gcs) !>
     | PWhile g inv var p =>
@@ -1114,51 +1214,25 @@ Section semantics.
     intros. rewrite <- msubst_extract_l... rewrite msubst_extract_r...
   Qed.
 
+  Global Instance  wp_final {p A} `{!FormulaFinal A} : FormulaFinal (wp p A).
+  Proof with auto.
+    generalize dependent A. induction p; intros; simpl; try typeclasses eauto.
+    - apply msubst_formula_final.
+    - unfold FormulaFinal in *. unfold formula_final. intros. simpl in H0.
+      apply elem_of_union in H0 as [|].
+      + set_unfold in H0. destruct H0 as (B&(B'&->&gc&?&?)&?). destruct gc. simpl in *.
+        subst. apply (final_formula_final _ _ H2).
+      + set_unfold in H0. destruct H0 as (B&(gc&->&?)&?). destruct gc. simpl in *.
+        apply elem_of_union in H1 as [|].
+        * apply (final_formula_final _ _ H1).
+        * rewrite Forall_forall in H. unfold elem_of in H1. specialize (H (f, p) H0).
+          simpl in H. specialize (H A FormulaFinal0). apply H...
+  Qed.
 
-  Lemma wp_final {p A} :
+  Lemma wp_final' {p A} :
     formula_final A →
     formula_final (wp p A).
-  Proof with auto.
-    generalize dependent A. induction p; intros.
-    - simpl. unfold formula_final. intros. apply fvars_msubst_superset in H1.
-      apply elem_of_union in H1 as [|].
-      + apply (H0 _ H1).
-      + set_unfold in H1. destruct H1 as (t&?&t'&->&?). apply (final_term_final t' _ H1).
-    - simpl in *. apply IHp1. apply IHp2...
-    - unfold formula_final. intros. simpl in H1. apply elem_of_union in H1 as [|].
-      + set_unfold in H1. destruct H1 as (B&(B'&->&gc&?&?)&?). destruct gc. simpl in *.
-        subst. apply (final_formula_final _ _ H3).
-      + set_unfold in H1. destruct H1 as (B&(gc&->&?)&?). destruct gc. simpl in *.
-        apply elem_of_union in H2 as [|].
-        * apply (final_formula_final _ _ H2).
-        * rewrite Forall_forall in H. unfold elem_of in H1. specialize (H (f, p) H1).
-          simpl in H. specialize (H A H0). apply H...
-    - simp wp in *. apply FForallList_final. eapply f_and_formula_final. Unshelve.
-      + unfold FImpl. eapply f_or_formula_final. Unshelve. apply IHp. apply final_formula_final...
-      + eapply f_and_formula_final. Unshelve.
-        * unfold FImpl. eapply f_or_formula_final. Unshelve. apply H.
-        * eapply f_and_formula_final. Unshelve. eapply f_forall_formula_final. Unshelve.
-          unfold FImpl. eapply f_or_formula_final. Unshelve.
-          apply IHp. unfold formula_final. intros. simpl in H0. apply elem_of_union in H0 as [|].
-          -- apply (final_term_final _ _ H0).
-          -- set_unfold. destruct H0; [| contradiction]. subst. apply fresh_var_final.
-             unfold var_final. simpl... done.
-    - eapply f_and_formula_final. Unshelve. simpl. admit.
-    - simpl. unfold formula_final. intros. apply fvars_subst_superset in H0.
-      apply elem_of_union in H0 as []; [|set_solver]. eapply @f_forall_formula_final with (x:=x).
-      2: { apply H0. }
-      clear H0. unshelve eapply f_impl_formula_final. apply IHp. intros ??.
-      apply fvars_subst_superset in H0. set_unfold in H0. destruct H0.
-      + apply H...
-      + subst. apply fresh_var_final. typeclasses eauto.
-    - simpl. unfold formula_final. intros. apply fvars_subst_superset in H0.
-      apply elem_of_union in H0 as []; [|set_solver]. eapply @f_exists_formula_final with (x:=x).
-      2: { apply H0. }
-      clear H0. unshelve eapply f_and_formula_final. apply IHp. intros ??.
-      apply fvars_subst_superset in H0. set_unfold in H0. destruct H0.
-      + apply H...
-      + subst. apply fresh_var_final. typeclasses eauto.
-  Admitted.
+  Proof with auto. intros. unshelve eapply wp_final. apply H. Qed.
 
   Lemma fvars_wp {p A} : formula_fvars (wp p A) ⊆ prog_fvars p ∪ formula_fvars A.
   Proof with auto.
@@ -1178,7 +1252,16 @@ Section semantics.
       specialize (IHp <! ⌜ v < $(fresh_var ""%string (while_fvars g inv v p)) ⌝ !>).
       apply IHp in H. set_solver.
     - simpl in *. apply elem_of_union in H as [|]; [set_solver|].
-      unfold subst_initials. apply fvars_seqsubst_superset in H. apply elem_of_union in H as [|].
+      apply elem_of_subst_all_initials_fvars in H as [].
+      destruct H0; rewrite fvars_foralllist in H0.
+      + set_unfold in H0. rewrite not_and_l in H0. destruct H0. destruct H0; [|set_solver].
+        destruct H1.
+        * set_solver.
+        * set_unfold. left. left. right. split... apply not_and_l. right.
+          apply var_final_not_initial...
+      + set_unfold in H0. rewrite not_and_l in H0. destruct H0. destruct H0; [set_solver|].
+        apply final_formula_final in H0.
+      apply elem_of_union in H as [|].
       + rewrite fvars_foralllist in H. simpl in H. set_solver.
       + set_solver.
     - simpl wp in H. simpl.
