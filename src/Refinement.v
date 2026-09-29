@@ -26,41 +26,152 @@ Section refinement.
   Implicit Types A B C : formula.
   Implicit Types pre post : formula.
   Implicit Types w xs : list final_variable.
-  Implicit Types gs : list final_formula.
+  Implicit Types gcs : list final_formula.
   Implicit Types g : final_formula.
   Implicit Types rhs : list (@asgn_rhs_term M).
   Implicit Types p : prog.
   (* Implicit Types ts : list term. *)
+
+  Lemma fequiv_st_lem σ A B :
+    A ≡_{σ} B ∨ ¬ A ≡_{σ} B.
+  Proof with auto.
+    destruct (feval_lem σ A); destruct (feval_lem σ B).
+    - left. done.
+    - right. intros []...
+    - right. intros []...
+    - left. done.
+  Qed.
+
+  Lemma finalized_initial_fvars_final A `{!FormulaFinal A} :
+    finalized_initial_fvars A = [].
+  Proof with auto.
+    enough (finalized_initial_fvars A ≡ₚ []).
+    { by apply Permutation_nil_r in H. }
+    unfold finalized_initial_fvars, initial_fvars.
+    rename FormulaFinal0 into H. unfold FormulaFinal, formula_final in H.
+    induction (formula_fvars A) using set_ind_L...
+    rewrite filter_set_to_list_delete_union_singleton_l.
+    - apply IHg. set_solver.
+    - apply var_final_not_initial. set_solver.
+  Qed.
+
+  Lemma subst_all_initials_id {A} `{!FormulaFinal A} :
+    <! A[_₀\*] !> ≡ A.
+  Proof with auto.
+    unfold subst_all_initials.
+    enough (finalized_initial_fvars A = []) as -> by (by rewrite subst_initials_nil).
+    apply finalized_initial_fvars_final...
+  Qed.
+
+  Definition initials_closed A w :=
+    ∀ x, var_initial x → x ∈ formula_fvars A → to_final_var x ∈ w.
+
+  Global Instance initials_closed_proper : Proper ((=) ==> (≡ₚ) ==> iff) initials_closed.
+  Proof.
+    intros A ? -> w1 w2 ?. unfold initials_closed. by setoid_rewrite H.
+  Qed.
+
+  Lemma initials_closed_final A `{!FormulaFinal A} :
+    ∀ w, initials_closed A w.
+  Proof.
+    intros w x ??. apply formula_is_final in H0. by apply var_final_not_initial in H0.
+  Qed.
+
+  Hint Extern 5 (initials_closed _ _) => apply initials_closed_final : core.
+
+  Lemma subst_initials_cons_dup A (x : final_variable) (xs : list final_variable) :
+    x ∈ xs →
+    <! A[_₀\ (x :: xs)] !> ≡ <! A[_₀\ xs] !>.
+  Proof with auto.
+    intros. rewrite subst_initials_cons. rewrite subst_non_free... set_solver.
+  Qed.
+
+  Lemma Permutation_app_cons_r_comm {A : Type} {x : A} {X Y : list A} :
+    X ++ x :: Y ≡ₚ x :: X ++ Y.
+  Proof. rewrite Permutation_app_comm. simpl. by rewrite Permutation_app_comm. Qed.
+
+  Lemma subseteq_cons_not_in {A : Type} {x : A} {X Y : list A} :
+    x ∉ X →
+    x ∉ Y →
+    X ⊆ Y ↔ x :: X ⊆ x :: Y.
+  Proof. intros. set_solver. Qed.
+
+  Lemma subst_all_initials_weaken A w :
+    finalized_initial_fvars A ⊆ w →
+    <! A[_₀\*] !> ≡ <! A[_₀\w] !>.
+  Proof with auto.
+    intros. generalize dependent A. unfold subst_all_initials. induction w as [|x w]; intros.
+    - apply list_nil_subseteq in H. rewrite H...
+    - destruct (decide (x ∈ w)).
+      { rewrite subst_initials_cons_dup... apply IHw. set_solver. }
+      destruct (decide (x ∈ finalized_initial_fvars A)).
+      + pose proof (finalized_initial_fvars_NoDup A).
+        apply elem_of_list_In in e. apply in_split in e as (l1&l2&?).
+        rewrite H1 in *. apply NoDup_app in H0 as (?&?&?). apply NoDup_cons in H3 as [].
+        rewrite Permutation_app_cons_r_comm in *. do 2 rewrite subst_initials_cons_l.
+        enough (l1 ++ l2 ≡ₚ finalized_initial_fvars <! A [₀x \ x] !>).
+        * rewrite H5. apply IHw. rewrite <- H5. set_solver.
+        * rewrite finalized_initial_fvars_subst_perm.
+          -- rewrite H1. rewrite Permutation_app_cons_r_comm. rewrite delete_cons.
+             rewrite delete_eq by set_solver. apply subseteq_cons_not_in in H...
+             set_solver.
+          -- assert (x ∈ finalized_initial_fvars A) by (rewrite H1; set_solver).
+             set_solver.
+      + rewrite subst_initials_cons_l. rewrite subst_non_free; [apply IHw|]; set_solver.
+  Qed.
+
+  Lemma subst_all_initials_closed A w :
+    initials_closed A w →
+    <! A[_₀\*] !> ≡ <! A[_₀\w] !>.
+  Proof.
+    intros. apply subst_all_initials_weaken. unfold initials_closed in H.
+    intros i?. set_unfold in H0. specialize (H ₀i).
+    rewrite to_final_var_initial_var_of in H. apply H; set_solver.
+  Qed.
+
+  Lemma wp_spec w (pre : final_formula) post A `{!FormulaFinal A} :
+    initials_closed post w →
+    wp (PSpec w pre post) A ≡ <! pre ∧ (∀* ↑ₓ w, post ⇒ A) [_₀\ w] !>.
+  Proof.
+    rename FormulaFinal0 into Hfinal. unfold FormulaFinal, formula_final in Hfinal.
+    intros. simpl. f_equiv. apply subst_all_initials_closed.
+    intros y??. set_unfold in H1. unfold initials_closed in H.
+    rewrite var_initial_not_final in H0. setoid_rewrite var_initial_not_final in H.
+    set_solver.
+  Qed.
 
   (* TODO: reorder laws *)
   (* 1.8 *)
   Lemma r_absorb_assumption pre' w pre post `{!FormulaFinal pre'} `{!FormulaFinal pre} :
     <{ {pre'}; *w : [pre, post] }> ≡ <{ *w : [pre' ∧ pre, post] }>.
   Proof with auto.
-    intros A. simpl. repeat rewrite subst_initials_nil. fSimpl. rewrite f_and_assoc...
+    intros A. simpl. rewrite subst_all_initials_id.
+    fSimpl. rewrite f_and_assoc...
   Qed.
 
   (* Law 1.1 *)
   Lemma r_strengthen_post w pre post post' `{!FormulaFinal pre} :
+    initials_closed post w →
+    initials_closed post' w →
     post' ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
   Proof with auto.
-    intros Hent A. simpl. fSimpl. rewrite <- Hent. reflexivity.
+    intros ?? Hent A. do 2 (rewrite wp_spec; auto). simpl. fSimpl. rewrite <- Hent...
   Qed.
-
 
   (* Law 5.1 *)
   Lemma r_strengthen_post_with_initials w pre post post' `{!FormulaFinal pre} :
+    initials_closed post w →
+    initials_closed post' w →
     <! pre[; ↑ₓ w \ ⇑₀ w ;] ∧ post' !> ⇛ post ->
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, post'] }>.
   Proof with auto.
-    intros Hent A. simpl.
+    intros ?? Hent A. do 2 (rewrite wp_spec; auto). simpl.
     rewrite <- Hent. rewrite <- f_impl_curry. rewrite -> f_foralllist_impl_unused_l.
-    2: { intros x ? ?. apply (fvars_seqsubst_superset_vars_not_free_in_terms) in H0...
+    2: { intros x ? ?. apply (fvars_seqsubst_superset_vars_not_free_in_terms) in H2...
          set_solver. }
     rewrite simpl_subst_initials_impl. rewrite subst_initials_inverse_l by set_solver...
-    rewrite <- (f_and_idemp pre) at 1. rewrite <- f_and_assoc. fSimpl.
-    reflexivity.
+    rewrite <- (f_and_idemp pre) at 1. rewrite <- f_and_assoc. fSimpl...
   Qed.
 
   (* Law 1.2 *)
@@ -76,7 +187,8 @@ Section refinement.
     as_var x ∉ term_fvars t →
     <{ x := t }> ≡ <{ x : [⌜x = t⌝] }>.
   Proof with auto.
-    intros Hfree A. simpl. fSimpl. unfold subst_initials. rewrite seqsubst_non_free.
+    intros Hfree A. rewrite wp_spec... simpl. fSimpl.
+    unfold subst_all_initials, subst_initials. rewrite seqsubst_non_free.
     - rewrite f_forall_one_point... apply msubst_single.
     - simpl. set_unfold. intros. destruct H; [|done]. destruct H0.
       assert (¬ var_final x0).
@@ -87,42 +199,45 @@ Section refinement.
   Qed.
 
   Lemma r_permute_frame w w' pre post `{!FormulaFinal pre} :
+    initials_closed post w →
     w ≡ₚ w' →
     <{ *w : [pre, post] }> ≡ <{ *w' : [pre, post] }>.
   Proof with auto.
-    intros H A. simpl. fSimpl. rewrite subst_initials_perm with (xs':=w')... f_equiv.
-      rewrite f_foralllist_permute with (xs':=(fmap as_var w'))... apply Permutation_map...
+    intros ? H A. do 2 (rewrite wp_spec; auto).
+    2: { rewrite <- H... }
+    simpl. fSimpl.
+    rewrite subst_initials_perm with (xs':=w')... f_equiv.
+    rewrite f_foralllist_permute with (xs':=(fmap as_var w'))... apply Permutation_map...
   Qed.
 
   (* Law 5.4 *)
   Lemma r_contract_frame w xs pre post `{!FormulaFinal pre} :
+    initials_closed post (w ++ xs) →
     w ## xs →
     <{ *w, *xs : [pre, post] }> ⊑ <{ *w : [pre, post[_₀\ xs]] }>.
   Proof with auto.
-    intros Hdisjoint A. simpl. fSimpl.
-    rewrite fmap_app. rewrite f_foralllist_app. rewrite f_foralllist_comm.
+    intros ? Hdisjoint A. do 2 (rewrite wp_spec; auto).
+    2:{ intros x??. apply elem_of_subst_initials_fvars in H1 as [|(?&?&?)].
+        - destruct H1 as []. by apply var_initial_not_final in H0.
+        - specialize (H x H0 H2). set_solver. }
+    simpl. fSimpl. rewrite fmap_app. rewrite f_foralllist_app. rewrite f_foralllist_comm.
     rewrite f_foralllist_elim_binders. rewrite subst_initials_app.
     f_equiv. unfold subst_initials at 1. rewrite simpl_seqsubst_foralllist by set_solver.
     f_equiv. rewrite fold_subst_initials. rewrite simpl_subst_initials_impl.
     fSimpl. rewrite f_subst_initials_final_formula...
   Qed.
 
-  Lemma fequiv_st_lem σ A B :
-    A ≡_{σ} B ∨ ¬ A ≡_{σ} B.
-  Proof with auto.
-    destruct (feval_lem σ A); destruct (feval_lem σ B).
-    - left. done.
-    - right. intros []...
-    - right. intros []...
-    - left. done.
-  Qed.
-
+  (* Law 8.3 *)
   Lemma r_expand_frame xs w pre post `{!FormulaFinal pre} :
+    initials_closed post (w ++ xs) →
     w ## xs →
     <! post[_₀\ xs] !> ≡ post →
     <{ *w : [pre, post] }> ⊑ <{ *w, *xs : [pre, post ∧ ⎡⇑ₓ xs =* ⇑₀ xs⎤] }>.
   Proof with auto.
-    intros Hdisjoint H A. simpl. fSimpl.
+    intros Hdisjoint ? H A. rewrite wp_spec...
+    -
+    2:{ intros x??. simpl in H2.  }
+    simpl. fSimpl.
     unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
     setoid_rewrite <- (@eqlist_rewrite _ _ (⇑₀ (w ++ xs))).

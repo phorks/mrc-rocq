@@ -43,7 +43,6 @@ Section moveme.
       destruct H2; subst; contradiction.
   Qed.
 
-
   Lemma equiv_subst {x} {t : term} {A B : formula} :
     x ∉ formula_fvars A →
     A ≡ B →
@@ -1722,17 +1721,6 @@ Section semantics.
       + f_equiv...
   Qed.
 
-  (* Lemma filter_set_to_list_delete_difference_singleton {A : Type} `{Countable A} {P : A → Prop} *)
-  (*     `{∀ x, Decision (P x)} {x : A} {X : gset A} : *)
-  (*   ¬ P x → *)
-  (*   filter P (set_to_list (X ∖ {[x]})) ≡ₚ filter P (set_to_list X). *)
-  (* Proof with auto. *)
-  (*   intros. *)
-  (*   destruct (decide (x ∈ X)). *)
-  (*   - induction X using set_ind_L. *)
-  (*     + assert (∅ ∖ {[x]} = ∅) as -> by set_solver... *)
-  (*     +  *)
-  (*   - apply elem_of_list_lookup_2 in e. *)
   Local Lemma filter_set_to_list_delete_union_singleton_l' {A : Type} `{Countable A} {P : A → Prop}
       `{∀ x, Decision (P x)} {x : A} {X : gset A} :
     x ∉ X →
