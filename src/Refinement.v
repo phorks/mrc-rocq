@@ -70,6 +70,8 @@ Section refinement.
     intros. rewrite subst_initials_cons. rewrite subst_non_free... set_solver.
   Qed.
 
+  Hint Extern 0 (<! _[_₀\[]] !>) => rewrite subst_initials_nil : core.
+
   Definition initials_closed A w := ∀ x, x ∉ w → <! A [₀x\x] !> ≡ A.
 
   Lemma initials_closed_alt' A w :
@@ -221,6 +223,11 @@ Section refinement.
       set_solver.
   Qed.
 
+  Lemma wp_spec' w (pre : final_formula) post A `{!FormulaFinal A} :
+    initials_closed post w →
+    <! pre ∧ (∀* ↑ₓ w, post ⇒ A) [_₀\*] !> ≡ <! pre ∧ (∀* ↑ₓ w, post ⇒ A) [_₀\ w] !>.
+  Proof using M MNat. intros. pose proof (wp_spec). simpl in H0. apply H0; auto. Qed.
+
   (* TODO: reorder laws *)
   (* 1.8 *)
   Lemma r_absorb_assumption pre' w pre post `{!FormulaFinal pre'} `{!FormulaFinal pre} :
@@ -342,29 +349,43 @@ Section refinement.
     Unshelve. all: typeclasses eauto.
   Qed.
 
+  (* TODO: move me *)
+  Global Instance set_unfold_initial_var_elem_of_final_formula {x} {A} `{!FormulaFinal A} :
+    SetUnfoldElemOf ₀x (formula_fvars A) False.
+  Proof with auto.
+    constructor. split; intros; [|done]. apply formula_is_final in H.
+    apply var_final_initial_var_of in H as [].
+  Qed.
+
   (* Law 3.2 *)
   Lemma r_skip w pre post `{!FormulaFinal pre} :
+    initials_closed post w →
     pre ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
-    intros. intros A. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
-    fSimpl. rewrite <- (f_subst_initials_final_formula pre w)...
+    intros. intros A. rewrite wp_spec... simpl.
+    fSimpl. rewrite subst_all_initials_weaken with (w:=[]) by set_solver.
+    rewrite subst_initials_nil. rewrite <- (f_subst_initials_final_formula pre w)...
+    unfold subst_initials. simpl. do 2 rewrite fold_subst_initials.
     rewrite <- simpl_subst_initials_and. unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
-    rewrite H. rewrite f_impl_elim. rewrite f_foralllist_one_point...
+    rewrite H0. rewrite f_impl_elim. rewrite f_foralllist_one_point...
     rewrite fold_subst_initials. rewrite f_subst_initials_final_formula...
   Qed.
 
   (* Law 5.3 *)
   Lemma r_skip_with_initials w pre post `{!FormulaFinal pre} :
+    initials_closed post w →
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ pre !> ⇛ post →
     <{ *w : [pre, post] }> ⊑ skip.
   Proof with auto.
-    intros. intros A. simpl. unfold subst_initials. simpl. rewrite fold_subst_initials.
-    fSimpl. rewrite <- (f_subst_initials_final_formula pre w)...
+    intros. intros A. rewrite wp_spec... simpl. unfold subst_initials. simpl.
+    rewrite fold_subst_initials.
+    fSimpl. rewrite subst_all_initials_weaken with (w:=[]) by set_solver.
+    rewrite subst_initials_nil. rewrite <- (f_subst_initials_final_formula pre w)...
     rewrite <- simpl_subst_initials_and. unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite (f_foralllist_elim_binders (as_var <$> w)).
-    rewrite f_impl_dup_hyp. rewrite f_and_assoc. rewrite H. rewrite f_impl_elim.
+    rewrite f_impl_dup_hyp. rewrite f_and_assoc. rewrite H0. rewrite f_impl_elim.
     rewrite f_foralllist_one_point... rewrite fold_subst_initials.
     rewrite f_subst_initials_final_formula...
   Qed.
@@ -372,18 +393,30 @@ Section refinement.
   (* Law 3.4 *)
   Lemma r_skip_seq_l p :
     <{ $skip; $p }> ≡ p.
-  Proof. intros A. unfold skip. simpl. rewrite subst_initials_nil. fSimpl. Qed.
+  Proof with auto.
+    intros A. simpl. rewrite subst_all_initials_weaken with (w:=[]) by set_solver. fSimpl...
+  Qed.
 
   (* Law 3.4 *)
   Lemma r_skip_seq_r p :
     <{ $p; $skip }> ≡ p.
-  Proof. intros A. unfold skip. simpl. rewrite subst_initials_nil. fSimpl. Qed.
+  Proof with auto.
+    intros A. simpl. apply wp_congr...
+    rewrite subst_all_initials_weaken with (w:=[]) by set_solver. fSimpl...
+  Qed.
 
   (* Law 3.3 *)
   Lemma r_seq w pre mid post `{!FormulaFinal pre} `{!FormulaFinal mid} `{!FormulaFinal post} :
+    initials_closed mid w →
+    initials_closed post w →
     <{ *w : [pre, post] }> ⊑ <{ *w : [pre, mid]; *w : [mid, post] }>.
   Proof with auto.
-    intros A. simpl. fSimpl. rewrite f_impl_and_r. fSimpl.
+    intros ?? A. simpl.
+    pose proof wp_spec. simpl in H1.
+    rewrite (H1 w <!! pre !!> post A)... simpl.
+    rewrite (H1 w <!! mid !!> post A)... simpl.
+    rewrite (H1 w <!! pre !!> mid _)... simpl.
+    fSimpl. rewrite f_impl_and_r. fSimpl.
     rewrite (f_subst_initials_final_formula) at 1...
     rewrite (f_subst_initials_final_formula) at 1...
     rewrite (f_subst_initials_final_formula) at 1...
@@ -393,15 +426,22 @@ Section refinement.
 
   (* Law B.2 *)
   Lemma r_seq_frame w xs pre mid post `{!FormulaFinal pre} `{!FormulaFinal mid} :
+    initials_closed post (w ++ xs) →
+    initials_closed mid xs →
     w ## xs →
     list_to_set (↑₀ xs) ## formula_fvars post →
     <{ *w, *xs : [pre, post] }> ⊑ <{ *xs : [pre, mid]; *w, *xs : [mid, post] }>.
   Proof with auto.
-    intros. intros A. simpl. fSimpl. rewrite f_impl_and_r. fSimpl.
+    intros. intros A. simpl.
+    pose proof wp_spec. simpl in H3.
+    rewrite (H3 _ <!! pre !!> post A)... simpl.
+    rewrite (H3 _ <!! pre !!> mid _)... simpl.
+    rewrite (H3 _ <!! mid !!> post A)... simpl.
+    fSimpl. rewrite f_impl_and_r. fSimpl.
     rewrite (subst_initials_app _ w xs).
     assert (formula_fvars <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> ## list_to_set (↑₀ xs)).
-    { intros x ??. set_unfold in H1. destruct H1 as ([|]&?); [set_solver|].
-      set_unfold. destruct H2 as [? _]. apply elem_of_fvars_final_formula_inv in H1... }
+    { intros x ??. set_unfold in H4. destruct H4 as ([|]&?); [set_solver|].
+      set_unfold. destruct H5 as [? _]. apply elem_of_fvars_final_formula_inv in H4... }
     rewrite (f_subst_initials_no_initials <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> xs) at 1...
     rewrite (f_subst_initials_no_initials <! ∀* ↑ₓ (w ++ xs), post ⇒ A !> xs) at 1...
     rewrite (f_subst_initials_no_initials _ xs) at 1 by set_solver...
