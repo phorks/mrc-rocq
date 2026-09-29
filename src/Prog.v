@@ -27,6 +27,23 @@ Section moveme.
   Implicit Types (t : term).
   Implicit Types (A : formula).
 
+  Lemma subst_non_free A x t :
+    x ∉ formula_fvars A →
+    <! A[x \ t] !> = A.
+  Proof with auto.
+    apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A = B); intros.
+    - rewrite subst_af_non_free...
+    - f_equiv...
+    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
+      f_equiv; [apply H|apply H0]...
+    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
+      f_equiv; [apply H|apply H0]...
+    - reflexivity.
+    - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
+      destruct H2; subst; contradiction.
+  Qed.
+
+
   Lemma equiv_subst {x} {t : term} {A B : formula} :
     x ∉ formula_fvars A →
     A ≡ B →
@@ -102,22 +119,6 @@ Section moveme.
   Proof.
     intros. subst. destruct A'. unfold as_final_formula. simpl. f_equal. unfold FormulaFinal in H.
     apply formula_final_pi.
-  Qed.
-
-  Lemma subst_non_free A x t :
-    x ∉ formula_fvars A →
-    <! A[x \ t] !> = A.
-  Proof with auto.
-    apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A = B); intros.
-    - rewrite subst_af_non_free...
-    - f_equiv...
-    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
-      f_equiv; [apply H|apply H0]...
-    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
-      f_equiv; [apply H|apply H0]...
-    - reflexivity.
-    - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
-      destruct H2; subst; contradiction.
   Qed.
 
   Lemma msubst_subst_comm' (A : formula) x t xs ts `{!OfSameLength xs ts} :
@@ -1538,8 +1539,10 @@ Section semantics.
         destruct H as [[] | []]; set_solver.
   Qed.
 
-  Local Definition k_subst p := ∀ (x : variable) (t : final_term) A,
+  Local Definition k_subst p := ∀ (x : variable) (t : term) A,
+    VarFinal x →
     FormulaFinal A →
+    TermFinal t →
     x ∉ prog_fvars p →
     term_fvars t ## prog_fvars p →
     <! $(wp p A)[x \ t] !> ≡ wp p <! A[x \ t] !>.
@@ -1604,7 +1607,7 @@ Section semantics.
     destruct (decide _); [done|].
     clear n. revert H. revert σ. rewrite fold_fent. f_equiv. f_equiv.
     intros σ?.
-    eapply (Hsubst z (as_final_term y) <! A [x \ z] !> _ Hp2 _ σ).
+    eapply (Hsubst z (as_final_term y) <! A [x \ z] !> _ _ _ Hp2 _ σ).
     clear Hsubst.
     unfold k_congr in Hcongr.
     revert H. apply Hcongr... apply fequiv_subst_trans...
@@ -1664,7 +1667,7 @@ Section semantics.
     destruct (decide _); [done|].
     clear n. revert H. revert σ. rewrite fold_fent. f_equiv. f_equiv.
     intros σ?.
-    eapply (Hsubst z (as_final_term y) <! A [x \ z] !> _ Hp2 _ σ).
+    eapply (Hsubst z (as_final_term y) <! A [x \ z] !> _ _ _ Hp2 _ σ).
     clear Hsubst.
     unfold k_congr in Hcongr.
     revert H. apply Hcongr... apply fequiv_subst_trans...
@@ -1697,46 +1700,41 @@ Section semantics.
       f_equiv. apply IHgcs... intros. apply H0... simpl. simpl in *. lia.
     - simpl. do 3 f_equiv. by rewrite H2.
     - simpl. f_equiv. f_equiv. by rewrite H2.
-    - simpl.
-      pose proof (fresh_var_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B)).
-      remember (fresh_var x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B)) as z.
-      assert (VarFinal z) by (subst z; typeclasses eauto).
-      assert (H4:=H0). simpl in H0. forward (H0 p) by lia.
+    - simpl. mk_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B) as z.
+      assert (H6:=H0). simpl in H0. forward (H0 p) by lia.
       assert (k_var p) by naive_solver. unfold k_var in H5.
-      simpl in H5. clear Heqz. rewrite H5 with (y:=z).
+      simpl in H5. rewrite H5 with (y:=z)...
       2-4: set_solver.
       rewrite H5 with (y:=z)...
       2-4: set_solver.
       do 2 f_equiv. apply H...
-      + intros. apply H4... simpl. lia.
-      + f_equiv. exact H1.
-    - simpl.
-      pose proof (fresh_var_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B)).
-      remember (fresh_var x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B)) as z.
-      assert (VarFinal z) by (subst z; typeclasses eauto).
-      assert (H4:=H0). simpl in H0. forward (H0 p) by lia.
+      + intros. apply H6... simpl. lia.
+      + f_equiv...
+    - simpl. mk_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B) as z.
+      assert (H6:=H0). simpl in H0. forward (H0 p) by lia.
       assert (k_const p) by naive_solver. unfold k_const in H5.
-      simpl in H5. clear Heqz. rewrite H5 with (y:=z).
+      simpl in H5. rewrite H5 with (y:=z)...
       2-4: set_solver.
       rewrite H5 with (y:=z)...
       2-4: set_solver.
       do 2 f_equiv. apply H...
-      + intros. apply H4... simpl. lia.
-      + f_equiv. exact H1.
+      + intros. apply H6... simpl. lia.
+      + f_equiv...
   Qed.
 
   Local Lemma L_subst p :
     (∀ p', prog_rank p' < prog_rank p → k_congr p' ∧ k_var p' ∧ k_const p') →
     k_subst p.
   Proof with auto.
-    unfold k_subst. induction p using prog_strong_ind; intros Hind; intros.
+    unfold k_subst. induction p using prog_strong_ind;
+      intros Hind ??? Hfinal1 Hfinal2 Hfinal3; intros.
     - simpl. simpl in H0. apply not_elem_of_union in H0 as []. rewrite msubst_subst_comm'...
       + contradict H0. apply elem_of_list_to_set...
       + set_unfold. contradict H2. apply elem_of_union_list. destruct H2 as (t'&?&x'&?&?).
         subst. exists (term_fvars x'). split... set_unfold. eauto.
       + set_solver.
-    - simpl. rewrite IHp1.
-      + apply Hind; [simpl; lia|]. apply IHp2.
+    - simpl. rewrite IHp1...
+      + apply Hind; auto; [simpl; lia|]. apply IHp2...
         * intros. apply Hind. simpl. lia.
         * set_solver.
         * set_solver.
@@ -1752,7 +1750,7 @@ Section semantics.
       + induction gcs; simpl... inversion H. subst. rewrite simpl_subst_and. f_equiv.
         * rewrite simpl_subst_impl. f_equiv.
           -- apply fequiv_subst_non_free. simpl in H1. set_solver.
-          -- apply H4.
+          -- apply H4...
              ++ intros. apply Hind. simpl. lia.
              ++ set_solver.
              ++ set_solver.
@@ -1769,11 +1767,11 @@ Section semantics.
       rewrite simpl_subst_impl. rewrite simpl_subst_and.
       rewrite fequiv_subst_non_free by set_solver.
       rewrite fequiv_subst_non_free by set_solver.
-      rewrite IHp.
+      rewrite IHp...
       2:{ intros. apply Hind. simpl in *. lia. }
       2-3: set_solver.
       f_equiv.
-      { f_equiv. apply Hind; [simpl; lia|]. apply fequiv_subst_non_free. set_solver. }
+      { f_equiv. apply Hind... apply fequiv_subst_non_free. set_solver. }
       rewrite simpl_subst_and. rewrite simpl_subst_impl. rewrite simpl_subst_and.
       rewrite fequiv_subst_non_free by set_solver.
       rewrite fequiv_subst_non_free by set_solver.
@@ -1782,22 +1780,12 @@ Section semantics.
       rewrite fequiv_subst_non_free by set_solver.
       rewrite fequiv_subst_non_free by set_solver.
       rewrite simpl_subst_af. simpl. rewrite subst_term_non_free by set_solver.
-      f_equiv.
-      pose proof (fresh_var_fresh ""%string (while_fvars g inv v p)).
-      remember (fresh_var ""%string (while_fvars g inv v p)) as y.
-      clear Heqy.
-      pose proof (fresh_var_fresh ""%string (
-        {[x]} ∪
-        prog_fvars p ∪
-        formula_fvars <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> ∪
-          quant_subst_fvars y <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> x t)).
-      remember (fresh_var ""%string (
-        {[x]} ∪
-        prog_fvars p ∪
-        formula_fvars <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> ∪
-          quant_subst_fvars y <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> x t))
+      f_equiv. mk_fresh (while_fvars g inv v p) as y.
+      mk_fresh ({[x]} ∪
+          prog_fvars p ∪
+          formula_fvars <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> ∪
+            quant_subst_fvars y <! inv ∧ g ∧ ⌜ v = y ⌝ ⇒ $(wp p <! ⌜ v < y ⌝ !>) !> x t)
         as z.
-      clear Heqz.
       rewrite fforall_alpha_equiv with (x':=z) by set_solver.
       rewrite simpl_subst_forall by set_solver. f_equiv.
       repeat rewrite simpl_subst_impl. repeat rewrite simpl_subst_and.
@@ -1809,59 +1797,71 @@ Section semantics.
       rewrite subst_term_non_free with (x:=y) by set_solver.
       rewrite subst_term_non_free with (x:=x) by set_solver.
       repeat rewrite simpl_subst_af. simpl. destruct (decide _); [set_solver|]. clear n.
-      f_equiv. rewrite IHp.
+      f_equiv. erewrite IHp...
+      2:{ intros. apply Hind. simpl in *. lia. }
+      3-4: set_solver.
+      2: typeclasses eauto.
+      rewrite IHp...
       2:{ intros. apply Hind. simpl in *. lia. }
       2-3: set_solver.
-      rewrite IHp.
-      2:{ intros. apply Hind. simpl in *. lia. }
-      2-3: set_solver.
-      apply Hind; [simpl; lia|]. unfold term_lt. repeat rewrite simpl_subst_af.
-      simpl.  destruct (decide _); [|contradiction]. clear e. simpl.
+      apply Hind... unfold term_lt. repeat rewrite simpl_subst_af.
+      simpl. destruct (decide _); [|contradiction]. clear e. simpl.
       destruct (decide _); [set_solver|]. rewrite subst_term_non_free with (t:=v) by set_solver.
       rewrite subst_term_non_free with (t:=v) by set_solver...
     - simpl. rewrite simpl_subst_and. rewrite fequiv_subst_non_free by set_solver.
       f_equiv.
-      admit.
+      simpl in H.
+      repeat rewrite not_elem_of_union in H. destruct_and! H.
+      apply not_elem_of_difference in H3.
+      apply not_elem_of_list_to_set in H1.
+      unfold subst_all_initials. do 2 rewrite subst_initials_msubst.
+      rewrite msubst_subst_comm'.
+      2:{ intros contra. set_unfold in contra. destruct contra as (?&->&?&?).
+          apply not_and_l in H5. destruct H5; [set_solver|].
+          rewrite to_final_var_initial_var_of in H5. destruct H; [set_solver|].
+          apply formula_is_final in H. apply var_final_initial_var_of in H... }
+      2:{ intros contra. set_unfold in contra. destruct contra as (?&?&?).
+          rewrite not_and_l in H6. destruct H6; [set_solver|]. destruct H5; [set_solver|].
+          apply formula_is_final in H5. apply var_final_initial_var_of in H5... }
+      2: set_solver.
+      f_equiv.
+      2:{
+        unfold to_vtmap. f_equal. f_equal.
+        - unfold finalized_initial_fvars, initial_fvars.
+          do 2 rewrite fvars_foralllist.
+          simpl. f_equal. f_equal. admit.
+        - unfold finalized_initial_fvars, initial_fvars.
+          do 2 rewrite fvars_foralllist.
+          simpl. f_equal. f_equal. f_equal. admit.
+      }
+      rewrite simpl_subst_foralllist...
+      2: set_solver.
+      rewrite simpl_subst_impl.
+      rewrite subst_non_free...
+      destruct H3... set_unfold in H. destruct H. apply var_initial_not_final in H3.
+      destruct (H3 var_is_final).
     - assert (k_var p) by (apply Hind; naive_solver). unfold k_var in H2.
-      pose proof (fresh_var_fresh ""%string (
-        {[as_var x]} ∪
-        {[x0]} ∪
-        prog_fvars p ∪
-        formula_fvars A ∪
-        term_fvars t)).
-      remember (fresh_var ""%string (
-        {[as_var x]} ∪
-        {[x0]} ∪
-        prog_fvars p ∪
-        formula_fvars A ∪
-        term_fvars t))
+      mk_fresh ({[as_var x]} ∪
+          {[x0]} ∪
+          prog_fvars p ∪
+          formula_fvars A ∪
+          term_fvars t)
         as y.
-      clear Heqy.
       rewrite H2 with (y:=y) by set_solver.
-      rewrite H2 with (y:=y).
+      rewrite H2 with (y:=y)...
       2-3: set_solver.
       2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
       unfold FForallT.
-      pose proof (fresh_var_fresh ""%string (
-        formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ y] !>) !> ∪
-        formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x0 \ t] [x \ y] !>) !> ∪
-        {[as_var x]} ∪
-        {[y]} ∪
-        {[x0]} ∪
-        prog_fvars p ∪
-        formula_fvars A ∪
-        term_fvars t)).
-      remember (fresh_var ""%string (
-        formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ y] !>) !> ∪
-        formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x0 \ t] [x \ y] !>) !> ∪
-        {[as_var x]} ∪
-        {[y]} ∪
-        {[x0]} ∪
-        prog_fvars p ∪
-        formula_fvars A ∪
-        term_fvars t))
+      mk_fresh (formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ y] !>) !> ∪
+          formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x0 \ t] [x \ y] !>) !> ∪
+          {[as_var x]} ∪
+          {[y]} ∪
+          {[x0]} ∪
+          prog_fvars p ∪
+          formula_fvars A ∪
+          term_fvars t)
         as z.
-      clear Heqz. rewrite fforall_alpha_equiv with (x':=z) by set_solver.
+      rewrite fforall_alpha_equiv with (x':=z) by set_solver.
       rewrite fforall_alpha_equiv with (x:=x) (x':=z) by set_solver.
       rewrite simpl_subst_forall by set_solver.
       rewrite simpl_subst_forall by set_solver.
@@ -1883,14 +1883,15 @@ Section semantics.
         rewrite subst_subst_l with (x2:=y) (z:=w) by set_solver.
         rewrite H...
         2:{ intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
         2: set_solver.
         2:{ intros i??. apply fvars_term_subst_superset in H6. set_solver. }
         rewrite H with (x:=y)...
         2:{ intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
         2: set_solver.
         2:{ intros i??. apply fvars_term_subst_superset in H6. set_solver. }
-        do 2 f_equiv. apply Hind.
-        1:{ intros. simpl in *. lia. }
+        do 2 f_equiv. apply Hind...
         rewrite fequiv_subst_trans by set_solver.
         rewrite fequiv_subst_trans.
         2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
@@ -1902,10 +1903,10 @@ Section semantics.
       { do 2 f_equiv.
         rewrite H...
         2: { intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
         2: set_solver.
         2:{ intros i??. apply fvars_term_subst_superset in H5. set_solver. }
-        apply Hind; [simpl in *; lia|].
-        rewrite fsubst_fsubst_ne; set_solver. }
+        apply Hind... rewrite fsubst_fsubst_ne; set_solver. }
       rewrite fsubst_fsubst_ne with (x2:=x) by set_solver.
       rewrite subst_term_non_free.
       2:{ intros contra. apply fvars_term_subst_superset in contra. set_solver. }
@@ -1929,54 +1930,6 @@ Section semantics.
   Hint Extern 0 (?x = as_final_var (as_var ?x)) => symmetry; apply as_final_var_as_var : core.
   Hint Extern 0 (as_var (as_final_var ?x) = ?x) => apply as_var_as_final_var : core.
   Hint Extern 0 (?x = as_var (as_final_var ?x)) => symmetry; apply as_var_as_final_var : core.
-
-  Local Lemma key p : k_subst p ∧ k_congr p ∧ k_var p.
-  Proof with auto.
-    induction p using prog_strong_ind.
-    - split_and!.
-      + unfold k_subst. intros. simpl. admit.
-      + admit.
-      + admit.
-    - admit.
-      (* split_and!.  *)
-      (* (* + destruct IHp1 as (?&_&_), IHp2 as (?&_&_). unfold k_subst in *; simpl in *; intros. *) *)
-      (* (*   rewrite H... *) *)
-    - admit.
-    - admit.
-    - admit.
-    - assert (Hsubst : ∀ p', prog_rank p' = prog_rank p → k_subst p') by naive_solver.
-      assert (Hcongr : ∀ p', prog_rank p' = prog_rank p → k_congr p') by naive_solver.
-      assert (Hvar : ∀ p', prog_rank p' = prog_rank p → k_var p') by naive_solver.
-      clear H. split_and!.
-      + unfold k_subst. simpl. intros. rename x0 into y. destruct (decide (x = as_final_var y)).
-        * subst. simpl. unfold FForallT. rewrite simpl_subst_forall_skip... do 2 f_equiv.
-          remember (fresh_var (as_final_var y) _) as z1.
-          remember (fresh_var (as_final_var y) _) as z2 in |- *.
-          unfold k_subst in Hsubst. ospecialize (Hsubst p eq_refl z2 (as_final_var y)).
-          rewrite Hsubst.
-          symmetry. etrans.
-          -- Set Printing Coercion. Set Printing Implicit. Unset Printing Notations.
-          3:{ rewrite Hsubst. }
-          rewrite <- Hsubst.
-
-
-          rewrite
-      + unfold k_subst, k_congr, k_var in *; destruct IHp as (Hsubst&Hcongr&Hvar); simpl; intros.
-        destruct (decide (x = x0)).
-        * simpl. subst. unfold FForallT. rewrite simpl_subst_forall_skip... do 2 f_equiv.
-
-    - admit.
-    - admit.
-
-
-
-
-  Local Lemma key p :
-    (∀ (x x' : final_variable) A,as_var x' ∉ prog_fvars p →
-    as_var x' ∉ formula_fvars A →
-    <! $(wp p A)[x \ x'] !> ≡ wp (subst_prog p x x') <! A[x \ x'] !>)
-  ∧ (∀ A B, A ≡ B → wp p A ≡ wp p B)
-  ∧ (∀ (x y : final_variable)).
 
   Lemma wp_congr_post {p A B} :
     A ≡ B →
