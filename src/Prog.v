@@ -1722,6 +1722,79 @@ Section semantics.
       + f_equiv...
   Qed.
 
+  (* Lemma filter_set_to_list_delete_difference_singleton {A : Type} `{Countable A} {P : A → Prop} *)
+  (*     `{∀ x, Decision (P x)} {x : A} {X : gset A} : *)
+  (*   ¬ P x → *)
+  (*   filter P (set_to_list (X ∖ {[x]})) ≡ₚ filter P (set_to_list X). *)
+  (* Proof with auto. *)
+  (*   intros. *)
+  (*   destruct (decide (x ∈ X)). *)
+  (*   - induction X using set_ind_L. *)
+  (*     + assert (∅ ∖ {[x]} = ∅) as -> by set_solver... *)
+  (*     +  *)
+  (*   - apply elem_of_list_lookup_2 in e. *)
+  Local Lemma filter_set_to_list_delete_union_singleton_l' {A : Type} `{Countable A} {P : A → Prop}
+      `{∀ x, Decision (P x)} {x : A} {X : gset A} :
+    x ∉ X →
+    ¬ P x →
+    filter P (set_to_list ({[x]} ∪ X)) ≡ₚ filter P (set_to_list X).
+  Proof with auto.
+    intros. rewrite set_to_list_union_singleton_l_perm... rewrite filter_cons.
+    destruct (decide _)... contradiction.
+  Qed.
+
+  Lemma filter_set_to_list_delete_union_l {A : Type} `{Countable A} {P : A → Prop}
+      `{∀ x, Decision (P x)} (X Y : gset A) :
+    (∀ x, x ∈ X → ¬ P x) →
+    filter P (set_to_list (X ∪ Y)) ≡ₚ filter P (set_to_list Y).
+  Proof with auto.
+    intros. generalize dependent Y. induction X using set_ind_L; intros.
+    - rewrite union_empty_l_L...
+    - destruct (decide (x ∈ Y)).
+      + assert ({[x]} ∪ X ∪ Y = X ∪ Y) as -> by set_solver... apply IHX.
+        intros. apply H1. set_solver.
+      + rewrite <- union_assoc_L.
+        rewrite filter_set_to_list_delete_union_singleton_l' by set_solver.
+        apply IHX. intros. apply H1. set_solver.
+  Qed.
+
+  Lemma filter_set_to_list_delete_union_r {A : Type} `{Countable A} {P : A → Prop}
+      `{∀ x, Decision (P x)} (X Y : gset A) :
+    (∀ x, x ∈ Y → ¬ P x) →
+    filter P (set_to_list (X ∪ Y)) ≡ₚ filter P (set_to_list X).
+  Proof with auto.
+    intros. rewrite union_comm_L. apply filter_set_to_list_delete_union_l...
+  Qed.
+
+  Lemma filter_set_to_list_delete_union_singleton_l {A : Type} `{Countable A} {P : A → Prop}
+      `{∀ x, Decision (P x)} (x : A) (X : gset A) :
+    ¬ P x →
+    filter P (set_to_list ({[x]} ∪ X)) ≡ₚ filter P (set_to_list X).
+  Proof with auto.
+    intros. apply filter_set_to_list_delete_union_l. set_solver.
+  Qed.
+
+  Lemma filter_set_to_list_delete_difference {A : Type} `{Countable A} {P : A → Prop}
+      `{∀ x, Decision (P x)} (X Y : gset A) :
+    (∀ x, x ∈ Y → ¬ P x) →
+    filter P (set_to_list (X ∖ Y)) ≡ₚ filter P (set_to_list X).
+  Proof with auto.
+    intros. rewrite <- filter_set_to_list_delete_union_r with (Y:=X ∩ Y) by set_solver.
+    rewrite difference_union_intersection_L...
+  Qed.
+
+  Lemma PSpec_finalized_initial_fvars (w : list final_variable)  (post A : formula) `{!FormulaFinal A} :
+    finalized_initial_fvars <! (∀* ↑ₓ w, post ⇒ A) !> ≡ₚ finalized_initial_fvars post.
+  Proof with auto.
+    unfold finalized_initial_fvars, initial_fvars.
+    rewrite fvars_foralllist. f_equiv.
+    rewrite filter_set_to_list_delete_difference.
+    2:{ intros. apply elem_of_list_to_set in H. set_unfold. destruct H as (?&->&?).
+        set_solver. }
+    simpl. rewrite filter_set_to_list_delete_union_r...
+    intros. apply formula_is_final in H. apply var_final_not_initial...
+  Qed.
+
   Local Lemma L_subst p :
     (∀ p', prog_rank p' < prog_rank p → k_congr p' ∧ k_var p' ∧ k_const p') →
     k_subst p.
@@ -1824,16 +1897,8 @@ Section semantics.
           rewrite not_and_l in H6. destruct H6; [set_solver|]. destruct H5; [set_solver|].
           apply formula_is_final in H5. apply var_final_initial_var_of in H5... }
       2: set_solver.
-      f_equiv.
-      2:{
-        unfold to_vtmap. f_equal. f_equal.
-        - unfold finalized_initial_fvars, initial_fvars.
-          do 2 rewrite fvars_foralllist.
-          simpl. f_equal. f_equal. admit.
-        - unfold finalized_initial_fvars, initial_fvars.
-          do 2 rewrite fvars_foralllist.
-          simpl. f_equal. f_equal. f_equal. admit.
-      }
+      do 2 rewrite <- subst_initials_msubst. f_equiv.
+      2:{ rewrite PSpec_finalized_initial_fvars... rewrite PSpec_finalized_initial_fvars... }
       rewrite simpl_subst_foralllist...
       2: set_solver.
       rewrite simpl_subst_impl.
@@ -1913,8 +1978,80 @@ Section semantics.
       rewrite fsubst_fsubst_ne with (x1:=x0) (x2:=y) by set_solver.
       rewrite term_subst_trans by set_solver.
       rewrite subst_term_diag...
-    - admit.
-  Admitted.
+    - assert (k_const p) by (apply Hind; naive_solver). unfold k_const in H2.
+      mk_fresh ({[as_var x]} ∪
+          {[x0]} ∪
+          prog_fvars p ∪
+          formula_fvars A ∪
+          term_fvars t)
+        as y.
+      rewrite H2 with (y:=y) by set_solver.
+      rewrite H2 with (y:=y)...
+      2-3: set_solver.
+      2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
+      unfold FExistsT.
+      mk_fresh (formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ y] !>) !> ∪
+          formula_fvars <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [x0 \ t] [x \ y] !>) !> ∪
+          {[as_var x]} ∪
+          {[y]} ∪
+          {[x0]} ∪
+          prog_fvars p ∪
+          formula_fvars A ∪
+          term_fvars t)
+        as z.
+      rewrite fexists_alpha_equiv with (x':=z) by set_solver.
+      rewrite fexists_alpha_equiv with (x:=x) (x':=z) by set_solver.
+      rewrite simpl_subst_exists by set_solver.
+      rewrite simpl_subst_exists by set_solver.
+      rewrite simpl_subst_exists by set_solver.
+      f_equiv. repeat rewrite simpl_subst_and. repeat rewrite simpl_subst_af.
+      simpl. destruct (decide _); [|contradiction]. clear e.
+      rewrite subst_term_non_free with (x:=y) by set_solver.
+      rewrite subst_term_non_free with (x:=x0) by set_solver.
+      f_equiv.
+      destruct (decide (as_var x = x0)).
+      {
+        subst. rewrite fequiv_subst_trans.
+        2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
+        mk_fresh
+          ({[as_var x; y; z]} ∪ formula_fvars (wp p <! A [x \ y] !>) ∪ term_fvars t
+             ∪ prog_fvars p ∪ formula_fvars (wp p <! A [x \ t] [x \ y] !>))
+          as w.
+        rewrite subst_subst_l with (z:=w) by set_solver.
+        rewrite subst_subst_l with (x2:=y) (z:=w) by set_solver.
+        rewrite H...
+        2:{ intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
+        2: set_solver.
+        2:{ intros i??. apply fvars_term_subst_superset in H6. set_solver. }
+        rewrite H with (x:=y)...
+        2:{ intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
+        2: set_solver.
+        2:{ intros i??. apply fvars_term_subst_superset in H6. set_solver. }
+        do 2 f_equiv. apply Hind...
+        rewrite fequiv_subst_trans by set_solver.
+        rewrite fequiv_subst_trans.
+        2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
+        simpl. destruct (decide (as_var x = as_var x)); [|contradiction].
+        apply subst_subst_eq.
+      }
+      symmetry.
+      trans (<! $(wp p <! A [x \ y] !>) [x0 \ t [x \ y]] [x \ z] [y \ x] !>).
+      { do 2 f_equiv.
+        rewrite H...
+        2: { intros. apply Hind. simpl in *. lia. }
+        2: typeclasses eauto.
+        2: set_solver.
+        2:{ intros i??. apply fvars_term_subst_superset in H5. set_solver. }
+        apply Hind... rewrite fsubst_fsubst_ne; set_solver. }
+      rewrite fsubst_fsubst_ne with (x2:=x) by set_solver.
+      rewrite subst_term_non_free.
+      2:{ intros contra. apply fvars_term_subst_superset in contra. set_solver. }
+      rewrite fsubst_fsubst_ne with (x1:=x0) (x2:=y) by set_solver.
+      rewrite term_subst_trans by set_solver.
+      rewrite subst_term_diag...
+  Qed.
 
   Local Lemma L p : k_congr p ∧ k_const p ∧ k_subst p ∧ k_var p.
   Proof with auto.
@@ -1926,47 +2063,100 @@ Section semantics.
     - apply L_var...
   Qed.
 
+  Lemma wp_subst p A (x : variable) (t : term) `{!FormulaFinal A} `{VarFinal x} `{!TermFinal t} :
+    x ∉ prog_fvars p →
+    term_fvars t ## prog_fvars p →
+    <! $(wp p A)[x \ t] !> ≡ wp p <! A[x \ t] !>.
+  Proof. by apply L. Qed.
+
+  Lemma wp_congr p A B `{!FormulaFinal A} `{!FormulaFinal B} :
+    A ≡ B →
+    wp p A ≡ wp p B.
+  Proof. by apply L. Qed.
+
+  Lemma wp_var p x ty A y `{!FormulaFinal A} `{VarFinal y} :
+    as_var x ≠ y →
+    y ∉ prog_fvars p →
+    y ∉ formula_fvars A →
+    wp (PVar x ty p) A ≡ <! (∀ x : ty, $(wp p <! A[x \ y] !>))[y \ x] !>.
+  Proof. by apply L. Qed.
+
+  Lemma wp_const p x ty A y `{!FormulaFinal A} `{VarFinal y} :
+    as_var x ≠ y →
+    y ∉ prog_fvars p →
+    y ∉ formula_fvars A →
+    wp (PConst x ty p) A ≡ <! (∃ x : ty, $(wp p <! A[x \ y] !>))[y \ x] !>.
+  Proof. by apply L. Qed.
+
+  Lemma wp_while_decrease_variant {g inv : final_formula} {var : final_term} {p} y `{VarFinal y} :
+    y ∉ formula_fvars g →
+    y ∉ formula_fvars inv →
+    y ∉ term_fvars var →
+    y ∉ prog_fvars p →
+    let var₀ := fresh_var (raw_var "") (while_fvars g inv var p) in
+        <! (∀ var₀, inv ∧ g ∧ ⌜var = var₀⌝ ⇒ $(wp p (<! ⌜var < var₀⌝ !>))) !> ≡
+        <! (∀ y, inv ∧ g ∧ ⌜var = y⌝ ⇒ $(wp p (<! ⌜var < y⌝ !>))) !>.
+  Proof with auto.
+    intros.
+    destruct (decide (y = var₀)).
+    { subst... }
+    mk_fresh (while_fvars g inv var p) as x.
+    rewrite fforall_alpha_equiv with (x':=y).
+    - rewrite simpl_subst_impl. repeat rewrite simpl_subst_and...
+      repeat rewrite simpl_subst_af. unfold while_fvars in H3.
+      rewrite subst_non_free by set_solver.
+      rewrite subst_non_free by set_solver.
+      simpl. destruct (decide _); [|contradiction].
+      rewrite subst_term_non_free by set_solver.
+      do 2 f_equiv. rewrite wp_subst...
+      2: typeclasses eauto.
+      2-3: set_solver.
+      f_equiv.
+      unfold term_lt.
+      rewrite simpl_subst_af.
+      simpl. destruct (decide _); [|contradiction].
+      rewrite subst_term_non_free... set_solver.
+    - clear H4. intros contra. simpl in contra. set_unfold in contra.
+      destruct_or! contra.
+      1-4: set_solver.
+      apply fvars_wp in contra. simpl in contra. set_solver.
+  Qed.
+
+  Lemma wp_congr_fent p A B `{!FormulaFinal A} `{!FormulaFinal B} :
+    A ⇛ B →
+    wp p A ⇛ wp p B.
+  Proof with auto.
+    generalize dependent B. generalize dependent A. induction p; intros; simpl...
+    - by rewrite H0.
+    - f_equiv. induction gcs.
+      + simpl...
+      + simpl. inversion H. subst. f_equiv... f_equiv...
+    - do 3 f_equiv. rewrite H...
+    - f_equiv. unfold subst_all_initials. rewrite PSpec_finalized_initial_fvars...
+      rewrite PSpec_finalized_initial_fvars... rewrite H...
+    - mk_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B) as y.
+      pose proof (wp_var). simpl in H1.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      do 2 f_equiv.
+      apply IHp... rewrite H...
+    - mk_fresh x ({[as_var x]} ∪ prog_fvars p ∪ formula_fvars A ∪ formula_fvars B) as y.
+      pose proof (wp_const). simpl in H1.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      do 2 f_equiv.
+      apply IHp... rewrite H...
+  Qed.
+
+  (* TODO: move me*)
   Hint Extern 0 (as_final_var (as_var ?x) = ?x) => apply as_final_var_as_var : core.
   Hint Extern 0 (?x = as_final_var (as_var ?x)) => symmetry; apply as_final_var_as_var : core.
   Hint Extern 0 (as_var (as_final_var ?x) = ?x) => apply as_var_as_final_var : core.
   Hint Extern 0 (?x = as_var (as_final_var ?x)) => symmetry; apply as_var_as_final_var : core.
-
-  Lemma wp_congr_post {p A B} :
-    A ≡ B →
-    wp p A ≡ wp p B.
-  Proof with auto.
-    intros. induction p; simpl.
-    - rewrite H...
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    -
-
-  Lemma wp_var {x ty p A} (y : final_variable) :
-    as_var y ∉ prog_fvars p →
-    as_var y ∉ formula_fvars A →
-    wp (PVar x ty p) A ≡ <! ∀ x : ty, $(wp p <! A[x \ y] !>)[y \ x] !>.
-  Proof.
-    intros. simpl.
-    generalize (@fresh_var_final (as_var x)
-                  (prog_fvars p ∪ formula_fvars A) (@as_var_var_final x)).
-    pose proof (fresh_var_fresh x (prog_fvars p ∪ formula_fvars A)).
-    intros. remember (fresh_var x (prog_fvars p ∪ formula_fvars A)) as z. clear Heqz.
-    f_equiv. generalize dependent A. induction p; intros.
-    - simpl. rewrite msubst_subst_comm'.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-    - simpl. rewrite IHp1.
-    intros. simp wp. simpl.
-    generalize (@fresh_var_final (as_var x) (prog_fvars p ∪ formula_fvars A) (@as_var_var_final x)).
-    intros. remember (fresh_var x (prog_fvars p ∪ formula_fvars A)) as x'.
-    apply f_forall_equiv. intros. do 2 rewrite simpl_subst_impl. do 2 rewrite simpl_subst_af.
-    simpl. f_equiv.
-    - destruct (decide (x' = x')); try done. destruct (decide (as_var y = as_var y)); try done.
-    - rewrite <- wp_subst.
   (* ******************************************************************* *)
   (* definition and properties of ⊑ and ≡ on prog                        *)
   (* ******************************************************************* *)
@@ -1975,7 +2165,7 @@ Section semantics.
 
   Global Instance pequiv : Equiv prog := λ p1 p2, ∀ A : final_formula, wp p1 A ≡ wp p2 A.
   Global Instance refines_refl : Reflexive refines.
-  Proof with auto. intros ??.  reflexivity. Qed.
+  Proof with auto. intros ??. reflexivity. Qed.
 
   Global Instance refines_trans : Transitive refines.
   Proof with auto. intros p1 p2 p3 ?? A... transitivity (wp p2 A); naive_solver. Qed.
@@ -2036,57 +2226,95 @@ Section semantics.
   (*   induction xs as [|x xs IH]... simpl. rewrite f_exists_ty_top. rewrite IH. reflexivity. *)
   (* Qed. *)
 
+  (* Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) wp. *)
+  (* Proof with auto.  *)
+  (*   intros p ? <- A B H. apply wp_congr. *)
+  (*   generalize dependent B. generalize dependent A. *)
+  (*   induction p; intros A B Hequiv; intros; simpl; fSimpl; *)
+  (*     (try solve [rewrite Hequiv; reflexivity]). *)
+  (*   - apply IHp1. apply IHp2... *)
+  (*   - generalize dependent B. generalize dependent A. induction gcs; intros; simpl... *)
+  (*     apply Forall_cons in H as []. f_equiv. *)
+  (*     + rewrite H; [reflexivity | exact Hequiv]. *)
+  (*     + apply IHgcs... *)
+  (*   - rewrite IHp; [reflexivity|]... *)
+  (*   - rewrite IHp; [reflexivity|]... *)
+  (* Qed. *)
+
+  (* Global Instance wp_proper_fent : Proper ((=) ==> (⇛) ==> (⇛)) wp. *)
+  (* Proof with auto. *)
+  (*   intros p ? <- A B H. generalize dependent B. generalize dependent A. *)
+  (*   induction p; intros A B Href. *)
+  (*   - simpl. rewrite Href. reflexivity. *)
+  (*   - simpl. apply IHp1. apply IHp2. done. *)
+  (*   - simpl. fSimpl. induction gcs; simpl... apply Forall_cons in H as []. f_equiv. *)
+  (*     + rewrite H; [reflexivity | exact Href]. *)
+  (*     + apply IHgcs... *)
+  (*   - simpl. rewrite Href. done. *)
+  (*   - simpl. rewrite Href. done. *)
+  (*   - simpl. rewrite IHp; [reflexivity|]... *)
+  (*   - simpl. rewrite IHp; [reflexivity|]... *)
+  (* Qed. *)
+
+  Global Instance wp_proper_pequiv {A : formula} `{!FormulaFinal A} :
+    Proper ((≡) ==> (≡)) (λ p, wp p A).
+  Proof. intros p1 p2 Hp. specialize (Hp <!! A !!>). assumption. Qed.
+
+  Global Instance wp_proper_ref {A : formula} `{!FormulaFinal A} :
+    Proper ((⊑) ==> (⇛)) (λ p, wp p A).
+  Proof. intros p1 p2 Hp. specialize (Hp <!! A !!>). assumption. Qed.
+
   Global Instance PVar_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PVar.
-  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+  Proof with auto.
+    intros x ? <- ty ? <- A B ? C.
+    mk_fresh x ({[as_var x]} ∪ prog_fvars A ∪ prog_fvars B ∪ formula_fvars C) as y.
+    rewrite wp_var with (y:=y)...
+    2-4: set_solver.
+    rewrite wp_var with (y:=y)...
+    2-4: set_solver.
+    do 2 f_equiv. apply wp_proper_pequiv...
+  Qed.
 
   Global Instance PVarList_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PVarList.
-  Proof.
-    intros xs ? <- ty ? <- A B ? C. induction xs as [|x xs IH].
+  Proof with auto.
+    intros xs ? <- ty ? <- A B ?. induction xs as [|x xs IH].
     - simpl. apply H.
-    - simpl. rewrite IH. reflexivity.
+    - intros C.
+      mk_fresh x ({[as_var x]} ∪ prog_fvars (PVarList xs ty A)
+                    ∪ prog_fvars (PVarList xs ty B) ∪ formula_fvars C) as y.
+      simpl. pose proof wp_var. simpl in H1.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      f_equiv. f_equiv. apply wp_proper_pequiv. apply IH.
   Qed.
 
   Global Instance PConst_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PConst.
-  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+  Proof with auto.
+    intros x ? <- ty ? <- A B ? C.
+    mk_fresh x ({[as_var x]} ∪ prog_fvars A ∪ prog_fvars B ∪ formula_fvars C) as y.
+    rewrite wp_const with (y:=y)...
+    2-4: set_solver.
+    rewrite wp_const with (y:=y)...
+    2-4: set_solver.
+    do 2 f_equiv. apply wp_proper_pequiv...
+  Qed.
 
   Global Instance PConstList_proper : Proper ((=) ==> (=) ==> (≡) ==> (≡@{prog})) PConstList.
-  Proof.
-    intros xs ? <- ty ? <- A B ? C. induction xs as [|x xs IH].
+  Proof with auto.
+    intros xs ? <- ty ? <- A B ?. induction xs as [|x xs IH].
     - simpl. apply H.
-    - simpl. rewrite IH. reflexivity.
+    - intros C.
+      mk_fresh x ({[as_var x]} ∪ prog_fvars (PConstList xs ty A)
+                    ∪ prog_fvars (PConstList xs ty B) ∪ formula_fvars C) as y.
+      simpl. pose proof wp_const. simpl in H1.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      rewrite H1 with (y:=y)...
+      2-4: set_solver.
+      f_equiv. f_equiv. apply wp_proper_pequiv. apply IH.
   Qed.
-
-  Global Instance wp_proper_fequiv : Proper ((=) ==> (≡) ==> (≡)) wp.
-  Proof with auto.
-    intros p ? <- A B H. generalize dependent B. generalize dependent A.
-    induction p; intros A B Hequiv; intros; simpl; fSimpl;
-      (try solve [rewrite Hequiv; reflexivity]).
-    - apply IHp1. apply IHp2...
-    - generalize dependent B. generalize dependent A. induction gcs; intros; simpl...
-      apply Forall_cons in H as []. f_equiv.
-      + rewrite H; [reflexivity | exact Hequiv].
-      + apply IHgcs...
-    - rewrite IHp; [reflexivity|]...
-    - rewrite IHp; [reflexivity|]...
-  Qed.
-
-  Global Instance wp_proper_fent : Proper ((=) ==> (⇛) ==> (⇛)) wp.
-  Proof with auto.
-    intros p ? <- A B H. generalize dependent B. generalize dependent A.
-    induction p; intros A B Href.
-    - simpl. rewrite Href. reflexivity.
-    - simpl. apply IHp1. apply IHp2. done.
-    - simpl. fSimpl. induction gcs; simpl... apply Forall_cons in H as []. f_equiv.
-      + rewrite H; [reflexivity | exact Href].
-      + apply IHgcs...
-    - simpl. rewrite Href. done.
-    - simpl. rewrite Href. done.
-    - simpl. rewrite IHp; [reflexivity|]...
-    - simpl. rewrite IHp; [reflexivity|]...
-  Qed.
-
-  Global Instance wp_proper_pequiv {A : final_formula} : Proper ((≡@{prog}) ==> (≡)) (λ p, wp p A).
-  Proof. intros p1 p2 Hp. specialize (Hp A). assumption. Qed.
 
   Global Instance PSpec_proper : Proper ((=) ==> (≡) ==> (≡) ==> (≡@{prog})) PSpec.
   Proof.
@@ -2096,20 +2324,42 @@ Section semantics.
 
   Global Instance ref_proper : Proper ((≡@{prog}) ==> (≡@{prog}) ==> (↔)) (⊑).
   Proof.
-    intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines. unfold equiv, pequiv, equiv, fequiv in *.
+    intros p1 p1' ? p2 p2' ?. unfold sqsubseteq, refines.
+    unfold equiv, pequiv, equiv, fequiv in *.
     split; intros.
     - intros σ. intros. apply H0. apply H1. apply H. apply H2.
     - intros σ. intros. apply H0. apply H1. apply H. apply H2.
   Qed.
 
   Global Instance PWhile_proper : Proper ((≡) ==> (≡@{final_formula}) ==> (=) ==> (=) ==> (≡)) PWhile.
-  Proof.
-    intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv,ffequiv in H0.
-    rewrite H0. unfold equiv,ffequiv in H. rewrite H. done.
+  Proof with auto.
+    intros g1 g2 ? I1 I2 ? v ? <- p ? <-. intros A. simpl. unfold equiv, ffequiv in H, H0.
+    do 3 f_equiv; try solve [rewrite H; rewrite H0; auto]...
+    - apply wp_congr...
+    - f_equiv.
+      1:{ rewrite H; rewrite H0... }
+      mk_fresh
+        (formula_fvars I1 ∪ formula_fvars I2 ∪ formula_fvars g1
+           ∪ formula_fvars g2 ∪ term_fvars v ∪ prog_fvars p)
+      as x.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      rewrite H. rewrite H0...
   Qed.
 
   Global Instance PVar_proper_ref : Proper ((=) ==> (=) ==> (⊑) ==> (⊑)) PVar.
-  Proof. intros x ? <- ty ? <- A B ? C. simpl. rewrite (H C). reflexivity. Qed.
+  Proof with auto.
+    intros x ? <- ty ? <- A B ? C.
+    mk_fresh x ({[as_var x]} ∪ prog_fvars A ∪ prog_fvars B ∪ formula_fvars C) as y.
+    rewrite wp_var with (y:=y)...
+    2-4: set_solver.
+    rewrite wp_var with (y:=y)...
+    2-4: set_solver.
+    do 2 f_equiv. apply wp_proper_ref...
+  Qed.
+
 
 
   Lemma pequiv_refines {p1 p2} :
@@ -2127,41 +2377,29 @@ Section semantics.
       + apply H0...
   Qed.
 
-  (*
-    The type of [wp p] must be [final_formula → final_formula]. The current definition has two
-    limitations that has forced us to define it as [formula → formula] but the notions of
-    equivalence and refinement are limited to only final formulas. This prevents us from defining
-    proper instances for some constructors like [PSeq] and [PWhile]. The two limitations are
-    as follows:
-    1. PWhile: [var₀] is chosen explicitly as an initial variable. Currently we do this to ensure
-        the chosen new variable is fresh in [inv], [g], [var], and [A]; otherwise it might capture
-        an existing variable. Another benefit of the current approach is that [var₀] doesn't
-        depent on [p]. This allows to prove for example [wp_proper_fequiv] easily.
-      . The correct and tricky way of doing it is to pick a [fresh_var] out
-        of the union of the free variables of all these and also UNIVERSALLY QUANTIFY over it to
-        ensure no unintentional capture happens.
-        The new variable must also be fresh in [p]. (No concept currently corresponds to the set
-        of free variables of a program; prog_fvars doesn't work: e.g., it must consider the free
-        variables in rhs terms of an assignment.)
-    2. PSpec: [post] can contain initial variables. We currently only substitute initial versions
-        of frame variables. This approach allows treating this operation as a regular substitution.
-        A correct approach is to find ALL initial variables inside post and replace them.
-        A new function [initial_vars_of : formula → gset variable] is required for this reason.
-    For the time being, to avoid complicating proofs, and also benefit from the proper instances
-    for sequential composition and iteration, we assume totality of [pequiv] as an axiom.
-   *)
-  Axiom refines_total : ∀ {p1 p2}, p1 ⊑ p2 → (∀ (A : formula), wp p1 A ⇛ wp p2 A).
-
-  Lemma pequiv_total  : ∀ {p1 p2}, p1 ≡ p2 → (∀ (A : formula), wp p1 A ≡ wp p2 A).
+  Lemma refines_iff_fent {p1 p2} :
+    p1 ⊑ p2 ↔
+      ∀ A `{!FormulaFinal A}, wp p1 A ⇛ wp p2 A.
   Proof with auto.
-    intros. apply fequiv_fent_iff. apply pequiv_refines_iff in H as []. split;
-      apply refines_total...
+    intros. split; intros.
+    - specialize (H (as_final_formula A)). assumption.
+    - intros A. apply H...
+  Qed.
+
+  Lemma pequiv_iff_fequiv {p1 p2} :
+    p1 ≡ p2 ↔
+      ∀ A `{!FormulaFinal A}, wp p1 A ≡ wp p2 A.
+  Proof with auto.
+    intros. split; intros.
+    - specialize (H (as_final_formula A)). assumption.
+    - intros A. apply H...
   Qed.
 
   Global Instance PSeq_proper_ref : Proper ((⊑) ==> (⊑) ==> (⊑)) PSeq.
   Proof with auto.
-    intros p1 p1' ? p2 p2' ?. intros A σ ?. simpl in *. apply @refines_total with (p1:=p1)...
-    pose proof (wp_proper_fent p1 p1 eq_refl (wp p2 A) (wp p2' A)). apply H2...
+    intros p1 p1' ? p2 p2' ?. intros A. simpl. rewrite refines_iff_fent in H.
+    rewrite refines_iff_fent in H0.
+    rewrite H... apply wp_congr_fent...
   Qed.
 
   Lemma PWhile_equiv g1 g2 I1 I2 v p1 p2 :
@@ -2174,9 +2412,16 @@ Section semantics.
     intros. rewrite H. rewrite H0. clear H g1 H0 I1. intros A. simpl. rewrite H1.
     f_equiv. f_equiv...
     - fSimpl. unfold equiv, pequiv in H2. apply H2.
-    - fSimpl. pose proof (pequiv_total H2). apply H.
+    - fSimpl.
+      mk_fresh
+        (formula_fvars I2 ∪ formula_fvars g2 ∪ term_fvars v ∪ prog_fvars p1 ∪ prog_fvars p2) as x.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      do 2 f_equiv.
+      apply wp_proper_pequiv...
   Qed.
-
 
   Lemma r_while_body {g I v p1 p2} :
     Δ p1 = Δ p2 →
@@ -2184,8 +2429,16 @@ Section semantics.
     PWhile g I v p1 ⊑ PWhile g I v p2.
   Proof with auto.
     intros. intros A. simpl. rewrite H. f_equiv. f_equiv...
-    - fSimpl. apply refines_total...
-    - fSimpl. apply refines_total...
+    - fSimpl. rewrite refines_iff_fent in H0...
+    - fSimpl. rewrite refines_iff_fent in H0...
+      mk_fresh
+        (formula_fvars I ∪ formula_fvars g ∪ term_fvars v ∪ prog_fvars p1 ∪ prog_fvars p2) as x.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      do 2 f_equiv.
+      rewrite H0...
   Qed.
 
 End semantics.
