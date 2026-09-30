@@ -158,7 +158,7 @@ Section moveme.
     (∀ x, SetUnfoldElemOf x X (P x)) →
     SetUnfoldElemOf x
       (set_to_list X)
-      (P x) | 10.
+      (P x).
   Proof. constructor. rewrite elem_of_set_to_list. apply H. Qed.
 
 Notation "t [ₜ x \ u ]" := (subst_term t x u)

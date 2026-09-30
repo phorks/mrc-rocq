@@ -601,11 +601,199 @@ Section refinement.
     rewrite f_forall_foralllist_comm. rewrite fforall_unused... set_solver.
   Qed.
 
+  (* Lemma wp_constlist xs p A : *)
+  (*   wp <{ |[ con* xs ⦁ $p ]| }> A ≡ <! ∃* ↑ₓ xs, $(wp p A) !>. *)
+  (* Proof with auto. *)
+  (*   induction xs as [|x xs IH]... simpl. rewrite f_exists_ty_top. rewrite IH. reflexivity. *)
+  (* Qed. *)
+
+  Lemma prog_fvars_varlist xs ty p :
+    prog_fvars (PVarList xs ty p) = prog_fvars p ∖ list_to_set (↑ₓ xs).
+  Proof. induction xs; set_solver. Qed.
+
+  Lemma wp_varlist_cons x xs ty p A y `{!FormulaFinal A} `{VarFinal y} :
+    as_var x ≠ y →
+    y ∉ prog_fvars p →
+    y ∉ formula_fvars A →
+    wp (PVarList (x :: xs) ty p) A ≡
+      <! (∀ x : ty, $(wp (PVarList xs ty p) <! A [x \ y] !>)) [y \ x] !>.
+  Proof with auto.
+    intros. simpl. pose proof (wp_var). simpl in H3. rewrite H3 with (y:=y)...
+    rewrite prog_fvars_varlist. set_solver.
+  Qed.
+
+  Fixpoint fresh_var_list (X : gset variable) (n : nat) : list final_variable :=
+    match n with
+    | 0 => []
+    | S n =>
+        let rest := (fresh_var_list X n) in
+        let x := fresh_var String.EmptyString ((list_to_set (↑ₓ rest) ∪ X)) in
+        as_final_var x :: rest
+    end.
+
+  Lemma fresh_var_list_fresh X n :
+    let l := fresh_var_list X n in
+    NoDup l ∧ X ## list_to_set (↑ₓ l) ∧ length l = n.
+  Proof with auto.
+    simpl. generalize dependent X. induction n.
+    - intros. simpl. split_and!...
+      + constructor.
+      + set_solver.
+    - simpl. intros.
+      pose proof (fresh_var_fresh String.EmptyString (list_to_set ↑ₓ (fresh_var_list X n) ∪ X)).
+      split_and!...
+      + constructor; [|set_solver].
+        apply not_elem_of_union in H as [].  apply not_elem_of_list_to_set in H.
+        contradict H. apply elem_of_list_fmap.
+        exists (as_final_var
+                  (fresh_var String.EmptyString (list_to_set ↑ₓ (fresh_var_list X n) ∪ X))).
+        split... rewrite as_var_as_final_var...
+      + intros x??. rewrite elem_of_union, elem_of_singleton in H1. destruct H1; [|set_solver].
+        subst. rewrite as_var_as_final_var in H0. set_solver.
+      + naive_solver.
+  Qed.
+
+  Lemma seqsubst_extract_l (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
+    x ∉ xs →
+    x ∉ ⋃ (term_fvars <$> ts) →
+    list_to_set xs ## term_fvars t →
+    <! A[;x, *xs \ t, *ts;] !> ≡ <! A[x \ t][;*xs \ *ts;] !>.
+  Proof with auto.
+    intros. simpl.
+    induction_same_length xs ts as y u...
+    intros. simpl. unfold OfSameLength in H'. simpl in H'. inversion H'.
+    apply not_elem_of_cons in H as []. rewrite <- IH...
+    2-3: set_solver.
+    rewrite fequiv_subst_comm...
+    - f_equiv. f_equiv. f_equiv. apply eq_pi. solve_decision.
+    - set_solver.
+    - set_solver.
+  Qed.
+  Lemma seqsubst_extract_r (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
+    <! A[;x, *xs \ t, *ts;] !> ≡ <! A[;*xs \ *ts;][x \ t] !>.
+  Proof with auto. intros. simpl. repeat f_equiv. apply eq_pi. solve_decision. Qed.
+  Lemma seqsubst_subst_comm (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
+    x ∉ xs →
+    x ∉ ⋃ (term_fvars <$> ts) →
+    list_to_set xs ## term_fvars t →
+    <! A[;*xs \ *ts;][x \ t] !> ≡ <! A[x \ t][;*xs \ *ts;] !>.
+  Proof with auto.
+    intros. rewrite <- seqsubst_extract_l... rewrite seqsubst_extract_r. reflexivity.
+  Qed.
+
+  Global Instance seqsubst_formula_final {A} {xs : list variable} {ts}
+      `{!FormulaFinal A} `{!OfSameLength xs (⇑ₜ ts)} :
+    FormulaFinal <! A[;*xs \ ⇑ₜ ts;] !>.
+  Proof with auto.
+    intros x ?. apply fvars_seqsubst_superset in H. set_unfold. destruct H as [|].
+    - apply formula_is_final in H...
+    - destruct H as (?&?&?&->&?). apply final_term_final in H...
+  Qed.
+
+  Global Instance seqsubst_formula_final' {A} {xs : list variable} {ys}
+      `{!FormulaFinal A} `{!OfSameLength xs (⇑ₓ ys)} :
+    FormulaFinal <! A[;*xs \ ⇑ₓ ys;] !>.
+  Proof with auto.
+    intros x ?. apply fvars_seqsubst_superset in H. set_unfold. destruct H as [|].
+    - apply formula_is_final in H...
+    - destruct H...
+  Qed.
+
+  Lemma wp_varlist' (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
+      (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
+    NoDup xs →
+    NoDup zs →
+    zs ## xs →
+    list_to_set (↑ₓ zs) ## prog_fvars p →
+    list_to_set (↑ₓ zs) ## formula_fvars A →
+    wp <{ |[ var* xs ⦁ $p ]| }> A ≡
+      <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
+  Proof with auto.
+    generalize dependent A. induction_same_length xs zs as x z... intros.
+    apply NoDup_cons in H, H0. rewrite wp_varlist_cons with (y:=z)...
+    2-5: set_solver.
+    simpl fmap at 1. rewrite foralllist_cons. simpl. unshelve rewrite IH...
+    2-5: set_solver.
+    - f_equiv. rewrite simpl_seqsubst_forall.
+      2:{ intros contra. apply (H1 x); set_solver. }
+      2:{ set_unfold. intros []. rewrite to_final_var_as_var in H5. set_solver. }
+      rewrite f_forall_ty_top. f_equiv. unfold fmap at 6 7. apply seqsubst_proper...
+      f_equiv. apply wp_congr...
+      rewrite seqsubst_subst_comm.
+      + f_equiv. apply eq_pi. solve_decision.
+      + set_solver.
+      + set_unfold. contradict H1. intros ?. apply (H4 $ to_final_var x).
+        * set_solver.
+        * rewrite to_final_var_as_var. set_solver.
+      + set_unfold. intros. subst. rewrite to_final_var_as_var in H4. set_solver.
+    - intros y??. apply elem_of_list_to_set in H4. apply fvars_subst_superset' in H5.
+      apply (H3 y).
+      + apply elem_of_list_to_set. set_solver.
+      + set_unfold in H5. destruct H5 as [[] |]... subst. set_solver.
+  Qed.
+
+  Lemma wp_varlist (xs : list final_variable) p (A : formula) `{!FormulaFinal A} :
+    NoDup xs →
+    ∃ (zs : list final_variable) (_ : OfSameLength xs zs) (_ : OfSameLength zs xs),
+      NoDup zs ∧
+      zs ## xs ∧
+      list_to_set (↑ₓ zs) ## prog_fvars p ∧
+      list_to_set (↑ₓ zs) ## formula_fvars A ∧
+      wp <{ |[ var* xs ⦁ $p ]| }> A ≡
+        <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
+  Proof with auto.
+    remember (fresh_var_list (prog_fvars p ∪ list_to_set (↑ₓ xs) ∪ formula_fvars A) (length xs))
+      as zs.
+    pose proof (fresh_var_list_fresh (prog_fvars p ∪ list_to_set (↑ₓ xs) ∪
+                                        formula_fvars A) (length xs))
+      as (?&?&?).
+    assert (Hlen : OfSameLength xs zs).
+    { unfold OfSameLength, of_same_length. naive_solver. }
+    assert (Hlen' : OfSameLength zs xs).
+    { unfold OfSameLength, of_same_length. naive_solver. }
+    repeat rewrite disjoint_union_l in H0. destruct_and! H0.
+    exists zs. do 2 eexists.
+    assert (NoDup zs) by (subst; assumption).
+    assert (zs ## xs).
+    { subst. intros x??. apply (H4 x); apply elem_of_list_to_set; set_solver. }
+    assert (list_to_set (↑ₓ zs) ## prog_fvars p).
+    { subst. intros x??. apply (H0 x); try apply elem_of_list_to_set; set_solver. }
+    assert (list_to_set (↑ₓ zs) ## formula_fvars A).
+    { subst. intros x??. apply (H0 x); try apply elem_of_list_to_set; set_solver. }
+    split_and!...
+    apply wp_varlist'...
+  Qed.
+
+  Lemma r_varlist_app xs1 xs2 p :
+    <{ |[ var* $(xs1 ++ xs2) ⦁ $p ]| }> ≡ <{ |[ var* $(xs2 ++ xs1) ⦁ $p ]| }>.
+  Proof with auto.
+
+    intros A. generalize dependent xs2. generalize dependent A.
+    induction xs1 as [|x xs1]; intros.
+    - simpl. rewrite app_nil_r...
+    - simpl app.
+      mk_fresh (prog_fvars p ∪ {[as_var x]} ∪ formula_fvars A) as z.
+      rewrite wp_varlist_cons with (y:=z) by set_solver...
+      specialize (IHxs1 (as_final_formula <! A [x \ z] !>) xs2).
+      rewrite IHxs1. simpl.
+    do 2 rewrite wp_varlist. do 2 rewrite fmap_app.
+    do 2 rewrite foralllist_app. rewrite f_foralllist_comm...
+  Qed.
   Lemma r_varlist_permute xs xs' p :
     xs ≡ₚ xs' →
     <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
-  Proof.
-    intros Hperm A. do 2 rewrite wp_varlist. rewrite f_foralllist_permute; [reflexivity|].
+  Proof with auto.
+    intros Hperm A. generalize dependent xs'. generalize dependent A.
+    induction xs as [|x xs]; intros.
+    - destruct xs'... apply Permutation_cons_inv_r in Hperm as (?&?&?&?).
+      symmetry in H. apply app_eq_nil in H as [].  discriminate.
+    - apply Permutation_cons_inv_l in Hperm as (l1&l2&?&?). subst xs'.
+      mk_fresh (prog_fvars p ∪ {[as_var x]} ∪ formula_fvars A) as z.
+      rewrite wp_varlist_cons with (y:=z) by set_solver.
+      apply app_nil_r in H.
+    -
+    simpl.
+    do 2 rewrite wp_varlist. rewrite f_foralllist_permute; [reflexivity|].
     apply Permutation_map. assumption.
   Qed.
 
