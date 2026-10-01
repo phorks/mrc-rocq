@@ -1208,7 +1208,6 @@ Section refinement.
   Local Lemma fresh_vars_for_varlist_superset xs p A `{!FormulaFinal A} :
     fresh_vars_for_varlist' (dedup xs) p A ⊆ fresh_vars_for_varlist xs p A.
   Proof with auto.
-  (*   zip_pair_restrict_l xs dxs dzs ⊆ fresh_vars_for_varlist_aux dxs dzs xs. *)
     enough (zip_pair_image xs (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A)
               ⊆ fresh_vars_for_varlist xs p A).
     {
@@ -1263,16 +1262,16 @@ Section refinement.
   Lemma zip_pair_functional_nil {A B : Type}  :
     zip_pair_functional (@nil A) (@nil B).
   Proof.
-    intros i j x y1 y2 ???. apply elem_of_zip_pair_indexed_inv in H0.
+    intros i j x y1 y2 ??. apply elem_of_zip_pair_indexed_inv in H0.
     apply elem_of_zip_pair_nil in H0 as [].
   Qed.
 
-  Global Instance elem_of_list_indexed {A : Type} : ElemOf (nat * A) (list A) :=
-    λ ix (xs : list A), xs !! ix.1 = Some ix.2.
+  (* Global Instance elem_of_list_indexed {A : Type} : ElemOf (nat * A) (list A) := *)
+  (*   λ ix (xs : list A), xs !! ix.1 = Some ix.2. *)
 
-  Lemma elem_of_list_indexed_lookup {A : Type} i (x : A) (xs : list A) :
-    (i, x) ∈ xs ↔ xs !! i = Some x.
-  Proof. reflexivity. Qed.
+  (* Lemma elem_of_list_indexed_lookup {A : Type} i (x : A) (xs : list A) : *)
+  (*   (i, x) ∈ xs ↔ xs !! i = Some x. *)
+  (* Proof. reflexivity. Qed. *)
 
   Lemma elem_of_zip_pair_indexed_hd {A B : Type} x x' y y' (xs : list A) (ys : list B) :
     (0, (x, y)) ∈ (x' :: xs, y' :: ys) ↔ x = x' ∧ y = y'.
@@ -1290,14 +1289,18 @@ Section refinement.
     split; intros.
     - split; [|eapply zip_pair_functional_cons_inv; eauto]. intros.
       apply elem_of_zip_pair_indexed in H1 as []. simpl in *.
-      ospecialize (H0 0 (S i) x y y' _ _ _)...
+      ospecialize (H0 0 (S i) x y y' _ _)...
       1-2: apply elem_of_zip_pair_indexed; auto.
-    - destruct H0. intros i j u y1 y2 ???. destruct i, j; try contradiction.
-      + apply elem_of_zip_pair_indexed_hd in H3 as (->&->).
-        apply elem_of_zip_pair_indexed_tl in H4. specialize (H0 j y2 H4)...
-      + apply elem_of_zip_pair_indexed_hd in H4 as (->&->).
-        apply elem_of_zip_pair_indexed_tl in H3. specialize (H0 i y1 H3)...
-      + apply elem_of_zip_pair_indexed_tl in H3, H4. apply (H1 i j u)...
+    - destruct H0. intros i j u y1 y2 ??. destruct i, j; try contradiction.
+      + apply elem_of_zip_pair_indexed_hd in H2 as (->&->).
+        apply elem_of_zip_pair_indexed_hd in H3 as (_&->)...
+      + apply elem_of_zip_pair_indexed_hd in H2 as (->&->).
+        apply elem_of_zip_pair_indexed_tl in H3. specialize (H0 j y2 H3)...
+      + apply elem_of_zip_pair_indexed_hd in H3 as (->&->)...
+        apply elem_of_zip_pair_indexed_tl in H2. specialize (H0 i y1 H2)...
+      + apply elem_of_zip_pair_indexed_tl in H2.
+        apply elem_of_zip_pair_indexed_tl in H3.
+        specialize (H1 i j u y1 y2 H2 H3)...
   Qed.
 
   Hint Extern 0 (zip_pair_functional [] []) => apply zip_pair_functional_nil : core.
@@ -1305,9 +1308,19 @@ Section refinement.
   Lemma fresh_vars_for_varlist_zip_pair_functional xs p A `{!FormulaFinal A} :
     zip_pair_functional xs (fresh_vars_for_varlist xs p A).
   Proof with auto.
+    enough (zip_pair_functional xs (zip_pair_image xs (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A))).
+    {
+      rewrite zip_pair_image_sub_1 in H by set_solver...
+      rewrite zip_pair_image_diag_1 in H.
+      pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
+      rewrite <- H0 in H. rewrite take_all in H...
+    }
     unfold fresh_vars_for_varlist.
     assert (xs ⊆ dedup xs) by set_solver.
+    assert (zip_pair_functional (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A)).
+    { apply NoDup_zip_pair_functional. apply dedup_NoDup. }
     remember (dedup xs) as dxs. clear Heqdxs.
+    remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
     induction xs as [|x xs]; intros...
     destruct (first_index_of x dxs) as [i|] eqn:E.
     + apply zip_pair_functional_cons.
