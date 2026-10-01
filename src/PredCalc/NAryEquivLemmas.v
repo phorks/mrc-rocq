@@ -877,10 +877,7 @@ Section n_ary_lemmas.
             - symmetry in H2. destruct (zip_pair_lookup_l' H2 Hi) as (t'&?).
               specialize (Hfn 0 (S i) x t t').
               enough (t = t') by (subst t'; apply H0).
-              apply Hfn.
-              + lia.
-              + apply elem_of_zip_pair_hd_indexed. split...
-              + apply elem_of_zip_pair_tl_indexed. apply elem_of_zip_pair_indexed... }
+              apply Hfn; apply elem_of_zip_pair_indexed... }
         rewrite f_exists_existslist_idemp... rewrite fequiv_subst_non_free.
         * apply IH; [| set_solver]...
         * intros contra.

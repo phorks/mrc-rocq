@@ -391,20 +391,20 @@ Section syntactic.
   Proof.
     unfold zip_pair_functional. intros.
     rewrite <- list_fmap_compose in *.
-    rewrite elem_of_zip_pair_indexed in H0, H1. destruct H0 as []. destruct H1 as [].
+    rewrite elem_of_zip_pair_indexed in H, H0. destruct H as []. destruct H0 as [].
+    apply list_lookup_fmap_inv in H as (x2&?&?).
     apply list_lookup_fmap_inv in H0 as (x1&?&?).
-    apply list_lookup_fmap_inv in H1 as (x2&?&?).
-    apply list_lookup_fmap_inv in H2 as (x3&?&?).
-    apply list_lookup_fmap_inv in H3 as (x4&?&?).
-    rewrite H4 in H6. inversion H6. subst x3. rewrite H5 in H7.
-    inversion H7. subst x4. clear H6 H7. rewrite H0 in H1.
-    rewrite H2. rewrite H3. f_equal. apply initial_var_of_inj in H1. assumption.
+    apply list_lookup_fmap_inv in H1 as (x3&?&?).
+    apply list_lookup_fmap_inv in H2 as (x4&?&?).
+    rewrite H3 in H5. inversion H5. subst x3. rewrite H4 in H6.
+    inversion H6. subst x4. clear H5 H6. rewrite H in H0.
+    rewrite H1. rewrite H2. f_equal. apply initial_var_of_inj in H0. assumption.
   Qed.
 
   Lemma subst_initials_inverse_zip_pair_functional (xs : list final_variable) :
     zip_pair_functional (as_var <$> xs) (TVar <$> (initial_var_of <$> xs)).
   Proof with auto.
-    intros i j x y1 y2 Hij ??.
+    intros i j x y1 y2 ??.
     rewrite elem_of_zip_pair_indexed in H, H0.
     destruct H as []. destruct H0 as [].
     apply list_lookup_fmap_inv in H as (x1&?&?).

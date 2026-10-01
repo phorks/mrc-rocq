@@ -61,31 +61,31 @@ Proof. intros P Q H. rewrite H. apply iff_refl. Qed.
 Definition list_to_vec_n {A n} (l : list A) (H : length l = n) : vec A n :=
   eq_rect _ (fun m => vec A m) (list_to_vec l) _ H.
 
-Definition set_to_list {A} `{Countable A} `{EqDecision A} (s : gset A) : list A :=
+Definition set_to_list {A} `{Countable A} (s : gset A) : list A :=
   set_fold cons [] s.
 
-Lemma set_to_list_empty {A} `{Countable A} `{EqDecision A} : @set_to_list A _ _ _ ∅ = nil.
+Lemma set_to_list_empty {A} `{Countable A} : set_to_list (∅ : gset A) = nil.
 Proof. set_solver. Qed.
 
-Lemma set_to_list_singleton {A} `{Countable A} `{EqDecision A} (x : A) :
+Lemma set_to_list_singleton {A} `{Countable A} (x : A) :
   set_to_list {[x]} = [x].
 Proof. unfold set_to_list. by rewrite set_fold_singleton. Qed.
 
-Lemma set_to_list_union_singleton_l_perm {A} `{Countable A} `{EqDecision A} (x : A) (s : gset A) :
+Lemma set_to_list_union_singleton_l_perm {A} `{Countable A} (x : A) (s : gset A) :
   x ∉ s →
   set_to_list ({[x]} ∪ s) ≡ₚ x :: set_to_list s.
 Proof.
   intros. unfold set_to_list, set_fold, compose. by rewrite elements_union_singleton.
 Qed.
 
-Lemma set_to_list_union_singleton_r_perm {A} `{Countable A} `{EqDecision A} (x : A) (s : gset A) :
+Lemma set_to_list_union_singleton_r_perm {A} `{Countable A} (x : A) (s : gset A) :
   x ∉ s →
   set_to_list (s ∪ {[x]}) ≡ₚ x :: set_to_list s.
 Proof.
   intros. rewrite union_comm_L. by apply set_to_list_union_singleton_l_perm.
 Qed.
 
-Lemma set_to_list_union_perm {A} `{Countable A} `{EqDecision A} (s1 s2 : gset A) :
+Lemma set_to_list_union_perm {A} `{Countable A} (s1 s2 : gset A) :
   s1 ## s2 →
   set_to_list (s1 ∪ s2) ≡ₚ set_to_list s1 ++ set_to_list s2.
 Proof with auto.
@@ -96,7 +96,7 @@ Proof with auto.
     rewrite set_to_list_singleton. rewrite app_assoc. by rewrite (Permutation_app_comm _ [x]).
 Qed.
 
-Lemma set_to_list_set_map_perm {A B} `{Countable A, EqDecision A, Countable B, EqDecision B}
+Lemma set_to_list_set_map_perm {A B} `{Countable A, Countable B}
     (s : gset A) (f : A → B) `{!Inj (=) (=) f} :
   set_to_list (set_map f s) ≡ₚ f <$> set_to_list s.
 Proof with auto.
@@ -106,7 +106,7 @@ Proof with auto.
   rewrite set_to_list_union_singleton_l_perm... simpl. rewrite IHs...
 Qed.
 
-Lemma set_to_list_list_to_set {A} `{Countable A, EqDecision A} (l : list A) :
+Lemma set_to_list_list_to_set {A} `{Countable A} (l : list A) :
   NoDup l →
   set_to_list (list_to_set l) ≡ₚ l.
 Proof with auto.
@@ -114,7 +114,7 @@ Proof with auto.
   rewrite set_to_list_union_singleton_l_perm by set_solver. rewrite IHl...
 Qed.
 
-Lemma list_to_set_set_to_list {A} `{Countable A, EqDecision A} (s : gset A) :
+Lemma list_to_set_set_to_list {A} `{Countable A} (s : gset A) :
   list_to_set (set_to_list s) = s.
 Proof with auto.
   intros. induction s using set_ind_L... rewrite set_to_list_union_singleton_l_perm...
@@ -684,7 +684,7 @@ Proof with auto.
 Qed.
 
 Lemma zip_pair_Permutation_list_to_map_zip {A B}
-    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) `{Countable A} `{EqDecision A}
+    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) `{Countable A}
     `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
   NoDup xs →
   NoDup xs' →
@@ -719,22 +719,25 @@ Proof with auto.
 Qed.
 
 Definition zip_pair_functional {A B} (xs : list A) (ys : list B) :=
-  ∀ i j x y1 y2, i ≠ j → (i, (x, y1)) ∈ (xs, ys) → (j, (x, y2)) ∈ (xs, ys) → y1 = y2.
+  ∀ i j x y1 y2, (i, (x, y1)) ∈ (xs, ys) → (j, (x, y2)) ∈ (xs, ys) → y1 = y2.
 
 Lemma NoDup_zip_pair_functional {A B} (xs : list A) (ys : list B) :
   NoDup xs →
   zip_pair_functional xs ys.
 Proof with auto.
-  intros H i j ? ? ? ? ? ?. exfalso. apply H0. rewrite elem_of_zip_pair_indexed in H1.
-  rewrite elem_of_zip_pair_indexed in H2. destruct H1 as [? _]. destruct H2 as [? _].
-  eapply NoDup_lookup with (l:=xs) (x:=x)...
+  intros H i j ? ? ? ? ?. apply elem_of_zip_pair_indexed in H0 as [].
+  apply elem_of_zip_pair_indexed in H1 as []. simpl in *.
+  pose proof (NoDup_lookup xs i j x H H0 H1). subst j. rewrite H2 in H3. inversion H3...
 Qed.
 
 Lemma zip_pair_functional_cons_inv {A B} x y (xs : list A) (ys : list B) :
   zip_pair_functional (x :: xs) (y :: ys) → zip_pair_functional xs ys.
 Proof with auto.
-  intros. intros i j x0 y1 y2 ? ? ?. unfold zip_pair_functional in H.
-  apply (H (S i) (S j) x0); [lia| |]; apply elem_of_zip_pair_tl_indexed...
+  intros. intros i j x0 y1 y2 ? ?. unfold zip_pair_functional in H.
+  apply elem_of_zip_pair_indexed in H0 as []. apply elem_of_zip_pair_indexed in H1 as [].
+  simpl in *. apply (H (S i) (S j) x0).
+  - rewrite elem_of_zip_pair_indexed. split...
+  - rewrite elem_of_zip_pair_indexed. split...
 Qed.
 
 Hint Resolve zip_pair_functional_cons_inv : core.
@@ -768,9 +771,7 @@ Proof with auto.
   intros.
   destruct (list_to_map (zip xs ys) !! x) as [y'|] eqn:E.
   - apply lookup_list_to_map_zip_Some in E as (i&?&?&?)... enough (y = y') by (subst; auto).
-    unfold zip_pair_functional in H0. apply (H0 0 (S i) x).
-    + lia.
-    + apply elem_of_zip_pair_hd_indexed. split...
-    + apply elem_of_zip_pair_tl_indexed. apply elem_of_zip_pair_indexed...
+    unfold zip_pair_functional in H0. apply (H0 0 (S i) x);
+      apply elem_of_zip_pair_indexed...
   - exfalso. apply lookup_list_to_map_zip_None in E...
 Qed.
