@@ -1099,50 +1099,6 @@ Section refinement.
       + rewrite <- zip_pair_image_delete_1_head with (x:=x)...
   Qed.
 
-  (* Local Lemma fresh_vars_for_varlist_superset dxs dzs xs : *)
-  (*   length dxs = length dzs → *)
-  (*   xs ⊆ dxs → *)
-  (*   zip_pair_restrict_l xs dxs dzs ⊆ fresh_vars_for_varlist_aux dxs dzs xs. *)
-  (* Proof. *)
-  (*   intros. induction xs as [|x xs]; [set_solver|]. *)
-  (*   simpl. *)
-  (*   - simpl. destruct () *)
-  (* - *)
-  (*   enough (∃ xs', xs' ## xs ∧ xs' ++ xs ≡ dxs ∧ *)
-  (*       dzs ⊆ fresh_vars_for_varlist_aux dxs dzs xs ++ zip_pair_restrict_l xs' dxs dzs). *)
-  (*   - destruct H as (xs'&?&?&?). *)
-  (*   assert (xs' := ) *)
-  (*   { *)
-
-  (*   } *)
-  (*   induction xs as [|x xs]. *)
-  (*   - intros. exists dxs. split_and!. *)
-  (*     1-2: set_solver. *)
-
-  (*   - destruct H0 as (xs'&?&?&?). set_solver.  *)
-  (*   - destruct H0 as (xs'&?&?&?). simpl. simpl in H2. *)
-  (*     destruct (first_index_of x dxs) as [i|] eqn:E. *)
-  (*     + apply first_index_of_Some_inv in E as [E' _]. *)
-  (*       destruct (zip_pair_lookup_l' H E') as [z ?]. *)
-  (*       apply list_lookup_total_correct in H3 as H4. rewrite H4 in H2 |- *. *)
-  (*       apply H2. *)
-  (*     + apply first_index_of_None_inv in E. set_solver. *)
-  (* Qed. *)
-  (* Definition tempf xs p A `{!FormulaFinal A} : list final_variable := *)
-  (*   let dxs := dedup xs in *)
-  (*   let dzs := fresh_vars_for_varlist' dxs p A in *)
-  (*   fresh_vars_for_varlist_aux dxs dzs xs. *)
-  (* Local Lemma temp xs p A `{!FormulaFinal A} :  *)
-  (*   fresh_vars_for_varlist' (dedup xs) p A ⊆ tempf xs p A. *)
-  (* Proof. *)
-  (*   unfold tempf. *)
-  (*   apply fresh_vars_for_varlist_superset. *)
-  (*   - admit. *)
-  (*   - exists []. *)
-  (*   opose proof (fresh_vars_for_varlist_superset (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A) xs). *)
-  (*   apply H. *)
-  (*   apply  *)
-
   Global Instance cons_proper_eq' {A : Type} : Proper ((=) ==> (≡) ==> (≡)) (@cons A).
   Proof. intros x ? -> xs ys ?. intros z. set_solver. Qed.
 
@@ -1308,27 +1264,28 @@ Section refinement.
   Lemma fresh_vars_for_varlist_zip_pair_functional xs p A `{!FormulaFinal A} :
     zip_pair_functional xs (fresh_vars_for_varlist xs p A).
   Proof with auto.
-    enough (zip_pair_functional xs (zip_pair_image xs (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A))).
+    enough (∀ i x y, (i, (x, y)) ∈ (xs, fresh_vars_for_varlist xs p A) →
+                     ∃ j, (j, (x, y)) ∈ (dedup xs, fresh_vars_for_varlist' (dedup xs) p A)).
     {
-      rewrite zip_pair_image_sub_1 in H by set_solver...
-      rewrite zip_pair_image_diag_1 in H.
-      pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
-      rewrite <- H0 in H. rewrite take_all in H...
+      intros i j x y1 y2 ??. apply H in H0 as (k&?&?). apply H in H1 as (k'&?&?).
+      simpl in *. pose proof (dedup_NoDup xs).
+      pose proof (NoDup_lookup _ _ _ _ H4 H0 H1) as ->. naive_solver.
     }
     unfold fresh_vars_for_varlist.
-    assert (xs ⊆ dedup xs) by set_solver.
-    assert (zip_pair_functional (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A)).
-    { apply NoDup_zip_pair_functional. apply dedup_NoDup. }
+    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
     remember (dedup xs) as dxs. clear Heqdxs.
     remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
-    induction xs as [|x xs]; intros...
-    destruct (first_index_of x dxs) as [i|] eqn:E.
-    + apply zip_pair_functional_cons.
-      * admit.
-      * split...
-        -- intros.
-        -- apply IHxs. set_solver.
-    + apply first_index_of_None_inv in E. set_solver.
+    induction xs as [|x xs]; intros.
+    { rewrite elem_of_zip_pair_indexed in H0. naive_solver. }
+    destruct (first_index_of x dxs) as [k|] eqn:E.
+    + apply first_index_of_Some_inv in E as [? _].
+      symmetry in H. pose proof (zip_pair_lookup_l' H H1) as (dz&?).
+      destruct i.
+      * apply elem_of_zip_pair_hd_indexed in H0 as (?&?). subst x0.
+        apply list_lookup_total_correct in H2 as H4. rewrite H4 in H3. subst dz. clear H4.
+        exists k. apply elem_of_zip_pair_indexed...
+      * apply elem_of_zip_pair_tl_indexed in H0. apply IHxs in H0...
+    + rewrite elem_of_zip_pair_indexed in H0. naive_solver.
   Qed.
 
   Lemma fresh_vars_for_varlist_spec xs p A `{!FormulaFinal A} :
@@ -1341,19 +1298,8 @@ Section refinement.
     simpl.
     pose proof (fresh_vars_for_varlist_subset xs p A).
     pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (?&?&?&?&?).
-    split_and!.
-
-    2:{ set_solver. }
-    3:{ set_solver. }
-    2:{ set_solver. }
-    4:{  }
-    pose proof
-    unfold fresh_var_
-    pose proof (fresh_vars_for_varlist_spec' xs p A) as (?&?&?&?).
-      as (?&?&?).
-    repeat rewrite disjoint_union_l in H0. destruct_and! H0.
-    split_and!...
-    intros x??. apply (H4 x); apply elem_of_list_to_set; set_solver.
+    pose proof (fresh_vars_for_varlist_zip_pair_functional xs p A).
+    split_and!... all: set_solver.
   Qed.
 
   Definition fresh_vars_for_varlist xs p A `{!FormulaFinal A} : list final_variable :=
