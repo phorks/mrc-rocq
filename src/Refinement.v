@@ -33,6 +33,12 @@ Section refinement.
   Implicit Types p : prog.
   (* Implicit Types ts : list term. *)
 
+  Hint Extern 1 =>
+    match goal with
+    | H : zip_pair_functional (_ :: ?a) (_ :: ?b) |- zip_pair_functional ?a ?b =>
+        apply zip_pair_functional_cons_inv in H; exact H
+    end : core.
+
   Lemma seqsubst_extract_l (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
     x ∉ xs →
     x ∉ ⋃ (term_fvars <$> ts) →
@@ -670,12 +676,6 @@ Section refinement.
   Qed.
 
 
-  Hint Extern 1 =>
-    match goal with
-    | H : zip_pair_functional (_ :: ?a) (_ :: ?b) |- zip_pair_functional ?a ?b =>
-        apply zip_pair_functional_cons_inv in H; exact H
-    end : core.
-
   Fixpoint fresh_var_list (X : gset variable) (n : nat) : list final_variable :=
     match n with
     | 0 => []
@@ -1261,16 +1261,10 @@ Section refinement.
 
   Hint Extern 0 (zip_pair_functional [] []) => apply zip_pair_functional_nil : core.
 
-  Lemma fresh_vars_for_varlist_zip_pair_functional xs p A `{!FormulaFinal A} :
-    zip_pair_functional xs (fresh_vars_for_varlist xs p A).
-  Proof with auto.
-    enough (∀ i x y, (i, (x, y)) ∈ (xs, fresh_vars_for_varlist xs p A) →
+  Lemma fresh_vars_for_varlist_elem xs p A `{!FormulaFinal A} :
+    (∀ i x y, (i, (x, y)) ∈ (xs, fresh_vars_for_varlist xs p A) →
                      ∃ j, (j, (x, y)) ∈ (dedup xs, fresh_vars_for_varlist' (dedup xs) p A)).
-    {
-      intros i j x y1 y2 ??. apply H in H0 as (k&?&?). apply H in H1 as (k'&?&?).
-      simpl in *. pose proof (dedup_NoDup xs).
-      pose proof (NoDup_lookup _ _ _ _ H4 H0 H1) as ->. naive_solver.
-    }
+  Proof with auto.
     unfold fresh_vars_for_varlist.
     pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
     remember (dedup xs) as dxs. clear Heqdxs.
@@ -1288,9 +1282,58 @@ Section refinement.
     + rewrite elem_of_zip_pair_indexed in H0. naive_solver.
   Qed.
 
+  Lemma fresh_vars_for_varlist_zip_pair_functional xs p A `{!FormulaFinal A} :
+    zip_pair_functional xs (fresh_vars_for_varlist xs p A).
+  Proof with auto.
+    pose proof (fresh_vars_for_varlist_elem xs p A).
+    intros i j x y1 y2 ??. apply H in H0 as (k&?&?). apply H in H1 as (k'&?&?).
+    simpl in *. pose proof (dedup_NoDup xs).
+    pose proof (NoDup_lookup _ _ _ _ H4 H0 H1) as ->. naive_solver.
+  Qed.
+
+  Definition zpair_injective {A B : Type} (xs : list A) (ys : list B) :=
+    ∀ i j x1 x2 y, (i, (x1, y)) ∈ (xs, ys) → (j, (x2, y)) ∈ (xs, ys) → x1 = x2.
+
+  Lemma elem_of_zpair_indexed_flip {A B : Type} (i : nat) (x : A) (y : B) (xs : list A) (ys : list B) :
+    (i, (x, y)) ∈ (xs, ys) ↔ (i, (y, x)) ∈ (ys, xs).
+  Proof. do 2 rewrite elem_of_zip_pair_indexed. naive_solver. Qed.
+
+  Lemma zpair_injective_flip {A B : Type} (xs : list A) (ys : list B) :
+    zpair_injective xs ys ↔ zip_pair_functional ys xs.
+  Proof.
+    unfold zpair_injective, zip_pair_functional. split.
+    - intros H i j y x1 x2 ??. apply elem_of_zpair_indexed_flip in H0, H1. naive_solver.
+    - intros H i j x1 x2 y ??. apply elem_of_zpair_indexed_flip in H0, H1. naive_solver.
+  Qed.
+
+  Lemma NoDup_zpair_injective {A B : Type} (xs : list A) (ys : list B) :
+    NoDup ys →
+    zpair_injective xs ys.
+  Proof. intros. apply zpair_injective_flip. by apply NoDup_zip_pair_functional. Qed.
+
+  Lemma zpair_injective_cons_inv {A B : Type} x y (xs : list A) (ys : list B) :
+    zpair_injective (x :: xs) (y :: ys) → zpair_injective xs ys.
+  Proof with auto. do 2 rewrite zpair_injective_flip... Qed.
+
+  Hint Extern 1 =>
+    match goal with
+    | H : zpair_injective (_ :: ?a) (_ :: ?b) |- zpair_injective ?a ?b =>
+        apply zpair_injective_cons_inv in H; exact H
+    end : core.
+
+  Lemma fresh_vars_for_varlist_zpair_injective xs p A `{!FormulaFinal A} :
+    zpair_injective xs (fresh_vars_for_varlist xs p A).
+  Proof with auto.
+    pose proof (fresh_vars_for_varlist_elem xs p A).
+    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (?&_).
+    intros i j x1 x2 y ??. apply H in H1 as (k&?&?). apply H in H2 as (k'&?&?).
+    simpl in *. pose proof (NoDup_lookup _ _ _ _ H0 H3 H4) as ->. naive_solver.
+  Qed.
+
   Lemma fresh_vars_for_varlist_spec xs p A `{!FormulaFinal A} :
     let zs := fresh_vars_for_varlist xs p A in
       zip_pair_functional xs zs ∧
+      zpair_injective xs zs ∧
       zs ## xs ∧
       list_to_set (↑ₓ zs) ## prog_fvars p ∧
       list_to_set (↑ₓ zs) ## formula_fvars A.
@@ -1299,96 +1342,28 @@ Section refinement.
     pose proof (fresh_vars_for_varlist_subset xs p A).
     pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (?&?&?&?&?).
     pose proof (fresh_vars_for_varlist_zip_pair_functional xs p A).
+    pose proof (fresh_vars_for_varlist_zpair_injective xs p A).
     split_and!... all: set_solver.
   Qed.
 
-  Definition fresh_vars_for_varlist xs p A `{!FormulaFinal A} : list final_variable :=
-    let xs' := dedup xs in
-    let zs' := fresh_vars_for_varlist' xs' p A in
-    let fix go (xs : list final_variable) : list final_variable :=
-      match xs with
-      | [] => []
-      | x :: xs =>
-          match find (λ x', x =? x') xs' with
-          | None => []
-          | Some i =>
-            match zs' !! i with
-            | None => []
-            | Some z => []
-            end
-          end
-      end in
-    go xs.
-
-  Lemma fresh_var_list_spec X n :
-    let l := fresh_var_list X n in
-    NoDup l ∧ X ## list_to_set (↑ₓ l) ∧ length l = n.
+  Global Instance FEqList_of_same_length_pi :
+    Proper (forall_relation (λ ts1,
+                forall_relation (λ ts2, respectful universal_relation (=))))
+      (@FEqList M).
   Proof with auto.
-    simpl. generalize dependent X. induction n.
-    - intros. simpl. split_and!...
-      + constructor.
-      + set_solver.
-    - simpl. intros.
-      pose proof (fresh_var_fresh String.EmptyString (list_to_set ↑ₓ (fresh_var_list X n) ∪ X)).
-      split_and!...
-      + constructor; [|set_solver].
-        apply not_elem_of_union in H as [].  apply not_elem_of_list_to_set in H.
-        contradict H. apply elem_of_list_fmap.
-        exists (as_final_var
-                  (fresh_var String.EmptyString (list_to_set ↑ₓ (fresh_var_list X n) ∪ X))).
-        split... rewrite as_var_as_final_var...
-      + intros x??. rewrite elem_of_union, elem_of_singleton in H1. destruct H1; [|set_solver].
-        subst. rewrite as_var_as_final_var in H0. set_solver.
-      + naive_solver.
+    intros ts1 ts2 H1 H2 _. f_equiv. apply OfSameLength_pi.
   Qed.
 
-  Definition fresh_vars_for_varlist xs p A `{!FormulaFinal A} :=
-    fresh_var_list (prog_fvars p ∪ list_to_set (↑ₓ xs) ∪ formula_fvars A) (length xs).
+  Lemma fold_seqsubst_vars A xs ys `{!OfSameLength xs ys} :
+    <! A [;* (list_fmap final_variable variable as_var xs) \
+          * (list_fmap variable term TVar (list_fmap final_variable variable as_var ys));] !> =
+      <! A [; ↑ₓ xs \ ⇑ₓ ys ;] !>.
+  Proof. reflexivity. Qed.
 
+  Definition fequiv_on_finals (A B : formula) : Prop :=
+    FormulaFinal A → FormulaFinal B → A ≡ B.
 
-  Lemma wp_varlist' (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
-      (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
-    NoDup zs →
-    zs ## xs →
-    list_to_set (↑ₓ zs) ## prog_fvars p →
-    list_to_set (↑ₓ zs) ## formula_fvars A →
-    wp <{ |[ var* xs ⦁ $p ]| }> A ≡
-      <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
-  Proof with auto.
-    generalize dependent A. induction_same_length xs zs as x z... intros.
-    apply NoDup_cons in H. rewrite wp_varlist_cons with (y:=z)...
-    2-5: set_solver.
-    simpl fmap at 1. rewrite foralllist_cons. simpl. unshelve rewrite IH...
-    2-4: set_solver.
-    - f_equiv. rewrite f_forall_ty_top.
-      (* + rewrite fforall_unused. *)
-      (*   2:{ contradict e. apply fvars_seqsubst_superset in e. apply elem_of_union in e as [|]. *)
-      (*       - destruct H3. contradict H4. rewrite to_final_var_as_var. split... *)
-      (*       - rewrite to_final_var_as_var in H3. set_solver. *)
-      (*   } *)
-      (*   2:{ rewrite fvars_foralllist. contradict e. set_unfold in e. destruct e as [_ ?]. *)
-      (*       contradict H3. split... rewrite to_final_var_as_var... } *)
-      (*   rewrite f_fora *)
-      (*   rewrite fforall_unused. *)
-      (*   * *)
-      (* + admit. *)
-      + rewrite simpl_seqsubst_forall.
-        2:{ intros contra. apply (H1 x); set_solver. }
-        2:{ set_unfold. intros []. rewrite to_final_var_as_var in H4. set_solver. }
-        rewrite f_forall_ty_top. f_equiv. unfold fmap at 6 7. apply seqsubst_proper...
-        f_equiv. apply wp_congr... rewrite seqsubst_subst_comm.
-        * f_equiv. apply eq_pi. solve_decision.
-        * set_solver.
-        * set_unfold. contradict H0. intros ?. apply (H3 $ to_final_var x).
-          -- set_solver.
-          -- rewrite to_final_var_as_var. set_solver.
-        * set_unfold. intros. subst. rewrite to_final_var_as_var in H3. set_solver.
-    - intros y??. apply elem_of_list_to_set in H3. apply fvars_subst_superset' in H4.
-      apply (H2 y).
-      + apply elem_of_list_to_set. set_solver.
-      + set_unfold in H4. destruct H4 as [[] |]... subst. set_solver.
-  Qed.
-  Lemma wp_varlist' (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
+  Lemma wp_varlist'_NoDup (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
       (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
     NoDup xs →
     NoDup zs →
@@ -1419,6 +1394,206 @@ Section refinement.
       apply (H3 y).
       + apply elem_of_list_to_set. set_solver.
       + set_unfold in H5. destruct H5 as [[] |]... subst. set_solver.
+  Qed.
+
+  Lemma equiv_eq {A : Type} `{Equiv A} `{!Reflexive (≡@{A})} (x y : A) :
+    x = y → x ≡ y.
+  Proof. intros. by subst. Qed.
+
+  Lemma zpair_functional_cons_elem_of_tl {A B : Type} (x : A) (xs : list A) (y : B) (ys : list B) :
+    length xs = length ys →
+    x ∈ xs →
+    zip_pair_functional (x :: xs) (y :: ys) →
+    y ∈ ys.
+  Proof with auto.
+    intros. apply zip_pair_functional_cons in H1 as [? _]...
+    apply elem_of_list_lookup_1 in H0 as (i&?).
+    pose proof (zip_pair_lookup_l' H H0) as (y'&?).
+    enough (y' = y) by (subst; apply elem_of_list_lookup_2 in H2; assumption).
+    apply H1 with i. apply elem_of_zip_pair_indexed...
+  Qed.
+
+  Lemma zpair_injective_cons_elem_of_tl {A B : Type} (x : A) (xs : list A) (y : B) (ys : list B) :
+    length xs = length ys →
+    y ∈ ys →
+    zpair_injective (x :: xs) (y :: ys) →
+    x ∈ xs.
+  Proof with auto.
+    intros. rewrite zpair_injective_flip in H1.
+    apply zpair_functional_cons_elem_of_tl with (x:=y) (xs:=ys)...
+  Qed.
+
+  (* Lemma temp (x : variable) t A : *)
+  (*   x ∉ formula_fvars A → *)
+  (*   <! (∀ x, A)[x \ t] !> ≡ <! ∀ x, A [x \ t] !>. *)
+  (* Proof with auto. *)
+  (*   intros. rewrite subst_non_free with (A:=A)... rewrite fforall_unused... *)
+  (*   rewrite subst_non_free... *)
+  (* Qed. *)
+
+  (* Lemma temp_n (z : variable) t (xs : list variable) A `{!OfSameLength xs ts} : *)
+  (*   zip_pair_functional (z :: xs) (t :: ts) → *)
+  (*   list_to_set (z :: xs) ## ⋃ (term_fvars <$> (t :: ts)) → *)
+  (*   z ∉ formula_fvars A → *)
+  (*   z ∈ xs → *)
+  (*   <! (∀ z, A)[; *xs \ *ts ;][z \ t] !> ≡ <! ∀ z, A [; *xs \ *ts ;][z \ t] !>. *)
+  (* Proof with auto. *)
+  (*   intros. generalize dependent A. induction_same_length xs ts as x u; [set_solver|]. intros. simpl. *)
+  (*   destruct (decide (x = z)). *)
+  (*   - subst. rewrite fforall_unused... rewrite fforall_unused... intros contra. *)
+  (*     apply fvars_subst_superset' in contra. set_solver. *)
+  (*   - set_unfold in H2. destruct H2; [done|]. *)
+  (*     symmetry. *)
+  (*     assert (t ∈ ts). *)
+  (*     { *)
+  (*       apply elem_of_list_lookup_1 in H2 as (i&?). *)
+  (*       pose proof (of_same_length_rest H'). unfold OfSameLength, of_same_length in H3. *)
+  (*       pose proof (zip_pair_lookup_l' H3 H2) as (t'&?). *)
+  (*       enough (t = t') by (subst; apply elem_of_list_lookup_2 in H4; auto). *)
+  (*       apply (H 0 (S (S i)) z). *)
+  (*       - apply elem_of_zip_pair_indexed... *)
+  (*       - apply elem_of_zip_pair_indexed... *)
+  (*     } *)
+  (*     rewrite subst_non_free with (x:=x). *)
+  (*     2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra. *)
+  (*         2: set_solver. *)
+  (*         apply elem_of_union in contra as [|]. *)
+  (*         - set_unfold in H4. set_solver. *)
+  (*         set_solver. *)
+
+  (*       set_solver. *)
+  (*       assert (t ∈ ts). *)
+  (*       { *)
+  (*         apply elem_of_list_lookup_1 in H2 as (i&?). *)
+  (*         pose proof (of_same_length_rest H'). unfold OfSameLength, of_same_length in H3. *)
+  (*         pose proof (zip_pair_lookup_l' H3 H2) as (t'&?). *)
+  (*         enough (t = t') by (subst; apply elem_of_list_lookup_2 in H4; auto). *)
+  (*         apply (H 0 (S (S i)) z). *)
+  (*         - apply elem_of_zip_pair_indexed... *)
+  (*         - apply elem_of_zip_pair_indexed... *)
+  (*       } *)
+  (*       apply elem *)
+  (*       apply zpair_functional_cons_elem_of_tl in H... *)
+  (*       apply zip_pair_functional_cons_inv in H. apply zpair_functional_cons_elem_of_tl in H... *)
+  (*     } *)
+  (*     (* rewrite seqsubst_subst_comm by admit. *) *)
+  (*     rewrite <- IH by admit. *)
+  (*     f_equiv. *)
+  (*     rewrite subst_non_free... *)
+  (*     apply seqsubst_proper... *)
+  (*     f_equiv. rewrite seqsubst_subst_comm by admit. *)
+  (*     f_equiv. *)
+  (*     (* rewrite fequiv_subst_comm... *) *)
+  (*     (* 2-3: set_solver. *) *)
+  (*     rewrite <- temp by admit. *)
+  (*     rewrite IH... *)
+  (*     + rewrite <- temp by admit. *)
+
+
+  (*     rewrite IH... *)
+  (*     rewrite fforall_unused... *)
+  (*     rewrite IH... *)
+  (*     2: set_solver. *)
+
+  (*     unfold fmap in IH. symmetry. *)
+  (*     generalize ((@of_same_length_rest variable (Basic.term M) z xs (@TVar M y) *)
+  (*               (list_fmap variable (Basic.term M) (@TVar M) ys) *)
+  (*               (@of_same_length_fmap_r variable variable (Basic.term M) (@cons variable z xs) *)
+  (*                 (@cons variable y ys) (@TVar M) H'))). *)
+  (*     intros ?. *)
+  (*     specialize (IH o). *)
+  (*     etrans. *)
+  (*     + apply IH. *)
+  (*     rewrite temp. *)
+  (*   rewrite fforall_unused... *)
+  (*   rewrite seqsubst_subst_comm. *)
+  (*   rewrite subst_non_free with (A:=A)... rewrite fforall_unused... *)
+  (*   rewrite subst_non_free... *)
+  (* Qed. *)
+
+  Lemma wp_varlist' (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
+      (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
+    zip_pair_functional xs zs →
+    zpair_injective xs zs →
+    zs ## xs →
+    list_to_set (↑ₓ zs) ## prog_fvars p →
+    list_to_set (↑ₓ zs) ## formula_fvars A →
+    wp <{ |[ var* xs ⦁ $p ]| }> A ≡
+      <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
+  Proof with auto.
+    generalize dependent A. induction_same_length xs zs as x z... intros.
+    rewrite wp_varlist_cons with (y:=z)...
+    2-5: set_solver.
+    rewrite f_forall_ty_top. simpl fmap at 1. rewrite foralllist_cons. simpl.
+    destruct (decide (x ∈ xs)).
+    2:{
+      assert (z ∉ zs).
+      {
+        destruct (decide (z ∈ zs))... contradict n.
+        eapply zpair_injective_cons_elem_of_tl with (y:=z) (ys:=zs)...
+      }
+      unshelve rewrite IH...
+      2-3: set_solver.
+      2:{
+        intros y??. apply elem_of_list_to_set in H5. apply fvars_subst_superset' in H6.
+        apply (H3 y).
+        + apply elem_of_list_to_set. set_solver.
+        + set_unfold in H6. destruct H6 as [[] |]... subst. set_solver.
+      }
+      clear IH. f_equiv. rewrite simpl_seqsubst_forall.
+      2:{ intros contra. apply (H1 x); set_solver. }
+      2:{ set_unfold. intros []. rewrite to_final_var_as_var in H6. set_solver. }
+      f_equiv. unfold fmap at 6 7. apply seqsubst_proper...
+      f_equiv. apply wp_congr... rewrite seqsubst_subst_comm.
+      - f_equiv. apply eq_pi. solve_decision.
+      - set_solver.
+      - set_unfold. contradict H1. intros ?. apply (H5 $ to_final_var x).
+        + set_solver.
+        + rewrite to_final_var_as_var. set_solver.
+      - set_unfold. intros. subst. rewrite to_final_var_as_var in H5. set_solver.
+    }
+    pose proof (Hlen := of_same_length_rest H').
+    assert (as_var x ∉ prog_fvars <{ |[ var* xs ⦁ $ p ]| }>).
+    {
+      intros contra. rewrite prog_fvars_varlist in contra. set_unfold in contra.
+      rewrite to_final_var_as_var in contra. set_solver.
+    }
+    rewrite fforall_unused.
+    2:{ intros contra. apply fvars_wp in contra. apply elem_of_union in contra as [|]...
+        apply fvars_subst_superset' in H5. set_solver. }
+    rewrite <- wp_subst...
+    2-3: typeclasses eauto.
+    2:{
+      intros u??. rewrite prog_fvars_varlist in H6. set_solver.
+    }
+    rewrite fequiv_subst_trans...
+    2:{ intros contra. apply fvars_wp in contra. rewrite prog_fvars_varlist in contra.
+        set_solver. }
+    rewrite fequiv_subst_diag.
+    rewrite IH...
+    2-4: set_solver.
+    rewrite fforall_unused.
+    2:{
+      rewrite fvars_foralllist. set_unfold. apply not_and_l. right.
+      rewrite not_and_l. intros contra. rewrite to_final_var_as_var in contra.
+      set_solver.
+    }
+    assert (z ∈ zs).
+    {
+      pose proof (of_same_length_rest H'). unfold OfSameLength in H3.
+      apply (zpair_functional_cons_elem_of_tl x xs z zs)...
+    }
+    rewrite subst_non_free.
+    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
+        - set_unfold. rewrite to_final_var_as_var in contra. set_solver.
+        - set_solver. }
+    apply seqsubst_proper... f_equiv. apply wp_congr...
+    rewrite subst_non_free.
+    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
+        - set_unfold. rewrite to_final_var_as_var in contra. set_solver.
+        - set_solver. }
+    apply seqsubst_proper...
+    Unshelve. 1-2: naive_solver.
   Qed.
 
   Lemma of_same_length_comm {A B : Type} (l1 : list A) (l2 : list B) :
