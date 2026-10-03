@@ -390,7 +390,7 @@ Section n_ary_lemmas.
     (t1, t2) ∈ (ts1, ts2) →
     <! ⌜t1 = t2⌝ ∧ ⎡ts1 =* ts2⎤ !> ≡ <! ⎡ts1 =* ts2⎤ !>.
   Proof with auto.
-    intros. apply elem_of_zip_pair in H0 as (i&?&?). unfold FEqList.
+    intros. apply elem_of_zpair in H0 as (i&?&?). unfold FEqList.
     rewrite f_and_andlist_redundant_l'... apply elem_of_zip_with_indexed...
     exists i, t1, t2. split_and!...
   Qed.
@@ -399,7 +399,7 @@ Section n_ary_lemmas.
     (t1, t2) ∈ (ts1, ts2) →
     <! ⎡ts1 =* ts2⎤ ∧  ⌜t1 = t2⌝ !> ≡ <! ⎡ts1 =* ts2⎤ !>.
   Proof with auto.
-    intros. apply elem_of_zip_pair in H0 as (i&?&?). unfold FEqList.
+    intros. apply elem_of_zpair in H0 as (i&?&?). unfold FEqList.
     rewrite f_and_andlist_redundant_r'... apply elem_of_zip_with_indexed...
     exists i, t1, t2. split_and!...
   Qed.
@@ -858,7 +858,7 @@ Section n_ary_lemmas.
 
   (* A.56 *)
   Lemma f_existslist_one_point xs ts A `{OfSameLength _ _ xs ts} :
-    zip_pair_functional xs ts →
+    zpair_functional xs ts →
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     <! ∃* xs, ⎡⇑ₓ₊ xs =* ts⎤ ∧ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.
@@ -868,16 +868,14 @@ Section n_ary_lemmas.
       simpl. unfold FEqList. simpl. rewrite f_and_comm. apply f_and_true.
     - inversion H. assert (H':=H). apply of_same_length_cons_inv_l in H' as (t&ts'&?&?).
       subst ts. rename ts' into ts. erewrite eqlist_cons.
-      apply zip_pair_functional_cons_inv in Hfn as Hfn'.
+      apply zpair_functional_cons_inv in Hfn as Hfn'.
       destruct (decide (x ∈ xs)).
       + assert (e':=e). apply elem_of_list_lookup_1 in e' as [i Hi].
         rewrite f_eqlist_redundant_l.
-        2:{ apply elem_of_zip_pair. exists i. split...
+        2:{ apply elem_of_zpair. exists i. split...
             - apply list_lookup_fmap_Some. exists x...
-            - symmetry in H2. destruct (zip_pair_lookup_l' H2 Hi) as (t'&?).
-              specialize (Hfn 0 (S i) x t t').
-              enough (t = t') by (subst t'; apply H0).
-              apply Hfn; apply elem_of_zip_pair_indexed... }
+            - symmetry in H2. destruct (zpair_lookup_l' H2 Hi) as (t'&?).
+              specialize (Hfn x t t'). enough (t = t') by (subst t'; apply H0)... }
         rewrite f_exists_existslist_idemp... rewrite fequiv_subst_non_free.
         * apply IH; [| set_solver]...
         * intros contra.
@@ -887,7 +885,7 @@ Section n_ary_lemmas.
   Qed.
 
   Lemma f_foralllist_one_point xs ts A `{OfSameLength _ _ xs ts} :
-    zip_pair_functional xs ts →
+    zpair_functional xs ts →
     (list_to_set xs) ## ⋃ (term_fvars <$> ts) →
     <! ∀* xs, ⎡⇑ₓ₊ xs =* ts⎤ ⇒ A !> ≡ <! A[; *xs \ *ts ;] !>.
   Proof with auto.

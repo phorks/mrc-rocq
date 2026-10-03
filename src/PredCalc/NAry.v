@@ -386,35 +386,24 @@ Section syntactic.
   Proof. reflexivity. Qed.
 
   (** [subst_initials] facts *)
-  Lemma subst_initials_zip_pair_functional (xs : list final_variable) :
-    zip_pair_functional (initial_var_of <$> xs) (TVar <$> (as_var <$> xs)).
-  Proof.
-    unfold zip_pair_functional. intros.
-    rewrite <- list_fmap_compose in *.
-    rewrite elem_of_zip_pair_indexed in H, H0. destruct H as []. destruct H0 as [].
-    apply list_lookup_fmap_inv in H as (x2&?&?).
-    apply list_lookup_fmap_inv in H0 as (x1&?&?).
-    apply list_lookup_fmap_inv in H1 as (x3&?&?).
-    apply list_lookup_fmap_inv in H2 as (x4&?&?).
-    rewrite H3 in H5. inversion H5. subst x3. rewrite H4 in H6.
-    inversion H6. subst x4. clear H5 H6. rewrite H in H0.
-    rewrite H1. rewrite H2. f_equal. apply initial_var_of_inj in H0. assumption.
+  Lemma subst_initials_zpair_functional (xs : list final_variable) :
+    zpair_functional (initial_var_of <$> xs) (TVar <$> (as_var <$> xs)).
+  Proof with auto.
+    intros x x1 x2 ??. rewrite <- list_fmap_compose in *.
+    apply elem_of_zpair_fmap in H as (x'&x1'&?&?&->).
+    apply elem_of_zpair_fmap in H0 as (x''&x2'&?&?&->).
+    subst. apply initial_var_of_inj in H2. subst x''.
+    apply elem_of_zpair_diag in H as ->. apply elem_of_zpair_diag in H0 as ->...
   Qed.
 
-  Lemma subst_initials_inverse_zip_pair_functional (xs : list final_variable) :
-    zip_pair_functional (as_var <$> xs) (TVar <$> (initial_var_of <$> xs)).
+  Lemma subst_initials_inverse_zpair_functional (xs : list final_variable) :
+    zpair_functional (as_var <$> xs) (TVar <$> (initial_var_of <$> xs)).
   Proof with auto.
-    intros i j x y1 y2 ??.
-    rewrite elem_of_zip_pair_indexed in H, H0.
-    destruct H as []. destruct H0 as [].
-    apply list_lookup_fmap_inv in H as (x1&?&?).
-    apply list_lookup_fmap_inv in H0 as (x2&?&?).
-    apply list_lookup_fmap_inv in H1 as (x3&?&?).
-    apply list_lookup_fmap_inv in H2 as (x4&?&?).
-    subst. apply as_var_inj in H0. subst.
-    apply list_lookup_fmap_inv in H5 as (y1&?&?).
-    apply list_lookup_fmap_inv in H6 as (y2&?&?).
-    subst. rewrite H3 in H0. inversion H0. subst. rewrite H4 in H2. inversion H2. subst...
+    intros x x1 x2 ??. rewrite <- list_fmap_compose in *.
+    apply elem_of_zpair_fmap in H as (x'&x1'&?&?&->).
+    apply elem_of_zpair_fmap in H0 as (x''&x2'&?&?&->).
+    subst. apply as_var_inj in H2. subst x''.
+    apply elem_of_zpair_diag in H as ->. apply elem_of_zpair_diag in H0 as ->...
   Qed.
 
   Lemma subst_initials_vars_terms_disjoint (xs : list final_variable) :
@@ -470,8 +459,8 @@ Section syntactic.
 
 End syntactic.
 
-Hint Resolve subst_initials_zip_pair_functional : core.
-Hint Resolve subst_initials_inverse_zip_pair_functional : core.
+Hint Resolve subst_initials_zpair_functional : core.
+Hint Resolve subst_initials_inverse_zpair_functional : core.
 Hint Resolve subst_initials_vars_terms_disjoint : core.
 
 Notation "⎡ ts =* us ⎤" := (FEqList ts us)
@@ -879,13 +868,13 @@ Section semantic.
   Qed.
 
   Lemma seqsubst_msubst A xs ts `{!OfSameLength xs ts} :
-    zip_pair_functional xs ts →
+    zpair_functional xs ts →
     list_to_set xs ## ⋃ (term_fvars <$> ts) →
     <! A [; *xs \ *ts ;] !> ≡ <! A [[ *xs \ *ts ]] !>.
   Proof with auto.
     induction_same_length xs ts as x t; intros.
     1:{ rewrite msubst_empty... }
-    simpl. apply zip_pair_functional_cons_inv in H as H1. destruct (decide (x ∈ xs)).
+    simpl. apply zpair_functional_cons_inv in H as H1. destruct (decide (x ∈ xs)).
     - rewrite fequiv_subst_non_free.
       2:{ intros contra.
           apply fvars_seqsubst_superset_vars_not_free_in_terms in contra; set_solver. }
@@ -893,10 +882,10 @@ Section semantic.
       intros x'. destruct (decide (x = x')).
       + subst. simpl. rewrite lookup_insert. unfold OfSameLength in H'.
         simpl in H'. inversion H'.
-        rewrite (list_to_map_zip_lookup_zip_pair_functional H H3 e)...
+        rewrite (list_to_map_zip_lookup_zpair_functional H H3 e)...
       + simpl. rewrite lookup_insert_ne...
     - etrans.
-      + rewrite IH; [| apply zip_pair_functional_cons_inv in H; auto | set_solver].
+      + rewrite IH; [| apply zpair_functional_cons_inv in H; auto | set_solver].
         rewrite <- msubst_extract_r; [| set_solver | set_solver]. reflexivity.
       + simpl. reflexivity.
   Qed.

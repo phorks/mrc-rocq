@@ -1455,13 +1455,13 @@ Section semantics.
         set_solver.
   Qed.
 
-  Lemma msubst_zip_pair_Permutation A xs ts xs' ts' `{!OfSameLength xs ts} `{!OfSameLength xs' ts'} :
+  Lemma msubst_zpair_Permutation A xs ts xs' ts' `{!OfSameLength xs ts} `{!OfSameLength xs' ts'} :
     NoDup xs →
     NoDup xs' →
     (xs, ts) ≡ₚₚ (xs', ts') →
     msubst A (to_vtmap xs ts) ≡ msubst A (to_vtmap xs' ts').
   Proof with auto.
-    intros. f_equiv. apply zip_pair_Permutation_list_to_map_zip...
+    intros. f_equiv. apply zpair_Permutation_list_to_map_zip...
   Qed.
 
 End semantics.

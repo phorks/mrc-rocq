@@ -272,7 +272,7 @@ Definition of_same_length_rest {A B} {x1 : A} {l1 : list A} {x2 : B} {l2 : list 
                               (H : OfSameLength (x1::l1) (x2::l2)) : OfSameLength l1 l2.
 Proof. unfold OfSameLength in *. simpl in H. lia. Qed.
 
-Hint Extern 5 (OfSameLength ?xs1 ?xs2) =>
+Hint Extern 0 (OfSameLength ?xs1 ?xs2) =>
   match goal with
   | H : OfSameLength (?x1 :: xs1) (?x2 :: xs2) |- _ =>
       apply of_same_length_rest in H; exact H
@@ -479,80 +479,137 @@ Proof. split; hnf; naive_solver. Qed.
 #[global] Hint Unfold universal_relation : core.
 
 (** Zip pairs: A zip pair is a pair of two lists that are zipped together.
-    In this section we define two notions of membership for zip pairs and
-    prove some properties about them. *)
-Instance zip_pair_elem_of_with_index {A B} : ElemOf (nat * (A * B)) (list A * list B) :=
+    Wee define two notions of membership for zip pairs and prove some properties about them. *)
+Instance zpair_elem_of_with_index {A B} : ElemOf (nat * (A * B)) (list A * list B) :=
   λ p1 p2, p2.1 !! p1.1 = Some p1.2.1 ∧ p2.2 !! p1.1 = Some p1.2.2.
 
-Instance zip_pair_elem_of {A} {B} : ElemOf (A * B) (list A * list B) :=
+Instance zpair_elem_of {A} {B} : ElemOf (A * B) (list A * list B) :=
   λ p1 p2, ∃ i, (i, p1) ∈ p2.
 
-Lemma elem_of_zip_pair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+Lemma elem_of_zpair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
   (x, y) ∈ (xs, ys) ↔ ∃ i, xs !! i = Some x ∧ ys !! i = Some y.
 Proof. reflexivity. Qed.
 
-Lemma not_elem_of_zip_pair_inv {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+Global Hint Extern 0 =>
+  match goal with
+  | H1 : ?xs !! ?i = Some ?x, H2 : ?ys !! ?i = Some ?y |- (?x, ?y) ∈ (?xs, ?ys) =>
+      exists i; split; assumption
+  end : core.
+
+Lemma not_elem_of_zpair_inv {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
   (x, y) ∉ (xs, ys) → ¬ ∃ i, xs !! i = Some x ∧ ys !! i = Some y.
-Proof. rewrite elem_of_zip_pair. auto. Qed.
+Proof. rewrite elem_of_zpair. auto. Qed.
 
-Lemma not_elem_of_zip_pair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
-  (∀ i, xs !! i ≠ Some x ∨ ys !! i ≠ Some y) → (x, y) ∉ (xs, ys).
-Proof.
-  intros. intros contra. apply elem_of_zip_pair in contra as (i&?&?).
-  destruct (H i) as []; contradiction.
-Qed.
-
-Lemma elem_of_zip_pair_indexed {A B} (i : nat) (x : A) (y : B) (xs : list A) (ys : list B) :
+Lemma elem_of_zpair_indexed {A B} (i : nat) (x : A) (y : B) (xs : list A) (ys : list B) :
   (i, (x, y)) ∈ (xs, ys) ↔ xs !! i = Some x ∧ ys !! i = Some y.
 Proof. reflexivity. Qed.
 
-Lemma elem_of_zip_pair_hd_indexed {A B} x0 y0 x y (xs : list A) (ys : list B) :
-  (0, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (x0 = x ∧ y0 = y).
-Proof. rewrite elem_of_zip_pair_indexed. simpl. split; naive_solver. Qed.
+Hint Extern 0 =>
+  match goal with
+  | H1 : ?xs !! ?i = Some ?x,
+    H2 : ?ys !! ?i = Some ?y |- (?i, (?x, ?y)) ∈ (?xs, ?ys) =>
+      apply elem_of_zpair_indexed; split; [exact H1|exact H2]
+  end : core.
 
-Lemma elem_of_zip_pair_tl_indexed {A B} i x0 y0 x y (xs : list A) (ys : list B) :
+Lemma not_elem_of_zpair {A B} (x : A) (y : B) (xs : list A) (ys : list B) :
+  (∀ i, xs !! i ≠ Some x ∨ ys !! i ≠ Some y) → (x, y) ∉ (xs, ys).
+Proof.
+  intros. intros contra. apply elem_of_zpair in contra as (i&?&?).
+  destruct (H i) as []; contradiction.
+Qed.
+
+Lemma elem_of_zpair_diag {A} x x' (xs : list A) :
+  (x, x') ∈ (xs, xs) → x' = x.
+Proof. intros (i&?&?). simpl in *. naive_solver. Qed.
+
+Lemma elem_of_zpair_indexed_diag {A} i x x' (xs : list A) :
+  (i, (x, x')) ∈ (xs, xs) → x' = x.
+Proof. intros (?&?). simpl in *. naive_solver. Qed.
+
+Lemma elem_of_zpair_nil {A B} x y :
+  ¬ (x, y) ∈ (([] : list A), ([] : list B)).
+Proof with auto. intros (i&?&?). set_solver. Qed.
+
+Lemma elem_of_zpair_nil_l {A B} x y (ys : list B) :
+  ¬ (x, y) ∈ (([] : list A), ys).
+Proof with auto. intros (i&?&?). set_solver. Qed.
+
+Lemma elem_of_zpair_nil_r {A B} x y (xs : list A) :
+  ¬ (x, y) ∈ (xs, ([] : list B)).
+Proof with auto. intros (i&?&?). set_solver. Qed.
+
+Hint Extern 0 =>
+  match goal with
+  | H : (_, _) ∈ ([], _) |- _ =>
+      apply elem_of_zpair_nil_l in H as []
+  | H : (_, _) ∈ (_, []) |- _ =>
+      apply elem_of_zpair_nil_r in H as []
+  end : core.
+
+
+Lemma elem_of_zpair_cons_l {A B} y0 x y (xs : list A) (ys : list B) :
+  y0 = y →
+  (x, y0) ∈ (x :: xs, y :: ys).
+Proof. intros. subst. apply elem_of_zpair. by exists 0. Qed.
+
+Global Hint Extern 0 ((?x, ?y) ∈ (?x :: _, ?y :: _)) =>
+  apply elem_of_zpair_cons_l; reflexivity : core.
+
+Global Hint Extern 100 ((_, _) ∈ (_ :: _, _ :: _)) => apply elem_of_zpair_cons_l : core.
+
+Lemma elem_of_zpair_cons_r {A B} x y x' y' (xs : list A) (ys : list B) :
+  (x, y) ∈ (xs, ys) →
+  (x, y) ∈ (x' :: xs, y' :: ys).
+Proof. intros. destruct H as (i&?&?). simpl in *. apply elem_of_zpair. by exists (S i). Qed.
+
+Global Hint Extern 100 ((_, _) ∈ (_ :: _, _ :: _)) => apply elem_of_zpair_cons_r : core.
+
+Lemma elem_of_zpair_indexed_cons_l {A B} x0 y0 x y (xs : list A) (ys : list B) :
+  (0, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (x0 = x ∧ y0 = y).
+Proof. rewrite elem_of_zpair_indexed. simpl. split; naive_solver. Qed.
+
+Lemma elem_of_zpair_indexed_cons_r {A B} i x0 y0 x y (xs : list A) (ys : list B) :
   (S i, (x0, y0)) ∈ (x :: xs, y :: ys) ↔ (i, (x0, y0)) ∈ (xs, ys).
 Proof.
-  do 2 rewrite elem_of_zip_pair_indexed. simpl. naive_solver.
+  do 2 rewrite elem_of_zpair_indexed. simpl. naive_solver.
 Qed.
 
-Lemma elem_of_zip_pair_nil {A B} x y :
-  (x, y) ∈ (([] : list A), ([] : list B)) → False.
-Proof with auto.
-  intros (i&?&?). simpl in *. apply elem_of_list_lookup_2 in H. set_solver.
-Qed.
+Global Hint Extern 0 =>
+  match goal with
+  | H : (?i, (?x, ?y) ∈ (?xs, ?ys)) |- (S ?i, (?x, ?y) ∈ (_ :: ?xs, _ :: ?ys)) =>
+    rewrite elem_of_zpair_indexed_cons_r; exact H
+  end : core.
 
-Lemma elem_of_zip_pair_hd_ne {A B} x0 y0 x y (xs : list A) (ys : list B) :
+Lemma elem_of_zpair_cons_r_iff {A B} x0 y0 x y (xs : list A) (ys : list B) :
   x0 ≠ x →
   (x0, y0) ∈ (x :: xs, y :: ys) ↔ (x0, y0) ∈ (xs, ys).
 Proof with auto.
   intros. split; intros (i&?).
   - destruct i.
-    + apply elem_of_zip_pair_hd_indexed in H0 as []. subst. contradiction.
-    + apply elem_of_zip_pair_tl_indexed in H0. exists i...
-  - exists (S i). apply elem_of_zip_pair_tl_indexed...
+    + apply elem_of_zpair_indexed_cons_l in H0 as []. subst. contradiction.
+    + apply elem_of_zpair_indexed_cons_r in H0. exists i...
+  - exists (S i)...
 Qed.
 
-Lemma elem_of_zip_pair_hd {A B} y0 x y (xs : list A) (ys : list B) :
+Lemma elem_of_zpair_cons_l_iff {A B} y0 x y (xs : list A) (ys : list B) :
   x ∉ xs →
   (x, y0) ∈ (x :: xs, y :: ys) ↔ y0 = y.
 Proof with auto.
   intros. split.
   - intros (i&?). destruct i.
-    + apply elem_of_zip_pair_hd_indexed in H0 as []...
-    + apply elem_of_zip_pair_tl_indexed in H0 as []. simpl in *. apply elem_of_list_lookup_2 in H0.
-      done.
-  - intros ->. exists 0. apply elem_of_zip_pair_hd_indexed...
+    + apply elem_of_zpair_indexed_cons_l in H0 as []...
+    + apply elem_of_zpair_indexed_cons_r in H0 as []. simpl in *.
+      by apply elem_of_list_lookup_2 in H0.
+  - intros ->...
 Qed.
 
-Lemma elem_of_zip_pair_app {A B} x y (xs1 : list A) (ys1 : list B)
+Lemma elem_of_zpair_app {A B} x y (xs1 : list A) (ys1 : list B)
   (xs2 : list A) (ys2 : list B) `{!OfSameLength xs1 ys1} :
   (x, y) ∈ (xs1 ++ xs2, ys1 ++ ys2) ↔ (x, y) ∈ (xs1, ys1) ∨ (x, y) ∈ (xs2, ys2).
 Proof with auto.
   split.
   - intros (i&?&?). simpl in H, H0. destruct (decide (i < length xs1)).
     + left. rewrite lookup_app_l in H... rewrite OfSameLength0 in l. rewrite lookup_app_l in H0...
-      exists i. split...
     + right. rewrite lookup_app_r in H by lia. rewrite OfSameLength0 in n.
       rewrite lookup_app_r in H0 by lia. rewrite OfSameLength0 in H. exists (i - length ys1).
       split...
@@ -564,62 +621,87 @@ Proof with auto.
         replace (length ys1 + i - length ys1) with i by lia...
 Qed.
 
-Lemma elem_of_zip_pair_indexed_inv {A B} i x y (xs : list A) (ys : list B) :
+Lemma elem_of_zpair_indexed_inv {A B} i x y (xs : list A) (ys : list B) :
   (i, (x, y)) ∈ (xs, ys) → (x, y) ∈ (xs, ys).
 Proof. intros. exists i. assumption. Qed.
+
+Global Hint Extern 0 =>
+  match goal with
+  | H : (?i, (?x, ?y)) ∈ (?xs, ?ys) |- ((?x, ?y) ∈ (?xs, ?ys)) =>
+    apply elem_of_zpair_indexed_inv with (i:=i); exact H
+  end : core.
 
 Lemma lookup_list_to_map_zip_Some_inv {K A} `{Countable K}
     (ks : list K) (xs : list A) (k : K) (x : A) `{!OfSameLength ks xs} :
   (list_to_map (zip ks xs) : gmap K A) !! k = Some x →
                                                    (k, x) ∈ (ks, xs).
 Proof with auto.
-  intros. apply lookup_list_to_map_zip_Some in H0 as (i&?&?&?)... exists i. split...
+  intros. apply lookup_list_to_map_zip_Some in H0 as (i&?&?&?)...
 Qed.
 
-Lemma elem_of_zip_pair_fmap {A A' B B'} x' y' (xs : list A) (ys : list B)
-    (f : A → A') (g : B → B')
-    `{!OfSameLength xs ys} `{!OfSameLength (f <$> xs) (g <$> ys)} :
+Lemma elem_of_zpair_fmap {A A' B B'} x' y' (xs : list A) (ys : list B)
+    (f : A → A') (g : B → B') :
   (x', y') ∈ (f <$> xs, g <$> ys) ↔ ∃ x y, (x, y) ∈ (xs, ys) ∧ x' = f x ∧ y' = g y.
 Proof with auto.
   split.
   - intros (i&?&?). simpl in H, H0. apply list_lookup_fmap_Some in H as (x&?&?).
-    apply list_lookup_fmap_Some in H0 as (y&?&?). exists x, y. split_and!... exists i.
-    split...
+    apply list_lookup_fmap_Some in H0 as (y&?&?). exists x, y. split_and!...
   - intros (x&y&(i&?&?)&?&?). simpl in H, H0. exists i. split; simpl; apply list_lookup_fmap_Some.
     + exists x. split...
     + exists y. split...
 Qed.
 
-Definition zip_pair_Permutation {A B} (p1 p2 : list A * list B) :=
+Lemma elem_of_zpair_fmap_l {A A' B} x' y (xs : list A) (ys : list B)
+    (f : A → A') :
+  (x', y) ∈ (f <$> xs, ys) ↔ ∃ x, (x, y) ∈ (xs, ys) ∧ x' = f x.
+Proof with auto.
+  rewrite elem_of_zpair. split.
+  - intros (i&?&?). apply list_lookup_fmap_Some in H as (x&?&?). exists x...
+  - intros (x&(i&?&?)&?). simpl in H, H0. exists i. split... apply list_lookup_fmap_Some.
+    exists x...
+Qed.
+
+Lemma elem_of_zpair_fmap_r {A B B'} x y' (xs : list A) (ys : list B)
+    (g : B → B') :
+  (x, y') ∈ (xs, g <$> ys) ↔ ∃ y, (x, y) ∈ (xs, ys) ∧ y' = g y.
+Proof with auto.
+  rewrite elem_of_zpair. split.
+  - intros (i&?&?). apply list_lookup_fmap_Some in H0 as (y&?&?).
+    exists y. split_and!...
+  - intros (y&(i&?&?)&?). simpl in H, H0. exists i. split... apply list_lookup_fmap_Some.
+    exists y...
+Qed.
+
+Definition zpair_Permutation {A B} (p1 p2 : list A * list B) :=
   ∀ (x : A) (y : B), (x, y) ∈ p1 ↔ (x, y) ∈ p2.
 
-Infix "≡ₚₚ" := (zip_pair_Permutation) (at level 70, no associativity) : refiney_scope.
+Infix "≡ₚₚ" := (zpair_Permutation) (at level 70, no associativity) : refiney_scope.
 
-Global Instance zip_pair_Permutation_refl {A B} : Reflexive (@zip_pair_Permutation A B).
+Global Instance zpair_Permutation_refl {A B} : Reflexive (@zpair_Permutation A B).
 Proof. intros p x y. reflexivity. Qed.
 
-Hint Extern 0 (?p ≡ₚₚ ?p) => reflexivity : core.
+Global Hint Extern 0 (?p ≡ₚₚ ?p) => reflexivity : core.
 
-Global Instance zip_pair_Permutation_sym {A B} : Symmetric (@zip_pair_Permutation A B).
+Global Instance zpair_Permutation_sym {A B} : Symmetric (@zpair_Permutation A B).
 Proof. intros p1 p2 H x y. specialize (H x y). naive_solver. Qed.
 
-Global Instance zip_pair_Permutation_trans {A B} : Transitive (@zip_pair_Permutation A B).
+Global Instance zpair_Permutation_trans {A B} : Transitive (@zpair_Permutation A B).
 Proof.
   intros p1 p2 p3 H12 H23. intros x y. specialize (H12 x y). specialize (H23 x y). naive_solver.
 Qed.
 
-Global Instance zip_pair_Permutation_equiv {A B} : Equivalence (@zip_pair_Permutation A B).
+Global Instance zpair_Permutation_equiv {A B} : Equivalence (@zpair_Permutation A B).
 Proof.
-  split; [exact zip_pair_Permutation_refl | exact zip_pair_Permutation_sym |
-           exact zip_pair_Permutation_trans].
+  split; [exact zpair_Permutation_refl | exact zpair_Permutation_sym |
+           exact zpair_Permutation_trans].
 Qed.
 
-Lemma zip_pair_Permutation_cons {A B} `{EqDecision A} (x : A) (y : B) (xs1 : list A)
+Lemma zpair_Permutation_cons {A B} `{EqDecision A} (x : A) (y : B) (xs1 : list A)
   (ys1 : list B) (xs2 : list A) (ys2 : list B) `{!OfSameLength xs1 ys1} `{!OfSameLength xs2 ys2} :
   (xs1, ys1) ≡ₚₚ (xs2, ys2) →
   (x :: xs1, y :: ys1) ≡ₚₚ (x :: xs2, y :: ys2).
 Proof with auto.
-  unfold zip_pair_Permutation. intros. split; intros (i&?&?); simpl in H0, H1.
+  unfold zpair_Permutation. intros. split; intros (i&?&?); simpl in H0, H1.
   - destruct i.
     + exists 0. split...
     + rewrite lookup_cons_ne_0 in H0 by lia. simpl in H0.
@@ -636,26 +718,26 @@ Proof with auto.
       exists (S j). split...
 Qed.
 
-Lemma zip_pair_Permutation_app_comm {A B} (xs1 : list A) (ys1 : list B) (xs2 : list A)
+Lemma zpair_Permutation_app_comm {A B} (xs1 : list A) (ys1 : list B) (xs2 : list A)
     (ys2 : list B) `{!OfSameLength xs1 ys1} `{!OfSameLength xs2 ys2} :
   (xs1 ++ xs2, ys1 ++ ys2) ≡ₚₚ (xs2 ++ xs1, ys2 ++ ys1).
 Proof with auto.
-  unfold zip_pair_Permutation. intros x y. repeat rewrite elem_of_zip_pair_app...
+  unfold zpair_Permutation. intros x y. repeat rewrite elem_of_zpair_app...
   naive_solver.
 Qed.
 
-Lemma zip_pair_Permutation_nil_inv_l {A B}
+Lemma zpair_Permutation_nil_inv_l {A B}
     (xs : list A) (ys : list B) `{!OfSameLength xs ys} :
   ([], []) ≡ₚₚ (xs, ys) →
   xs = [] ∧ ys = [].
 Proof with auto.
-  intros. unfold zip_pair_Permutation in H. induction_same_length xs ys as x y...
+  intros. unfold zpair_Permutation in H. induction_same_length xs ys as x y...
   - intros. clear IH. specialize (H x y). assert ((x, y) ∈ (x :: xs, y :: ys)).
     { exists 0. split... }
     rewrite <- H in H0. destruct H0 as (i&?&?). simpl in H0, H1. set_solver.
 Qed.
 
-Lemma zip_pair_Permutation_cons_inv_l {A B} `{EqDecision A}
+Lemma zpair_Permutation_cons_inv_l {A B} `{EqDecision A}
     (x : A) (y : B) (xs : list A) (ys : list B)
     (xs' : list A) (ys' : list B) `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
   (x :: xs, y :: ys) ≡ₚₚ (xs', ys') →
@@ -678,12 +760,12 @@ Proof with auto.
   - subst. split; intros (i&?&_); simpl in H6.
     + apply elem_of_list_lookup_2 in H6. contradiction.
     + apply elem_of_list_lookup_2 in H6. set_solver.
-  - rewrite elem_of_zip_pair_hd_ne in H... rewrite H.
-    rewrite elem_of_zip_pair_app... rewrite elem_of_zip_pair_hd_ne...
-    rewrite elem_of_zip_pair_app...
+  - rewrite elem_of_zpair_cons_r_iff in H... rewrite H.
+    rewrite elem_of_zpair_app... rewrite elem_of_zpair_cons_r_iff...
+    rewrite elem_of_zpair_app...
 Qed.
 
-Lemma zip_pair_Permutation_list_to_map_zip {A B}
+Lemma zpair_Permutation_list_to_map_zip {A B}
     (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) `{Countable A}
     `{!OfSameLength xs ys} `{!OfSameLength xs' ys'} :
   NoDup xs →
@@ -691,7 +773,7 @@ Lemma zip_pair_Permutation_list_to_map_zip {A B}
   (xs, ys) ≡ₚₚ (xs', ys') →
   (list_to_map (zip xs ys) : gmap A B) = list_to_map (zip xs' ys').
 Proof with auto.
-  intros. unfold zip_pair_Permutation in H. apply map_eq. intros x.
+  intros. unfold zpair_Permutation in H. apply map_eq. intros x.
   destruct (list_to_map (zip xs ys) !! x) as [y|] eqn:E.
   - apply lookup_list_to_map_zip_Some_inv in E... apply H2 in E.
     symmetry. apply lookup_list_to_map_zip_Some... destruct E as (i&?&?). simpl in H3, H4.
@@ -704,45 +786,109 @@ Proof with auto.
     simpl in H5. apply elem_of_list_lookup_2 in H5. contradiction.
 Qed.
 
-Lemma zip_pair_Permutation_fmap {A A' B B'}
-    (xs : list A) (ys : list B)
-    (xs' : list A) (ys' : list B)
-    (f : A → A') (g : B → B')
-    `{!OfSameLength xs ys} `{!OfSameLength (f <$> xs) (g <$> ys)}
-    `{!OfSameLength xs' ys'} `{!OfSameLength (f <$> xs') (g <$> ys')} :
+Lemma zpair_Permutation_fmap {A A' B B'}
+    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) (f : A → A') (g : B → B') :
   (xs, ys) ≡ₚₚ (xs', ys') →
   (f <$> xs, g <$> ys) ≡ₚₚ (f <$> xs', g <$> ys').
 Proof with auto.
-  intros. unfold zip_pair_Permutation. intros x' y'. rewrite elem_of_zip_pair_fmap...
-  rewrite elem_of_zip_pair_fmap... split; intros (x&y&?&?&?);
+  intros. unfold zpair_Permutation. intros x' y'. rewrite elem_of_zpair_fmap...
+  rewrite elem_of_zpair_fmap... split; intros (x&y&?&?&?);
     exists x, y; split; auto; apply H in H0...
 Qed.
 
-Definition zip_pair_functional {A B} (xs : list A) (ys : list B) :=
-  ∀ i j x y1 y2, (i, (x, y1)) ∈ (xs, ys) → (j, (x, y2)) ∈ (xs, ys) → y1 = y2.
+Lemma zpair_Permutation_fmap_l {A A' B}
+    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) (f : A → A') :
+  (xs, ys) ≡ₚₚ (xs', ys') →
+  (f <$> xs, ys) ≡ₚₚ (f <$> xs', ys').
+Proof with auto.
+  intros. unfold zpair_Permutation. intros x' y. rewrite elem_of_zpair_fmap_l...
+  rewrite elem_of_zpair_fmap_l... split; intros (x&?&?);
+    exists x; split; auto; apply H in H0...
+Qed.
 
-Lemma NoDup_zip_pair_functional {A B} (xs : list A) (ys : list B) :
+Lemma zpair_Permutation_fmap_r {A B B'}
+    (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) (g : B → B') :
+  (xs, ys) ≡ₚₚ (xs', ys') →
+  (xs, g <$> ys) ≡ₚₚ (xs', g <$> ys').
+Proof with auto.
+  intros. unfold zpair_Permutation. intros x y'. rewrite elem_of_zpair_fmap_r...
+  rewrite elem_of_zpair_fmap_r... split; intros (y&?&?);
+    exists y; split; auto; apply H in H0...
+Qed.
+
+
+
+Definition zpair_functional {A B} (xs : list A) (ys : list B) :=
+  ∀ x y1 y2, (x, y1) ∈ (xs, ys) → (x, y2) ∈ (xs, ys) → y1 = y2.
+
+(* Hint Extern 0 => *)
+(*   match goal with *)
+(*   | H  : zpair_functional ?xs ?ys, *)
+(*     H1 : ?xs !! ?i = Some ?x, *)
+(*     H2 : ?ys !! ?i = Some ?y1, *)
+(*     H3 : ?xs !! ?j = Some ?x, *)
+(*     H4 : ?ys !! ?j = Some ?y2 *)
+(*     |- ?y1 = ?y2 => *)
+(*       apply (H i j x); apply elem_of_zpair_indexed; (split; assumption) *)
+(*   end : core. *)
+
+Global Hint Extern 0 =>
+  match goal with
+  | H  : zpair_functional ?xs ?ys,
+    H1 : (?x, ?y1) ∈ (?xs, ?ys),
+    H2 : (?x, ?y2) ∈ (?xs, ?ys)
+    |- ?y1 = ?y2 => apply (H x); [exact H1 | exact H2]
+  end : core.
+
+
+Lemma NoDup_zpair_functional {A B} (xs : list A) (ys : list B) :
   NoDup xs →
-  zip_pair_functional xs ys.
+  zpair_functional xs ys.
 Proof with auto.
-  intros H i j ? ? ? ? ?. apply elem_of_zip_pair_indexed in H0 as [].
-  apply elem_of_zip_pair_indexed in H1 as []. simpl in *.
-  pose proof (NoDup_lookup xs i j x H H0 H1). subst j. rewrite H2 in H3. inversion H3...
+  intros H ? ? ? ? ?. apply elem_of_zpair in H0 as (i&?&?).
+  apply elem_of_zpair in H1 as (j&?&?). pose proof (NoDup_lookup xs i j x H H0 H1).
+  subst j. rewrite H2 in H3. inversion H3...
 Qed.
 
-Lemma zip_pair_functional_cons_inv {A B} x y (xs : list A) (ys : list B) :
-  zip_pair_functional (x :: xs) (y :: ys) → zip_pair_functional xs ys.
+Lemma zpair_functional_nil {A B}  :
+  zpair_functional (@nil A) (@nil B).
+Proof. by intros x y1 y2 ??. Qed.
+
+Global Hint Extern 0 (zpair_functional [] []) => apply zpair_functional_nil : core.
+
+Lemma zpair_functional_cons_inv {A B} x y (xs : list A) (ys : list B) :
+  zpair_functional (x :: xs) (y :: ys) → zpair_functional xs ys.
 Proof with auto.
-  intros. intros i j x0 y1 y2 ? ?. unfold zip_pair_functional in H.
-  apply elem_of_zip_pair_indexed in H0 as []. apply elem_of_zip_pair_indexed in H1 as [].
-  simpl in *. apply (H (S i) (S j) x0).
-  - rewrite elem_of_zip_pair_indexed. split...
-  - rewrite elem_of_zip_pair_indexed. split...
+  intros. intros x0 y1 y2 ? ?. unfold zpair_functional in H.
+  apply elem_of_zpair in H0 as (i&?&?). apply elem_of_zpair in H1 as (j&?&?).
+  apply H with (x:=x0)...
 Qed.
 
-Hint Resolve zip_pair_functional_cons_inv : core.
+Hint Resolve zpair_functional_cons_inv : core.
 
-Lemma zip_pair_lookup_l' {A B} {l1 : list A} {l2 : list B} {i x1} :
+Global Hint Extern 0 =>
+  match goal with
+  | H : zpair_functional (_ :: ?a) (_ :: ?b) |- zpair_functional ?a ?b =>
+      apply zpair_functional_cons_inv in H; exact H
+  end : core.
+
+Lemma zpair_functional_fmap_l {A A' B : Type} (f : A → A') (xs : list A) (ys : list B) `{!Inj (=) (=) f} :
+  zpair_functional xs ys →
+  zpair_functional (f <$> xs) ys.
+Proof with auto.
+  intros. intros x y1 y2 ??. apply elem_of_zpair_fmap_l in H0 as (x0&?&?).
+  apply elem_of_zpair_fmap_l in H1 as (x0'&?&?). subst. apply Inj0 in H3 as ->...
+Qed.
+
+Lemma zpair_functional_fmap_r {A B B' : Type} (f : B → B') (xs : list A) (ys : list B) `{!Inj (=) (=) f} :
+  zpair_functional xs ys →
+  zpair_functional xs (f <$> ys).
+Proof with auto.
+  intros. intros x y1 y2 ??. apply elem_of_zpair_fmap_r in H0 as (y0&?&?).
+  apply elem_of_zpair_fmap_r in H1 as (y0'&?&?). subst. f_equal...
+Qed.
+
+Lemma zpair_lookup_l' {A B} {l1 : list A} {l2 : list B} {i x1} :
   length l1 = length l2 →
   l1 !! i = Some x1 → ∃ x2, l2 !! i = Some x2.
 Proof with auto.
@@ -753,25 +899,27 @@ Proof with auto.
     simpl in E. subst i. lia.
 Qed.
 
-Lemma zip_pair_lookup_l {A B} {l1 : list A} {l2 : list B} {x1} :
+Lemma zpair_lookup_l {A B} {l1 : list A} {l2 : list B} {x1} :
   length l1 = length l2 →
   x1 ∈ l1 → ∃ x2, (x1, x2) ∈ (l1, l2).
 Proof with auto.
   intros. apply elem_of_list_lookup in H0 as [i ?].
-  destruct (zip_pair_lookup_l' H H0) as [x2 ?]. exists x2. apply elem_of_zip_pair.
+  destruct (zpair_lookup_l' H H0) as [x2 ?]. exists x2. apply elem_of_zpair.
   exists i. split...
 Qed.
 
-Lemma list_to_map_zip_lookup_zip_pair_functional {A B} `{Countable A} {x y} {xs : list A} {ys : list B} :
-  zip_pair_functional (x :: xs) (y :: ys) →
+Global Hint Extern 100 =>
+  match goal with
+  | H : zpair_functional (_ :: _) (_ :: _) |- _ => apply zpair_functional_cons_inv in H as ?
+  end : core.
+
+Lemma list_to_map_zip_lookup_zpair_functional {A B} `{Countable A} {x y} {xs : list A} {ys : list B} :
+  zpair_functional (x :: xs) (y :: ys) →
   length xs = length ys →
   x ∈ xs →
   (list_to_map (zip xs ys) : gmap A B) !! x = Some y.
 Proof with auto.
-  intros.
-  destruct (list_to_map (zip xs ys) !! x) as [y'|] eqn:E.
-  - apply lookup_list_to_map_zip_Some in E as (i&?&?&?)... enough (y = y') by (subst; auto).
-    unfold zip_pair_functional in H0. apply (H0 0 (S i) x);
-      apply elem_of_zip_pair_indexed...
+  intros. destruct (list_to_map (zip xs ys) !! x) as [y'|] eqn:E.
+  - apply lookup_list_to_map_zip_Some in E as (i&?&?&?)... f_equal. apply (H0 x)...
   - exfalso. apply lookup_list_to_map_zip_None in E...
 Qed.

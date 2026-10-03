@@ -1119,20 +1119,20 @@ Section syntax.
     x ∈ asgn_opens (split_asgn_list xs rhs) ↔ (x, OpenRhsTerm) ∈ (xs, rhs).
   Proof with auto.
     induction_same_length xs rhs as l r.
-    - simpl. unfold zip_pair_elem_of. pose proof (elem_of_zip_pair_nil x (OpenRhsTerm)).
+    - simpl. unfold zpair_elem_of. pose proof (elem_of_zpair_nil x (OpenRhsTerm)).
       set_solver.
     - intros. assert (Hl := of_same_length_rest H'). apply NoDup_cons in H as [].
       destruct (decide (x = l)).
-      2:{ rewrite elem_of_zip_pair_hd_ne... destruct r.
+      2:{ rewrite elem_of_zpair_cons_r_iff... destruct r.
           - erewrite split_asgn_list_cons_open. rewrite asgn_opens_with_open.
             rewrite elem_of_cons. rewrite IH... naive_solver.
           - erewrite split_asgn_list_cons_closed. rewrite asgn_opens_with_closed.
             rewrite IH... }
       subst l. destruct r.
       + erewrite split_asgn_list_cons_open. rewrite asgn_opens_with_open.
-        rewrite elem_of_cons. rewrite IH... rewrite elem_of_zip_pair_hd... split...
+        rewrite elem_of_cons. rewrite IH... rewrite elem_of_zpair_cons_l_iff... split...
       + erewrite split_asgn_list_cons_closed. rewrite asgn_opens_with_closed.
-        rewrite IH... rewrite elem_of_zip_pair_hd... split; [|discriminate]. intros (i&?&?).
+        rewrite IH... rewrite elem_of_zpair_cons_l_iff... split; [|discriminate]. intros (i&?&?).
         simpl in H1, H2. apply elem_of_list_lookup_2 in H1. contradiction.
   Qed.
 
@@ -1142,25 +1142,25 @@ Section syntax.
       (x, FinalRhsTerm t) ∈ (xs, rhs).
   Proof with auto.
     induction_same_length xs rhs as l r.
-    - simpl. unfold zip_pair_elem_of. pose proof (elem_of_zip_pair_nil x t).
-      pose proof (elem_of_zip_pair_nil x (FinalRhsTerm t)). set_solver.
+    - simpl. unfold zpair_elem_of. pose proof (elem_of_zpair_nil x t).
+      pose proof (elem_of_zpair_nil x (FinalRhsTerm t)). set_solver.
     - intros. assert (Hl := of_same_length_rest H'). apply NoDup_cons in H as [].
       destruct (decide (x = l)).
-      2:{ rewrite elem_of_zip_pair_hd_ne... destruct r.
+      2:{ rewrite elem_of_zpair_cons_r_iff... destruct r.
           - erewrite split_asgn_list_cons_open. rewrite asgn_xs_with_open.
             rewrite asgn_ts_with_open. rewrite IH...
           - erewrite split_asgn_list_cons_closed. rewrite asgn_xs_with_closed.
-            rewrite asgn_ts_with_closed. rewrite elem_of_zip_pair_hd_ne... }
+            rewrite asgn_ts_with_closed. rewrite elem_of_zpair_cons_r_iff... }
       subst l. destruct r.
       + erewrite split_asgn_list_cons_open. rewrite asgn_xs_with_open. rewrite asgn_ts_with_open.
-        rewrite IH... rewrite elem_of_zip_pair_hd... split; [|discriminate]. intros (i&?&?).
+        rewrite IH... rewrite elem_of_zpair_cons_l_iff... split; [|discriminate]. intros (i&?&?).
         simpl in H1, H2. apply elem_of_list_lookup_2 in H1. contradiction.
       + erewrite split_asgn_list_cons_closed. rewrite asgn_xs_with_closed.
-        rewrite asgn_ts_with_closed. rewrite (elem_of_zip_pair_hd (FinalRhsTerm t))...
+        rewrite asgn_ts_with_closed. rewrite (elem_of_zpair_cons_l_iff (FinalRhsTerm t))...
         split.
         * intros (i&?). destruct i.
-          -- apply elem_of_zip_pair_hd_indexed in H1 as [_ ?]. subst...
-          -- apply elem_of_zip_pair_tl_indexed in H1. apply elem_of_zip_pair_indexed_inv in H1.
+          -- apply elem_of_zpair_indexed_cons_l in H1 as [_ ?]. subst...
+          -- apply elem_of_zpair_indexed_cons_r in H1. apply elem_of_zpair_indexed_inv in H1.
              rewrite IH in H1... destruct H1 as (j&?&?). simpl in H1.
              apply elem_of_list_lookup_2 in H1. contradiction.
         * intros. inversion H1. subst t0. exists 0. split; simpl...
@@ -1203,9 +1203,9 @@ Section syntax.
     asgn_opens (split_asgn_list xs rhs) ≡ₚ asgn_opens (split_asgn_list xs' rhs').
   Proof with auto.
     generalize dependent xs'. generalize dependent rhs'. induction_same_length xs rhs as l r.
-    - apply zip_pair_Permutation_nil_inv_l in H2... destruct H2 as [-> ->]. simpl...
+    - apply zpair_Permutation_nil_inv_l in H2... destruct H2 as [-> ->]. simpl...
     - intros. apply NoDup_cons in H as []. assert (Hl:=of_same_length_rest H').
-      apply zip_pair_Permutation_cons_inv_l in H1...
+      apply zpair_Permutation_cons_inv_l in H1...
       destruct H1 as (xs'0&ys'0&xs'1&ys'1&?&?&?&?&?). destruct r.
       + erewrite split_asgn_list_cons_open. rewrite asgn_opens_with_open.
         subst. erewrite asgn_opens_app. erewrite split_asgn_list_cons_open.
@@ -1234,9 +1234,9 @@ Section syntax.
       (asgn_xs (split_asgn_list xs' rhs'), asgn_ts (split_asgn_list xs' rhs')).
   Proof with auto.
     generalize dependent xs'. generalize dependent rhs'. induction_same_length xs rhs as l r.
-    - apply zip_pair_Permutation_nil_inv_l in H2... destruct H2 as [-> ->]. simpl...
+    - apply zpair_Permutation_nil_inv_l in H2... destruct H2 as [-> ->]. simpl...
     - intros. apply NoDup_cons in H as []. assert (Hl:=of_same_length_rest H').
-      apply zip_pair_Permutation_cons_inv_l in H1...
+      apply zpair_Permutation_cons_inv_l in H1...
       destruct H1 as (xs'0&ys'0&xs'1&ys'1&?&?&?&?&?). destruct r.
       + erewrite split_asgn_list_cons_open. rewrite asgn_xs_with_open. rewrite asgn_ts_with_open.
         subst.
@@ -1248,16 +1248,16 @@ Section syntax.
         Unshelve. typeclasses eauto.
       + subst. erewrite asgn_xs_app. erewrite asgn_ts_app.
         repeat erewrite split_asgn_list_cons_closed. repeat erewrite asgn_xs_with_closed.
-        repeat erewrite asgn_ts_with_closed. rewrite zip_pair_Permutation_app_comm.
+        repeat erewrite asgn_ts_with_closed. rewrite zpair_Permutation_app_comm.
         2:{ apply asgn_of_same_length. }
         2:{ eapply of_same_length_cons. Unshelve. apply asgn_of_same_length. }
-        simpl. apply zip_pair_Permutation_cons.
+        simpl. apply zpair_Permutation_cons.
         1:{ apply asgn_of_same_length. }
         1:{ eapply of_same_length_app. Unshelve. all: apply asgn_of_same_length. }
         rewrite IH with (xs':=xs'1 ++ xs'0) (rhs':=ys'1 ++ ys'0)...
         2:{ apply NoDup_app in H0 as (?&?&?). apply NoDup_cons in H3 as []. apply NoDup_app.
             split_and!... intros. intros contra. apply H1 in contra. set_solver. }
-        2:{ rewrite zip_pair_Permutation_app_comm... }
+        2:{ rewrite zpair_Permutation_app_comm... }
         erewrite asgn_xs_app. erewrite asgn_ts_app...
         Unshelve. typeclasses eauto.
   Qed.
