@@ -188,13 +188,13 @@ Section refinement.
     - rewrite subst_non_free...
   Qed.
 
-  Lemma initials_closed_app_inr A w1 w2 :
-    initials_closed A w2 →
+  Lemma initials_closed_app_l A w1 w2 :
+    initials_closed A w1 →
     initials_closed A (w1 ++ w2).
   Proof with auto. unfold initials_closed in *. intros. apply H. set_solver. Qed.
 
-  Lemma initials_closed_app_inl A w1 w2 :
-    initials_closed A w1 →
+  Lemma initials_closed_app_r A w1 w2 :
+    initials_closed A w2 →
     initials_closed A (w1 ++ w2).
   Proof with auto. unfold initials_closed in *. intros. apply H. set_solver. Qed.
 
@@ -207,13 +207,13 @@ Section refinement.
   Hint Extern 0 =>
     match goal with
     | H : initials_closed ?A ?w1 |- initials_closed ?A (?w1 ++ _) =>
-        apply initials_closed_app_inl; exact H
+        apply initials_closed_app_l; exact H
     end : core.
 
   Hint Extern 0 =>
     match goal with
     | H : initials_closed ?A ?w2 |- initials_closed ?A (_ ++ ?wp2) =>
-        apply initials_closed_app_inr; exact H
+        apply initials_closed_app_r; exact H
     end : core.
 
   Lemma Permutation_app_cons_r_comm {A : Type} {x : A} {X Y : list A} :
@@ -1899,90 +1899,155 @@ Section refinement.
 
   Lemma r_varlist_app xs1 xs2 p :
     <{ |[ var* $(xs1 ++ xs2) ⦁ $p ]| }> ≡ <{ |[ var* $(xs2 ++ xs1) ⦁ $p ]| }>.
+  Proof. apply r_varlist_permute. apply Permutation_app_comm. Qed.
+
+  (* Lemma temp A x t : *)
+  (*   ∀ σ, feval σ <! A[x \ t] !> ↔ feval σ A → *)
+  (*   ∀ σ, feval (delete x σ) A ↔ feval σ A. *)
+  (* Proof. *)
+  (*   intros.  *)
+
+  (*   int *)
+  (*   <! A[x\t] !> ≡ <! A !> → *)
+
+
+  (* Lemma subst_id_inject_l A (x y z : variable) t : *)
+  (*   x ∉ term_fvars t → *)
+  (*   <! A[x\z] !> ≡ <! A !> → *)
+  (*   <! A[y\t][x\z] !> ≡ <! A[y\t] !>. *)
+  (* Proof with auto. *)
+  (*   intros. *)
+  (*   destruct (decide (y = x)). *)
+  (*   - subst. destruct (decide (x ∈ formula_fvars A)). *)
+  (*     + rewrite subst_non_free with (t:=z)... intros contra. rewrite fvars_subst in contra... *)
+  (*       set_solver. *)
+  (*     + repeat rewrite subst_non_free... *)
+  (*   - rewrite subst_subst_l. *)
+  (*     destruct (decide (y = z)). *)
+  (*     + rewrite *)
+  (*       subst. rewrite <- H0 at 1. rewrite fequiv_subst_trans. *)
+  (*     rewrite fsubst_fsubst_ne. *)
+  (*     rewrite fequiv_subst_comm. *)
+  (*     intros σ. split; intros. *)
+  (*     + opose proof (teval_total σ z) as (vz&?). *)
+  (*       rewrite feval_subst in H1 by exact H2... *)
+  (*       opose proof (teval_total (<[x:=vz]> σ) t) as (vt&?). *)
+  (*       rewrite feval_subst in H1 by exact H3... *)
+  (*       rewrite teval_delete_state_var_head in H3... *)
+  (*       rewrite feval_subst by exact H3... *)
+  (*       unfold state in *. rewrite insert_commute in H1... *)
+  (*       rewrite <- teval_delete_state_var_head with (x:=y) (v:=vt) in H2. *)
+  (*       2: {   } *)
+  (*       apply H0 in H1. *)
+
+
+  (*     mk_fresh (formula_fvars A ∪ {[x; y; z]} ∪ term_fvars t) as u. *)
+  (*     destruct (decide (z = y)). *)
+  (*     + subst. rewrite <- H0 at 1. rewrite fequiv_subst_trans. *)
+  (*     rewrite subst_subst_l with (z:=u)... *)
+  (*     2-6: set_solver. *)
+  (*     simpl. destruct (decide (_)). *)
+  (*     + subst. assert (z ≠) *)
+  (*     2: set_solver. *)
+  (*     rewrite H1 at 1... *)
+  (* Qed. *)
+  Lemma meqsubst_initials_closed (A : formula) w (xs : list final_variable)
+      (ts : list final_term) `{!OfSameLength (↑ₓ xs) (⇑ₜ ts)} :
+    initials_closed A w →
+    initials_closed <! A [[↑ₓ xs \ ⇑ₜ ts]] !> w.
   Proof with auto.
-    intros A. do 2 rewrite wp_varlist...
-    set (fresh_vars_for_varlist (xs1 ++ xs2) p A) as zs12.
-    set (fresh_vars_for_varlist (xs2 ++ xs1) p A) as zs21.
-    set (xs1 ++ xs2) as xs12.
-    set (xs2 ++ xs1) as xs21.
-    assert (zpair_functional ↑ₓ zs12 (@TVar M <$> (as_var <$> xs12))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_injective_flip. apply fresh_vars_for_varlist_zpair_injective.}
-    assert (zpair_functional ↑ₓ zs21
-              (@TVar M <$> (as_var <$> xs21))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_injective_flip. apply fresh_vars_for_varlist_zpair_injective.}
-    rewrite seqsubst_msubst...
-    2: admit.
-    rewrite msubst_zpair_Permutation' with (xs':=as_var <$> zs21) (ts':=@TVar M <$> (as_var <$> xs21)).
-    2:{
+    intros. intros x ?.
+    split; intros.
+    - pose proof (teval_total σ x) as (v&?).
+      rewrite feval_subst with (v:=v) in H1...
+      opose proof (teval_vtmap_total _ _) as (mv&?).
+      rewrite feval_msubst with (mv:=mv) in H1; [|exact H3].
+      unfold state in *.
+      rewrite insert_union_singleton_l in H3.
+      rewrite teval_vtmap_delete_state_vtmap_head in H3.
+      2: admit.
+      rewrite <- insert_union_r in H1.
+      2:{
+        destruct (mv !! ₀x) eqn:E... apply elem_of_dom_2 in E. destruct H3 as [].
+        rewrite H3 in E. unfold to_vtmap in E. rewrite dom_list_to_map_L in E.
+        rewrite elem_of_list_to_set in E. set_unfold in E. simpl in E.
+        destruct E as (x0&?&?). destruct x0. apply elem_of_zip_l in H6.
+        set_unfold in H6. destruct H6 as (x'&->&?). set_solver. }
+      rewrite feval_msubst with (mv:=mv)...
+      rewrite <- (H x)...
+      rewrite H in H1.
+      rewrite map_union_comm in H1.
+      2:{
+        Unset Printing Notations.
+      }
+      insert_union_r
+      rewrite feval_msubst with (mv:=mv)...
+      union_insert_delete
+      pose proof (@union_comm_L).
+      unfold Comm in H4.
+      apply union_comm_L in H1.
+    rewrite <- (H x H0) at 2.
+    rewrite <- msubst_extract_l.
+    msubst_msubst_disj
+    unfold initials_closed in H.
 
-    }
-    zpair_functional_fmap
-    apply fforall
-
-    rewrite foralllist_app.
-    rewrite f_foralllist_comm.
-    Unshelve.
-    2:{
-      typeclasses eauto.
-    }
-    final_formula_formula_final
-    Set Printing All.
-      Show Proof.
-    - type
-    seqsubst_proper
-
-    zpair_Permutation
-
-    intros A. generalize dependent xs2. generalize dependent A.
-    induction xs1 as [|x xs1]; intros.
-    - simpl. rewrite app_nil_r...
-    - simpl app.
-      mk_fresh (prog_fvars p ∪ {[as_var x]} ∪ formula_fvars A) as z.
-      rewrite wp_varlist_cons with (y:=z) by set_solver...
-      specialize (IHxs1 (as_final_formula <! A [x \ z] !>) xs2).
-      rewrite IHxs1. simpl.
-    do 2 rewrite wp_varlist. do 2 rewrite fmap_app.
-    do 2 rewrite foralllist_app. rewrite f_foralllist_comm...
-  Qed.
-  Lemma r_varlist_permute xs xs' p :
-    xs ≡ₚ xs' →
-    <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
-  Proof with auto.
-    intros Hperm A. generalize dependent xs'. generalize dependent A.
-    induction xs as [|x xs]; intros.
-    - destruct xs'... apply Permutation_cons_inv_r in Hperm as (?&?&?&?).
-      symmetry in H. apply app_eq_nil in H as [].  discriminate.
-    - apply Permutation_cons_inv_l in Hperm as (l1&l2&?&?). subst xs'.
-      mk_fresh (prog_fvars p ∪ {[as_var x]} ∪ formula_fvars A) as z.
-      rewrite wp_varlist_cons with (y:=z) by set_solver.
-      apply app_nil_r in H.
+    rewrite subst_msubst
+    rewrite <- msubst_subst_comm'.
+    - rewrite (H x H0)...
+    - set_solver.
+    - set_unfold. intros (t&?&t'&->&?). apply final_term_final in H1.
+      apply var_final_initial_var_of in H1 as [].
     -
-    simpl.
-    do 2 rewrite wp_varlist. rewrite f_foralllist_permute; [reflexivity|].
-    apply Permutation_map. assumption.
-  Qed.
-
-  Lemma r_varlist_app xs1 xs2 p :
-    <{ |[ var* $(xs1 ++ xs2) ⦁ $p ]| }> ≡ <{ |[ var* $(xs2 ++ xs1) ⦁ $p ]| }>.
-  Proof with auto.
-    intros A. do 2 rewrite wp_varlist. do 2 rewrite fmap_app.
-    do 2 rewrite foralllist_app. rewrite f_foralllist_comm...
-  Qed.
+    specialize (H x H0).
+  (*   Unset Printing Notations. Set Printing All. *)
+  (*   initials_closed A w → *)
+  (*   <! A[_₀\*] !> ≡ <! A[_₀\w] !>. *)
+  (* Proof with auto. *)
+  (*   unfold subst_all_initials. rewrite initials_closed_alt'. *)
+  (*   remember (finalized_initial_fvars A) as la eqn:E. *)
+  (*   assert (<! A[_₀\la] !> ≡ <! A [_₀\finalized_initial_fvars A] !>) by (by subst). *)
+  (*   clear E. revert H. revert la. generalize dependent A. *)
+  (*   induction w as [|x w]; intros. *)
+  (*   - induction la as [|x la]... rewrite subst_initials_cons_l in H |- *. *)
+  (*     destruct (decide (₀x ∈ formula_fvars A)). *)
+  (*     + rewrite H0 in H |- *... *)
+  (*       1,2: set_solver. *)
+  (*     + rewrite subst_non_free in H |- *... *)
+  (*   - destruct (decide (x ∈ w)). *)
+  (*     { rewrite subst_initials_cons_dup... apply IHw... set_solver. } *)
+  (*     destruct (decide (x ∈ finalized_initial_fvars A)). *)
+  (*     + assert (e':=e). set_unfold in e'. pose proof (finalized_initial_fvars_NoDup A). *)
+  (*       apply elem_of_list_In in e. apply in_split in e as (l1&l2&?). *)
+  (*       rewrite H2 in *. apply NoDup_app in H1 as (?&?&?). apply NoDup_cons in H4 as []. *)
+  (*       rewrite Permutation_app_cons_r_comm in *. rewrite H. *)
+  (*       do 2 rewrite subst_initials_cons_l. *)
+  (*       enough (l1 ++ l2 ≡ₚ finalized_initial_fvars <! A [₀x \ x] !>). *)
+  (*       * rewrite H6. apply IHw... intros. rewrite fvars_subst in H8... *)
+  (*         set_unfold in H8. destruct H8 as [[] |]. *)
+  (*         -- rewrite fequiv_subst_comm by (auto; set_solver). *)
+  (*            rewrite H0... set_solver. *)
+  (*         -- apply initial_var_of_eq_final_variable in H8 as []. *)
+  (*       * rewrite finalized_initial_fvars_subst_perm. *)
+  (*         -- rewrite H2. rewrite Permutation_app_cons_r_comm. rewrite delete_cons. *)
+  (*            rewrite delete_eq by set_solver... *)
+  (*         -- assert (x ∈ finalized_initial_fvars A) by (rewrite H2; set_solver). *)
+  (*            set_solver. *)
+  (*     + rewrite subst_initials_cons_l. rewrite subst_non_free; [apply IHw|]; set_solver. *)
+  (*   Qed. *)
 
   Lemma r_following_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!OfSameLength xs ts} :
+    initials_closed post (w ++ xs) →
     length xs ≠ 0 →
     NoDup xs →
     <{ *w, *xs : [pre, post] }> ⊑
     <{ *w, *xs : [pre, post[[↑ₓ xs \ ⇑ₜ ts]]]; *xs := *(FinalRhsTerm <$> ts) }>.
   Proof with auto.
-    intros Hlength Hnodup A. simpl. rewrite wp_asgn. fSimpl. rewrite <- simpl_msubst_impl.
-    f_equiv. rewrite fmap_app. do 2 rewrite foralllist_app. f_equiv.
+    intros Hclosed Hlength Hnodup A. rewrite wp_spec...
+    simpl.
+    rewrite (wp_spec' (w ++ xs) (as_final_formula pre))...
+    2: subst_all_initials_closed
+    rewrite wp_asgn. simpl. f_equiv. rewrite <- simpl_msubst_impl. f_equiv.
+    rewrite fmap_app. do 2 rewrite foralllist_app. f_equiv.
     rewrite <- f_foralllist_idemp. rewrite (f_foralllist_elim_as_msubst <! post ⇒ A !>)...
     - reflexivity.
     - rewrite length_fmap...
