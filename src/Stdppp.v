@@ -840,7 +840,6 @@ Global Hint Extern 0 =>
     |- ?y1 = ?y2 => apply (H x); [exact H1 | exact H2]
   end : core.
 
-
 Lemma NoDup_zpair_functional {A B} (xs : list A) (ys : list B) :
   NoDup xs →
   zpair_functional xs ys.

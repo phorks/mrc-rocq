@@ -1257,7 +1257,7 @@ Section refinement.
     - apply zpair_permute_superset... set_solver.
   Qed.
 
-  Lemma zpair_permute_zpair_functional {A B : Type} (xs : list A) (ys : list B) (xs' : list A)
+  Lemma zpair_permute_functional {A B : Type} (xs : list A) (ys : list B) (xs' : list A)
       `{!EqDecision A} `{!Inhabited B} :
     length xs ≤ length ys →
     zpair_functional xs ys →
@@ -1289,7 +1289,7 @@ Section refinement.
       |- ?x1 = ?x2 => apply (H _ _ y); [exact H1 | exact H2]
     end : core.
 
-  Lemma zpair_permute_zpair_injective {A B : Type} (xs : list A) (ys : list B) (xs' : list A)
+  Lemma zpair_permute_injective {A B : Type} (xs : list A) (ys : list B) (xs' : list A)
       `{!EqDecision A} `{!Inhabited B} :
     length xs ≤ length ys →
     zpair_injective xs ys →
@@ -1459,71 +1459,23 @@ Section refinement.
   Qed.
 
   Definition fresh_vars_for_varlist xs p A `{!FormulaFinal A} : list final_variable :=
-    let xs' := dedup xs in
-    let zs' := fresh_vars_for_varlist' xs' p A in
-    let fix go (ys : list final_variable) : list final_variable :=
-      match ys with
-      | [] => []
-      | y :: ys =>
-          match first_index_of y xs' with
-          | None => []
-          | Some i => zs' !!! i :: go ys
-          end
-      end in
-    go xs.
+    zpair_permute (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A) xs.
 
-  Local Lemma fresh_vars_for_varlist_subset xs p A `{!FormulaFinal A} :
+  Lemma fresh_vars_for_varlist_subset xs p A `{!FormulaFinal A} :
     fresh_vars_for_varlist xs p A ⊆ fresh_vars_for_varlist' (dedup xs) p A.
   Proof with auto.
-    unfold fresh_vars_for_varlist.
     pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
-    assert (xs ⊆ dedup xs) by set_solver.
-    remember (dedup xs) as dxs. clear Heqdxs.
-    remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
-    induction xs as [|x xs]; intros.
-    - set_solver.
-    - destruct (first_index_of x dxs) as [i|] eqn:E.
-      + apply first_index_of_Some_inv in E as [E' _].
-        symmetry in H. destruct (zpair_lookup_l' H E') as [z ?].
-        apply list_lookup_total_correct in H1 as H2. rewrite H2.
-        apply elem_of_list_lookup_2 in H1.
-        apply list_subseteq_cons_iff. split... apply IHxs.
-        set_solver.
-      + apply first_index_of_None_inv in E. set_solver.
+    unfold fresh_vars_for_varlist. apply zpair_permute_subset; [lia|set_solver].
   Qed.
 
-  Local Lemma fresh_vars_for_varlist_superset xs p A `{!FormulaFinal A} :
+  Hint Extern 0 (zpair_functional (dedup _) _) =>
+         apply NoDup_zpair_functional; apply dedup_NoDup : core.
+
+  Lemma fresh_vars_for_varlist_superset xs p A `{!FormulaFinal A} :
     fresh_vars_for_varlist' (dedup xs) p A ⊆ fresh_vars_for_varlist xs p A.
   Proof with auto.
-    enough (zpair_image xs (dedup xs) (fresh_vars_for_varlist' (dedup xs) p A)
-              ⊆ fresh_vars_for_varlist xs p A).
-    {
-      rewrite zpair_image_sub_1 in H by set_solver...
-      rewrite zpair_image_diag_1 in H.
-      pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
-      rewrite <- H0 in H. rewrite take_all in H...
-    }
-    unfold fresh_vars_for_varlist.
     pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
-    assert (xs ⊆ dedup xs) by set_solver.
-    assert (NoDup (dedup xs)) by apply dedup_NoDup.
-    remember (dedup xs) as dxs. clear Heqdxs.
-    remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
-    induction xs as [|x xs]; intros.
-    - rewrite zpair_image_nil_1...
-    - destruct (first_index_of x dxs) as [i|] eqn:E.
-      + apply list_subseteq_cons_iff in H0 as [? ?]. destruct (decide (x ∈ xs)).
-        * assert (x :: xs ≡ xs) by set_solver. rewrite H3. apply list_subseteq_cons...
-        * symmetry in H. apply first_index_of_Some_inv in E as [? _].
-          pose proof (zpair_lookup_l' H H3) as [dy ?].
-          eapply subseteq_proper.
-          -- apply zpair_image_cons_1...
-            ++ lia.
-            ++ apply NoDup_zpair_functional...
-            ++ apply elem_of_zpair. eauto.
-          -- reflexivity.
-          -- apply list_lookup_total_correct in H4. rewrite H4. apply cons_proper_subseteq...
-      + apply first_index_of_None_inv in E. set_solver.
+    unfold fresh_vars_for_varlist. apply zpair_permute_superset; [lia| |set_solver]...
   Qed.
 
   Lemma fresh_vars_for_varlist_equiv  xs p A `{!FormulaFinal A} :
@@ -1536,23 +1488,7 @@ Section refinement.
 
   Lemma fresh_vars_for_varlist_length xs p A `{!FormulaFinal A} :
     length (fresh_vars_for_varlist xs p A) = length xs.
-  Proof with auto.
-    unfold fresh_vars_for_varlist.
-    assert (xs ⊆ dedup xs) by set_solver.
-    remember (dedup xs) as dxs. clear Heqdxs.
-    remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
-    induction xs as [|x xs]; intros...
-    destruct (first_index_of x dxs) as [i|] eqn:E.
-    + simpl. f_equal. apply IHxs. set_solver.
-    + apply first_index_of_None_inv in E. set_solver.
-  Qed.
-
-  (* Global Instance elem_of_list_indexed {A : Type} : ElemOf (nat * A) (list A) := *)
-  (*   λ ix (xs : list A), xs !! ix.1 = Some ix.2. *)
-
-  (* Lemma elem_of_list_indexed_lookup {A : Type} i (x : A) (xs : list A) : *)
-  (*   (i, x) ∈ xs ↔ xs !! i = Some x. *)
-  (* Proof. reflexivity. Qed. *)
+  Proof. apply zpair_permute_length. Qed.
 
   Lemma elem_of_zpair_cons {A B : Type} x0 y0 x y (xs : list A) (ys : list B) :
     (x0, y0) ∈ (x :: xs, y :: ys) ↔
@@ -1564,7 +1500,6 @@ Section refinement.
       + simpl in *. right...
     - destruct H... exists 0. split; naive_solver.
   Qed.
-
 
   Lemma zpair_functional_cons {A B : Type} x (xs : list A) y (ys : list B) :
     length xs = length ys →
@@ -1578,43 +1513,40 @@ Section refinement.
         apply elem_of_zpair_cons in H3 as []; naive_solver.
   Qed.
 
-  Lemma fresh_vars_for_varlist_elem_inv xs p A `{!FormulaFinal A} i x z :
-    (i, (x, z)) ∈ (xs, fresh_vars_for_varlist xs p A) →
-    ∃ j, (j, (x, z)) ∈ (dedup xs, fresh_vars_for_varlist' (dedup xs) p A).
-  Proof with auto.
-    unfold fresh_vars_for_varlist.
-    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
-    remember (dedup xs) as dxs. clear Heqdxs.
-    remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs.
-    revert z x i. induction xs as [|x xs]; intros.
-    { rewrite elem_of_zpair_indexed in H0. naive_solver. }
-    destruct (first_index_of x dxs) as [k|] eqn:E.
-    + apply first_index_of_Some_inv in E as [? _].
-      symmetry in H. pose proof (zpair_lookup_l' H H1) as (dz&?).
-      destruct i.
-      * apply elem_of_zpair_hd_indexed in H0 as (?&?). subst x0.
-        apply list_lookup_total_correct in H2 as H4. rewrite H4 in H3. subst dz. clear H4.
-        exists k. apply elem_of_zpair_indexed...
-      * apply elem_of_zpair_tl_indexed in H0. apply IHxs in H0...
-    + rewrite elem_of_zpair_indexed in H0. naive_solver.
-  Qed.
+  (* Lemma fresh_vars_for_varlist_elem_inv xs p A `{!FormulaFinal A} i x z : *)
+  (*   (i, (x, z)) ∈ (xs, fresh_vars_for_varlist xs p A) → *)
+  (*   ∃ j, (j, (x, z)) ∈ (dedup xs, fresh_vars_for_varlist' (dedup xs) p A). *)
+  (* Proof with auto. *)
+  (*   unfold fresh_vars_for_varlist. *)
+  (*   pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?). *)
+  (*   remember (dedup xs) as dxs. clear Heqdxs. *)
+  (*   remember (fresh_vars_for_varlist' dxs p A) as dzs. clear Heqdzs. *)
+  (*   revert z x i. induction xs as [|x xs]; intros. *)
+  (*   { rewrite elem_of_zpair_indexed in H0. naive_solver. } *)
+  (*   destruct (first_index_of x dxs) as [k|] eqn:E. *)
+  (*   + apply first_index_of_Some_inv in E as [? _]. *)
+  (*     symmetry in H. pose proof (zpair_lookup_l' H H1) as (dz&?). *)
+  (*     destruct i. *)
+  (*     * apply elem_of_zpair_hd_indexed in H0 as (?&?). subst x0. *)
+  (*       apply list_lookup_total_correct in H2 as H4. rewrite H4 in H3. subst dz. clear H4. *)
+  (*       exists k. apply elem_of_zpair_indexed... *)
+  (*     * apply elem_of_zpair_tl_indexed in H0. apply IHxs in H0... *)
+  (*   + rewrite elem_of_zpair_indexed in H0. naive_solver. *)
+  (* Qed. *)
 
   Lemma fresh_vars_for_varlist_zpair_functional xs p A `{!FormulaFinal A} :
     zpair_functional xs (fresh_vars_for_varlist xs p A).
   Proof with auto.
-    pose proof (fresh_vars_for_varlist_elem_inv xs p A).
-    intros i j x y1 y2 ??. apply H in H0 as (k&?&?). apply H in H1 as (k'&?&?).
-    simpl in *. pose proof (dedup_NoDup xs).
-    pose proof (NoDup_lookup _ _ _ _ H4 H0 H1) as ->. naive_solver.
+    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (_&_&_&_&?).
+    unfold fresh_vars_for_varlist. apply zpair_permute_functional; [lia| |set_solver]...
   Qed.
 
   Lemma fresh_vars_for_varlist_zpair_injective xs p A `{!FormulaFinal A} :
     zpair_injective xs (fresh_vars_for_varlist xs p A).
   Proof with auto.
-    pose proof (fresh_vars_for_varlist_elem_inv xs p A).
-    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (?&_).
-    intros i j x1 x2 y ??. apply H in H1 as (k&?&?). apply H in H2 as (k'&?&?).
-    simpl in *. pose proof (NoDup_lookup _ _ _ _ H0 H3 H4) as ->. naive_solver.
+    pose proof (fresh_vars_for_varlist'_spec (dedup xs) p A) as (?&_&_&_&?).
+    unfold fresh_vars_for_varlist. apply zpair_permute_injective; [lia| |set_solver]...
+    apply NoDup_zpair_injective...
   Qed.
 
   Lemma fresh_vars_for_varlist_spec xs p A `{!FormulaFinal A} :
@@ -1650,39 +1582,6 @@ Section refinement.
   Definition fequiv_on_finals (A B : formula) : Prop :=
     FormulaFinal A → FormulaFinal B → A ≡ B.
 
-  Lemma wp_varlist'_NoDup (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
-      (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
-    NoDup xs →
-    NoDup zs →
-    zs ## xs →
-    list_to_set (↑ₓ zs) ## prog_fvars p →
-    list_to_set (↑ₓ zs) ## formula_fvars A →
-    wp <{ |[ var* xs ⦁ $p ]| }> A ≡
-      <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
-  Proof with auto.
-    generalize dependent A. induction_same_length xs zs as x z... intros.
-    apply NoDup_cons in H, H0. rewrite wp_varlist_cons with (y:=z)...
-    2-5: set_solver.
-    simpl fmap at 1. rewrite foralllist_cons. simpl. unshelve rewrite IH...
-    2-5: set_solver.
-    - f_equiv. rewrite simpl_seqsubst_forall.
-      2:{ intros contra. apply (H1 x); set_solver. }
-      2:{ set_unfold. intros []. rewrite to_final_var_as_var in H5. set_solver. }
-      rewrite f_forall_ty_top. f_equiv. unfold fmap at 6 7. apply seqsubst_proper...
-      f_equiv. apply wp_congr...
-      rewrite seqsubst_subst_comm.
-      + f_equiv. apply eq_pi. solve_decision.
-      + set_solver.
-      + set_unfold. contradict H1. intros ?. apply (H4 $ to_final_var x).
-        * set_solver.
-        * rewrite to_final_var_as_var. set_solver.
-      + set_unfold. intros. subst. rewrite to_final_var_as_var in H4. set_solver.
-    - intros y??. apply elem_of_list_to_set in H4. apply fvars_subst_superset' in H5.
-      apply (H3 y).
-      + apply elem_of_list_to_set. set_solver.
-      + set_unfold in H5. destruct H5 as [[] |]... subst. set_solver.
-  Qed.
-
   Lemma equiv_eq {A : Type} `{Equiv A} `{!Reflexive (≡@{A})} (x y : A) :
     x = y → x ≡ y.
   Proof. intros. by subst. Qed.
@@ -1696,8 +1595,7 @@ Section refinement.
     intros. apply zpair_functional_cons in H1 as [? _]...
     apply elem_of_list_lookup_1 in H0 as (i&?).
     pose proof (zpair_lookup_l' H H0) as (y'&?).
-    enough (y' = y) by (subst; apply elem_of_list_lookup_2 in H2; assumption).
-    apply H1 with i. apply elem_of_zpair_indexed...
+    enough (y' = y) by (subst; apply elem_of_list_lookup_2 in H2; assumption)...
   Qed.
 
   Lemma zpair_injective_cons_elem_of_tl {A B : Type} (x : A) (xs : list A) (y : B) (ys : list B) :
@@ -1795,6 +1693,21 @@ Section refinement.
     Unshelve. 1-2: naive_solver.
   Qed.
 
+  Lemma wp_varlist'_NoDup (xs : list final_variable) p (A : formula) `{!FormulaFinal A}
+      (zs : list final_variable) `{!OfSameLength xs zs} `{!OfSameLength zs xs} :
+    NoDup xs →
+    NoDup zs →
+    zs ## xs →
+    list_to_set (↑ₓ zs) ## prog_fvars p →
+    list_to_set (↑ₓ zs) ## formula_fvars A →
+    wp <{ |[ var* xs ⦁ $p ]| }> A ≡
+      <! (∀* ↑ₓ xs, $(wp p <! A[; ↑ₓ xs \ ⇑ₓ zs ;] !>))[; ↑ₓ zs \ ⇑ₓ xs ;] !>.
+  Proof with auto.
+    intros. apply wp_varlist'...
+    - apply NoDup_zpair_functional...
+    - apply NoDup_zpair_injective...
+  Qed.
+
   Lemma of_same_length_comm {A B : Type} (l1 : list A) (l2 : list B) :
     OfSameLength l1 l2 → OfSameLength l2 l1.
   Proof. naive_solver. Qed.
@@ -1820,24 +1733,6 @@ Section refinement.
   Global Instance TVar_inj : Inj (=) (=) (@TVar M).
   Proof. intros ???. by inversion H. Qed.
 
-  (* Global Instance msubst_proper : Proper((≡@{formula}) ==> (≡) ==> (≡)) msubst. *)
-  (* Proof with auto. *)
-  (*   intros A B H m m' ? σ. destruct (teval_vtmap_total σ m) as [mv ?]. *)
-  (*   destruct (teval_vtmap_total σ m') as [mv' ?]. *)
-  (*   pose proof (teval_vtmap_det m mv mv' H1 H2). *)
-  (*   assert (mv = mv'). *)
-  (*   { *)
-
-  (*     teval_vtmap_det *)
-  (*     apply map_eq. intros i. unfold teval_vtmap in H1, H2. *)
-
-  (*   } *)
-  (*   split; repeat rewrite feval_msubst with (mv:=mv); auto; intros. *)
-  (*   - apply H... *)
-  (*   - unfold teval_vtmap. split. *)
-  (*     + rewrite <- H0. *)
-  (* Qed. *)
-
   (* TODO: after move: I think it collides with the existing [lookup_list_to_map_zip_Some_inv]
       lemma *)
   Lemma elem_of_zip {A B : Type} (x : A) (xs : list A) (y : B) (ys : list B) :
@@ -1860,6 +1755,14 @@ Section refinement.
     (x, y) ∈ zip xs ys ↔ ∃ i, xs !! i = Some x ∧ ys !! i = Some y.
   Proof. rewrite elem_of_zip. apply elem_of_zpair. Qed.
 
+  Lemma zpair_Permutation_flip {A B : Type}
+      (xs : list A) (ys : list B) (xs' : list A) (ys' : list B) :
+    (xs, ys) ≡ₚₚ (xs', ys') →
+    (ys, xs) ≡ₚₚ (ys', xs').
+  Proof with auto.
+    unfold zpair_Permutation. setoid_rewrite elem_of_zpair_flip at 1 2. naive_solver.
+  Qed.
+
   (* TODO: rename [zpair_Permutation_list_to_map_zip] to *_NoDup and remove the '
     from this one and prove the other one by invoking this and using NoDup -> functional *)
   Lemma zpair_Permutation_list_to_map_zip' {A B : Type}
@@ -1873,10 +1776,10 @@ Section refinement.
     intros. unfold zpair_Permutation in H. apply map_eq. intros x.
     apply option_eq. intros y. rewrite <- elem_of_list_to_map'.
     2: { intros. apply elem_of_zip' in H3 as (?&?&?).
-          apply elem_of_zip' in H4 as (?&?&?)... }
+          apply elem_of_zip' in H4 as (?&?&?)... apply (H0 x)... }
     rewrite <- elem_of_list_to_map'.
     2: { intros. apply elem_of_zip' in H3 as (?&?&?).
-          apply elem_of_zip' in H4 as (?&?&?)... }
+          apply elem_of_zip' in H4 as (?&?&?)... apply (H1 x)... }
     do 2 rewrite elem_of_zip. specialize (H2 x y)...
   Qed.
 
@@ -1905,71 +1808,93 @@ Section refinement.
     xs ≡ₚ xs' →
     <{ |[ var* xs ⦁ $p ]| }> ≡ <{ |[ var* xs' ⦁ $p ]| }>.
   Proof with auto.
-    intros H A. rewrite wp_varlist...
-    set (fresh_vars_for_varlist xs p A) as zs.
+    intros H A. unshelve rewrite wp_varlist...
+    pose proof (fresh_vars_for_varlist_spec xs p A). simpl in H0.
+    pose proof (fresh_vars_for_varlist_length xs p A).
+    pose proof (fresh_vars_for_varlist_subset xs p A).
+    set (zs:=fresh_vars_for_varlist xs p A) in *.
     assert (OfSameLength xs' (zpair_permute xs zs xs')) as Hlen1.
     { unfold OfSameLength. rewrite zpair_permute_length... }
     assert (OfSameLength (zpair_permute xs zs xs') xs' ) as Hlen2.
     { apply of_same_length_comm... }
+    assert (xs' ⊆ xs) as Htemp.
+    { apply Permutation_equiv_inv in H. apply list_equiv_subseteq in H. naive_solver. }
+    assert (zpair_functional xs' (zpair_permute xs zs xs')).
+    { apply zpair_permute_functional; [lia| naive_solver| auto]. }
+    assert (zpair_injective xs' (zpair_permute xs zs xs')).
+    { apply zpair_permute_injective; [lia| naive_solver| auto]. }
+    assert (zpair_permute xs zs xs' ≡ zs).
+    { destruct_and! H0. apply zpair_permute_equiv... apply Permutation_equiv_inv... }
+    assert (zpair_permute xs zs xs' ## xs').
+    { destruct_and! H0. rewrite H5. apply Permutation_equiv_inv in H. rewrite <- H... }
     symmetry. etrans.
-    - rewrite (wp_varlist' xs' p A (zpair_permute xs zs xs')).
-      1: reflexivity.
-      all: admit.
-    - symmetry.
-      admit.
-    pose proof (fresh_vars_for_varlist_spec xs p A).
-    pose proof (fresh_vars_for_varlist_spec xs' p A).
-    set (fresh_vars_for_varlist xs' p A) as zs'.
-    assert (zpair_functional ↑ₓ zs (@TVar M <$> (as_var <$> xs))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_injective_flip. apply fresh_vars_for_varlist_zpair_injective.}
-    assert (zpair_functional ↑ₓ zs' (@TVar M <$> (as_var <$> xs'))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_injective_flip. apply fresh_vars_for_varlist_zpair_injective.}
-    assert (zpair_functional ↑ₓ xs (@TVar M <$> (as_var <$> zs))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply fresh_vars_for_varlist_zpair_functional. }
-    assert (zpair_functional ↑ₓ xs' (@TVar M <$> (as_var <$> zs'))).
-    { apply zpair_functional_fmap_l; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply zpair_functional_fmap_r; [typeclasses eauto|].
-      apply fresh_vars_for_varlist_zpair_functional. }
-    assert ((↑ₓ xs, (@TVar M <$> (as_var <$> zs))) ≡ₚₚ (↑ₓ xs', (@TVar M <$> (as_var <$> zs')))).
-    {
-      apply zpair_Permutation_fmap... apply zpair_Permutation_fmap_r. intros x z.
-      split; intros.
-      - apply elem_of_zpair_indexed' in H6 as (k&?).
-        apply fresh_vars_for_varlist_elem in H6 as (i&?). clear k.
-      zpair_Permutation
-
-
-    }
-    rewrite seqsubst_msubst...
-    2: set_solver.
-    rewrite msubst_zpair_Permutation' with (xs':=as_var <$> zs')
-                                              (ts':=@TVar M <$> (as_var <$> xs'))...
-    2:{
-      unfold zpair_Permutation. intros.
-      split.
-    }
-    2: admit.
-    rewrite <- seqsubst_msubst...
-    2: set_solver.
-    apply seqsubst_proper...
-    rewrite f_foralllist_permute with (xs':=↑ₓ xs') by (by f_equiv).
-    f_equiv. apply wp_congr...
-    rewrite seqsubst_msubst...
-    2: set_solver.
-    rewrite msubst_zpair_Permutation' with (xs':=as_var <$> xs')
-                                              (ts':=@TVar M <$> (as_var <$> zs'))...
-    2: admit.
-    rewrite <- seqsubst_msubst... set_solver.
+    - apply Permutation_equiv_inv in H.
+      assert (xs' ⊆ xs).
+      { apply list_equiv_subseteq in H. naive_solver. }
+      destruct_and! H0.
+      rewrite (wp_varlist' xs' p A (zpair_permute xs zs xs'))...
+      + intros x??. apply elem_of_list_to_set in H11. set_unfold in H11.
+        destruct H11 as (x'&?&?). apply H5 in H14. apply (H10 x)...
+        apply elem_of_list_to_set. set_unfold. exists x'...
+      + intros x??. apply elem_of_list_to_set in H11. set_unfold in H11.
+        destruct H11 as (x'&?&?). apply H5 in H14. apply (H12 x)...
+        apply elem_of_list_to_set. set_unfold. exists x'...
+    - rewrite seqsubst_msubst...
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          apply zpair_injective_flip... }
+      2:{ set_solver. }
+      rewrite msubst_zpair_Permutation' with (xs':=as_var <$> zs)
+                                              (ts':=@TVar M <$> (as_var <$> xs))...
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          apply zpair_injective_flip... }
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          rewrite <- zpair_injective_flip. naive_solver. }
+      2:{ apply zpair_Permutation_flip.
+          apply zpair_Permutation_fmap_l.
+          apply zpair_Permutation_fmap_l.
+          apply zpair_Permutation_fmap_r.
+          symmetry. apply zpair_permute_Permutation... naive_solver. }
+      rewrite <- seqsubst_msubst...
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          apply zpair_injective_flip... naive_solver. }
+      2:{ set_solver. }
+      apply seqsubst_proper...
+      rewrite f_foralllist_permute with (xs':=↑ₓ xs) by (by f_equiv).
+      f_equiv. apply wp_congr...
+      rewrite seqsubst_msubst...
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          naive_solver. }
+      2:{ set_solver. }
+      rewrite msubst_zpair_Permutation' with (xs':=as_var <$> xs)
+                                              (ts':=@TVar M <$> (as_var <$> zs))...
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|]... }
+      2:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          naive_solver. }
+      2:{ apply zpair_Permutation_fmap_l.
+          apply zpair_Permutation_fmap_r.
+          apply zpair_Permutation_fmap_r.
+          symmetry. apply zpair_permute_Permutation... naive_solver. }
+      rewrite <- seqsubst_msubst...
+      1:{ apply zpair_functional_fmap_l; [apply as_var_inj|].
+          apply zpair_functional_fmap_r; [apply TVar_inj|].
+          apply zpair_functional_fmap_r; [apply as_var_inj|].
+          naive_solver. }
+      set_solver.
+      Unshelve. typeclasses eauto.
   Qed.
 
   Lemma r_varlist_app xs1 xs2 p :
