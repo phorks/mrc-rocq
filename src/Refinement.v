@@ -1932,12 +1932,14 @@ Section refinement.
   (*     rewrite H1 at 1... *)
   (* Qed. *)
 
-  Lemma seqsubst_initials_closed (A : formula) w (xs : list final_variable)
-      (ts : list final_term) `{!OfSameLength (↑ₓ xs) (⇑ₜ ts)} :
+  Lemma msubst_initials_closed (A : formula) w (xs : list variable)
+      (ts : list term) `{!OfSameLength xs ts} :
     initials_closed A w →
-    initials_closed <! A [[↑ₓ xs \ ⇑ₜ ts]] !> w.
+    (∀ x, ₀x ∈ xs → x ∈ w) →
+    (∀ x t, t ∈ ts → ₀x ∈ term_fvars t → x ∈ w) →
+    initials_closed <! A [[*xs \ *ts]] !> w.
   Proof with auto.
-    intros HH. pose proof (initials_closed_strong A w HH) as H. clear HH.
+    intros HH. pose proof (initials_closed_strong A w HH) as H. clear HH. intros Hxs Hts.
     split; intros.
     - pose proof (teval_total σ x) as (v&?).
       rewrite feval_subst with (v:=v) in H1...
@@ -1950,17 +1952,15 @@ Section refinement.
         intros x0 ??. set_unfold in H4. subst.
         apply elem_of_vtmap_fvars in H5 as (x'&t&?&?).
         unfold to_vtmap in H4. apply elem_of_list_to_map_2 in H4.
-        apply elem_of_zip_r in H4 as H6. apply elem_of_zip_l in H4.
-        set_unfold in H4. destruct H4 as (?&->&?). set_unfold in H6.
-        destruct H6 as (t'&->&?). apply term_is_final in H5.
-        apply var_final_initial_var_of in H5 as []. }
+        apply elem_of_zip_r in H4 as H6.
+        apply (Hts x) in H6... }
       rewrite <- insert_union_r in H1.
       2:{
         destruct (mv !! ₀x) eqn:E... apply elem_of_dom_2 in E. destruct H3 as [].
         rewrite H3 in E. unfold to_vtmap in E. rewrite dom_list_to_map_L in E.
         rewrite elem_of_list_to_set in E. set_unfold in E. simpl in E.
         destruct E as (x0&?&?). destruct x0. apply elem_of_zip_l in H6.
-        set_unfold in H6. destruct H6 as (x'&->&?). set_solver. }
+        simpl in H5. subst. apply Hxs in H6. contradiction. }
       rewrite feval_msubst with (mv:=mv)...
       rewrite <- feval_subst in H1... rewrite H in H1...
     - pose proof (teval_total σ x) as (v&?).
@@ -1974,19 +1974,27 @@ Section refinement.
         intros x0 ??. set_unfold in H4. subst.
         apply elem_of_vtmap_fvars in H5 as (x'&t&?&?).
         unfold to_vtmap in H4. apply elem_of_list_to_map_2 in H4.
-        apply elem_of_zip_r in H4 as H6. apply elem_of_zip_l in H4.
-        set_unfold in H4. destruct H4 as (?&->&?). set_unfold in H6.
-        destruct H6 as (t'&->&?). apply term_is_final in H5.
-        apply var_final_initial_var_of in H5 as []. }
+        apply elem_of_zip_r in H4 as H6.
+        apply (Hts x) in H6... }
       rewrite <- insert_union_r.
       2:{
         destruct (mv !! ₀x) eqn:E... apply elem_of_dom_2 in E. destruct H3 as [].
         rewrite H3 in E. unfold to_vtmap in E. rewrite dom_list_to_map_L in E.
         rewrite elem_of_list_to_set in E. set_unfold in E. simpl in E.
         destruct E as (x0&?&?). destruct x0. apply elem_of_zip_l in H6.
-        set_unfold in H6. destruct H6 as (x'&->&?). set_solver. }
+        simpl in H5. subst. apply Hxs in H6. contradiction. }
       rewrite feval_msubst with (mv:=mv) in H1...
       rewrite <- feval_subst... rewrite H...
+  Qed.
+
+  Lemma msubst_initials_closed' (A : formula) w (xs : list final_variable)
+      (ts : list final_term) `{!OfSameLength (↑ₓ xs) (⇑ₜ ts)} :
+    initials_closed A w →
+    initials_closed <! A [[↑ₓ xs \ ⇑ₜ ts]] !> w.
+  Proof with auto.
+    intros. apply msubst_initials_closed; [assumption | set_solver |].
+    set_unfold. intros. destruct H0 as (t&->&?). apply term_is_final in H1.
+    apply var_final_initial_var_of in H1 as [].
   Qed.
 
   Lemma r_following_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} `{!OfSameLength xs ts} :
@@ -1998,7 +2006,7 @@ Section refinement.
   Proof with auto.
     intros Hclosed Hlength Hnodup A. rewrite wp_spec...
     simpl. rewrite wp_spec'...
-    2: apply seqsubst_initials_closed...
+    2: apply msubst_initials_closed'...
     rewrite wp_asgn. simpl. f_equiv. rewrite <- simpl_msubst_impl. f_equiv.
     rewrite fmap_app. do 2 rewrite foralllist_app. f_equiv.
     rewrite <- f_foralllist_idemp. rewrite (f_foralllist_elim_as_msubst <! post ⇒ A !>)...
@@ -2017,7 +2025,17 @@ Section refinement.
   Proof with auto.
     intros Hclosed Hdisjoint Hnodup1 Hnodup2 ? A. simpl. rewrite wp_asgn. rewrite wp_spec'...
     2:{
-      admit.
+      apply msubst_initials_closed...
+      - intros. set_unfold in H. destruct H as (x'&?&?). apply initial_var_of_inj in H.
+        subst. set_solver.
+      - intros. subst ts₀. set_unfold in H. destruct H as (t'&->&?).
+        apply fvars_msubst_term_superset in H0. set_unfold in H0. destruct H0 as [|].
+        + apply term_is_final in H0. apply var_final_initial_var_of in H0 as [].
+        + destruct H0 as (t&?&?). destruct H1 as [|].
+          * destruct H1 as (x'&->&x''&->&?). set_unfold in H0. apply initial_var_of_inj in H0.
+            subst x''. set_solver.
+          * destruct H1 as (x'&->&x''&->&?). set_unfold in H0. apply initial_var_of_inj in H0.
+            subst x''. set_solver.
     }
     rewrite wp_spec'...
     rewrite simpl_msubst_and.
@@ -2108,6 +2126,7 @@ Section refinement.
 
   (* Law 5.2 *)
   Lemma r_assignment w xs pre post ts `{!FormulaFinal pre} `{!OfSameLength xs ts} :
+    initials_closed post (w ++ xs) →
     length xs ≠ 0 →
     NoDup xs →
     <! ⎡⇑₀ w =* ⇑ₓ w⎤ ∧ ⎡⇑₀ xs =* ⇑ₓ xs⎤ ∧ pre !> ⇛ <! post[[ ↑ₓ xs \ ⇑ₜ ts ]] !> ->
