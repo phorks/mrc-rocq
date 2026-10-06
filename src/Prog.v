@@ -970,32 +970,32 @@ Section syntax.
   Definition PAsgnWithOpens (xs : list final_variable) (rhs : list asgn_rhs_term)
                             `{!OfSameLength xs rhs} : prog :=
     let (opens, xs, ts, _) := split_asgn_list xs rhs in
-    PVarList opens ⊤ (PAsgn xs ts).
+    PSeq (choose_w opens) (PAsgn xs ts).
 
-  Lemma PAsgnWithOpens_cons_open x xs rhs `{!OfSameLength xs rhs}
-      `{!OfSameLength (x :: xs) (OpenRhsTerm :: rhs)} :
-    PAsgnWithOpens (x :: xs) (OpenRhsTerm :: rhs) =
-      PVar x ⊤ (PAsgnWithOpens xs rhs).
-  Proof.
-    simpl. unfold PAsgnWithOpens at 1. erewrite split_asgn_list_cons_open.
-    unfold asgn_args_with_open. destruct (split_asgn_list xs rhs) eqn:E.
-    simpl. unfold PAsgnWithOpens. rewrite E. reflexivity.
-  Qed.
+  (* Lemma PAsgnWithOpens_cons_open x xs rhs `{!OfSameLength xs rhs} *)
+  (*     `{!OfSameLength (x :: xs) (OpenRhsTerm :: rhs)} : *)
+  (*   PAsgnWithOpens (x :: xs) (OpenRhsTerm :: rhs) = *)
+  (*     PVar x ⊤ (PAsgnWithOpens xs rhs). *)
+  (* Proof. *)
+  (*   simpl. unfold PAsgnWithOpens at 1. erewrite split_asgn_list_cons_open. *)
+  (*   unfold asgn_args_with_open. destruct (split_asgn_list xs rhs) eqn:E. *)
+  (*   simpl. unfold PAsgnWithOpens. rewrite E. reflexivity. *)
+  (* Qed. *)
 
-  Lemma PAsgnWithOpens_no_opens xs ts `{OfSameLength _ _ xs ts} :
-    PAsgnWithOpens xs (FinalRhsTerm <$> ts) = PAsgn xs ts.
-  Proof.
-    unfold PAsgnWithOpens. rewrite split_asgn_list_no_opens. simpl. reflexivity.
-  Qed.
+  (* Lemma PAsgnWithOpens_no_opens xs ts `{OfSameLength _ _ xs ts} : *)
+  (*   PAsgnWithOpens xs (FinalRhsTerm <$> ts) = PAsgn xs ts. *)
+  (* Proof. *)
+  (*   unfold PAsgnWithOpens. rewrite split_asgn_list_no_opens. simpl. reflexivity. *)
+  (* Qed. *)
 
-  Lemma PAsgnWithOpens_app_nil_r xs rhs `{!OfSameLength xs rhs} {Hl} :
-    @PAsgnWithOpens (xs ++ []) (rhs ++ []) Hl = PAsgnWithOpens xs rhs.
-  Proof with auto.
-    unfold PAsgnWithOpens.
-    replace (split_asgn_list (xs ++ []) (rhs ++ [])) with (split_asgn_list xs rhs);
-      [reflexivity|].
-    apply rewrite_of_same_length; rewrite app_nil_r; reflexivity.
-  Qed.
+  (* Lemma PAsgnWithOpens_app_nil_r xs rhs `{!OfSameLength xs rhs} {Hl} : *)
+  (*   @PAsgnWithOpens (xs ++ []) (rhs ++ []) Hl = PAsgnWithOpens xs rhs. *)
+  (* Proof with auto. *)
+  (*   unfold PAsgnWithOpens. *)
+  (*   replace (split_asgn_list (xs ++ []) (rhs ++ [])) with (split_asgn_list xs rhs); *)
+  (*     [reflexivity|]. *)
+  (*   apply rewrite_of_same_length; rewrite app_nil_r; reflexivity. *)
+  (* Qed. *)
 
   Lemma asgn_opens_with_open x xs rhs `{!OfSameLength xs rhs} :
     asgn_opens (asgn_args_with_open (split_asgn_list xs rhs) x) =
@@ -2181,10 +2181,15 @@ Section semantics.
   Implicit Types xs : list final_variable.
   Implicit Types t : term.
 
-  Lemma wp_asgn xs ts A `{!OfSameLength xs ts} :
+  Lemma wp_asgn xs ts A `{!OfSameLength xs ts} `{!FormulaFinal A} :
     wp <{ *xs := *$(FinalRhsTerm <$> ts) }> A ≡ <! A[[ ↑ₓ xs \ ⇑ₜ ts]] !>.
   Proof with auto.
-    rewrite PAsgnWithOpens_no_opens. simpl...
+    unfold PAsgnWithOpens. rewrite split_asgn_list_no_opens. simpl.
+    fSimpl. unfold subst_all_initials. apply f_subst_initials_no_initials.
+    intros x ??. set_unfold. apply fvars_msubst_superset in H0. set_unfold.
+    destruct H as [? _]. destruct H0 as [| (?&?&t&->&?)].
+    - apply formula_is_final in H0...
+    - apply term_is_final in H0...
   Qed.
 
   Lemma f_hastype_unknown t :

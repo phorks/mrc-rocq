@@ -938,7 +938,7 @@ Section semantics.
     <! A[[∅ \ ∅]] !> ≡ A.
   Proof. unfold to_vtmap. simpl. rewrite msubst_empty'. reflexivity. Qed.
 
-  Lemma msubst_single A x t :
+  Lemma msubst_single A x t `{!OfSameLength [x] [t] } :
     <! A[[x \ t]] !> ≡ <! A[x \ t] !>.
   Proof with auto.
     unfold to_vtmap. simpl. rewrite (msubst_extract_l' A x t _).
