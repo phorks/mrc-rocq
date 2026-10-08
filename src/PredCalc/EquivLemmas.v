@@ -268,7 +268,7 @@ Section props.
 
   Lemma f_intro_hyp {A} B :
     <! A !> ⇛ <! B ⇒ A !>.
-  Proof. intros σ. rewrite simpl_feval_fimpl. simp feval. Qed.
+  Proof. intros σ. rewrite simpl_feval_impl. simp feval. Qed.
 
   (* A.47 *)
   Lemma f_iff_or_absorb A B :
@@ -404,16 +404,14 @@ Section props.
   Lemma f_forall_ent_exists x A :
     <! ∀ x, A !> ⇛ <! ∃ x, A !>.
   Proof.
-    intros σ. rewrite simpl_feval_fforall. intros. simp feval.
-    exists ⊥. apply H.
+    intros σ. rewrite simpl_feval_forall. intros. simp feval. exists ⊥. apply H.
   Qed.
 
   (* A.69 *)
   Lemma f_or_forall x A B :
     <! (∀ x, A) ∨ (∀ x, B) !> ⇛ <! ∀ x, A ∨ B !>.
   Proof.
-    intros σ. simp feval. do 3 rewrite simpl_feval_fforall.
-    setoid_rewrite simpl_subst_or.
+    intros σ. simp feval. do 3 rewrite simpl_feval_forall. setoid_rewrite simpl_subst_or.
     intros [|]; intros; simp feval; naive_solver.
   Qed.
 
@@ -421,8 +419,8 @@ Section props.
   Lemma f_forall_impl x A B :
     <! ∀ x, A ⇒ B !> ⇛ <! (∀ x, A) ⇒ (∀ x, B) !>.
   Proof.
-    intros σ. rewrite simpl_feval_fimpl. do 3 rewrite simpl_feval_fforall.
-    intros. specialize (H v). rewrite simpl_subst_impl in H. rewrite simpl_feval_fimpl in H.
+    intros σ. rewrite simpl_feval_impl. do 3 rewrite simpl_feval_forall.
+    intros. specialize (H v). rewrite simpl_subst_impl in H. rewrite simpl_feval_impl in H.
     naive_solver.
   Qed.
 
@@ -438,8 +436,8 @@ Section props.
   Lemma f_impl_exists x A B :
     <! (∃ x, A) ⇒ (∃ x, B) !> ⇛ <! ∃ x, A ⇒ B !>.
   Proof with auto.
-    intros σ. rewrite simpl_feval_fimpl. intros. simp feval.
-    setoid_rewrite simpl_subst_impl. setoid_rewrite simpl_feval_fimpl.
+    intros σ. rewrite simpl_feval_impl. intros. simp feval.
+    setoid_rewrite simpl_subst_impl. setoid_rewrite simpl_feval_impl.
     destruct (feval_lem σ <! ∃ x, A !>).
     - apply H in H0. simp feval in H0. destruct H0 as [v Hv]. exists v. intros...
     - exists ⊥. intros. simp feval in H0. exfalso. apply H0. exists ⊥...
@@ -449,11 +447,11 @@ Section props.
   Lemma f_exists_forall x y A :
     <! ∃ x, (∀ y, A) !> ⇛ <! ∀ y, (∃ x, A) !>.
   Proof with auto.
-    intros σ. simp feval. rewrite simpl_feval_fforall. intros [vx H] vy.
+    intros σ. simp feval. rewrite simpl_feval_forall. intros [vx H] vy.
     destruct (decide (x = y)).
     1:{ subst y. rewrite simpl_subst_forall_skip in H... rewrite simpl_subst_exists_skip...
         apply f_forall_ent_exists in H... }
-    rewrite (feval_subst vx) in H... rewrite simpl_feval_fforall in H.
+    rewrite (feval_subst vx) in H... rewrite simpl_feval_forall in H.
     specialize (H vy). rewrite (feval_subst vy) in H...
     rewrite (feval_subst vy)... simp feval. exists vx. rewrite (feval_subst vx)...
     rewrite (insert_commute σ)...
@@ -479,14 +477,14 @@ Section props.
     x ∉ formula_fvars A →
     <! ∀ x, A ∨ B !> ≡ <! A ∨ (∀ x, B) !>.
   Proof with auto.
-    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or.
+    intros. intros σ. rewrite simpl_feval_forall. setoid_rewrite simpl_subst_or.
     split; intros.
-    - simp feval. destruct (feval_lem σ A)... right. rewrite simpl_feval_fforall.
+    - simp feval. destruct (feval_lem σ A)... right. rewrite simpl_feval_forall.
       intros. specialize (H0 v). simp feval in H0. destruct H0...
       rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0...
       contradiction.
     - simp feval in *. rewrite (feval_subst v)... rewrite feval_delete_state_var_head...
-      destruct H0... right. rewrite simpl_feval_fforall in H0. apply H0.
+      destruct H0... right. rewrite simpl_feval_forall in H0. apply H0.
   Qed.
 
   (* A.77' *)
@@ -494,14 +492,14 @@ Section props.
     x ∉ formula_fvars B →
     <! ∀ x, A ∨ B !> ≡ <! (∀ x, A) ∨ B !>.
   Proof with auto.
-    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_or.
+    intros. intros σ. rewrite simpl_feval_forall. setoid_rewrite simpl_subst_or.
     split; intros.
-    - simp feval. destruct (feval_lem σ B)... left. rewrite simpl_feval_fforall.
+    - simp feval. destruct (feval_lem σ B)... left. rewrite simpl_feval_forall.
       intros. specialize (H0 v). simp feval in H0. destruct H0...
       rewrite (feval_subst v) in H0... apply feval_delete_state_var_head in H0...
       contradiction.
     - simp feval in *. destruct H0.
-      + left. rewrite simpl_feval_fforall in H0. apply H0...
+      + left. rewrite simpl_feval_forall in H0. apply H0...
       + right. rewrite (feval_subst v)... rewrite feval_delete_state_var_head...
   Qed.
 
@@ -510,14 +508,14 @@ Section props.
     x ∉ formula_fvars A →
     <! ∀ x, A ⇒ B !> ≡ <! A ⇒ (∀ x, B) !>.
   Proof with auto.
-    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl.
-    rewrite simpl_feval_fimpl.
+    intros. intros σ. rewrite simpl_feval_forall. setoid_rewrite simpl_subst_impl.
+    rewrite simpl_feval_impl.
     split; intros.
-    - rewrite simpl_feval_fforall. intros. specialize (H0 v). rewrite simpl_feval_fimpl in H0.
+    - rewrite simpl_feval_forall. intros. specialize (H0 v). rewrite simpl_feval_impl in H0.
       rewrite (feval_subst v) in H0... rewrite feval_delete_state_var_head in H0...
-    - rewrite simpl_feval_fimpl. intros. rewrite (feval_subst v) in H1...
+    - rewrite simpl_feval_impl. intros. rewrite (feval_subst v) in H1...
       rewrite feval_delete_state_var_head in H1... apply H0 in H1.
-      rewrite simpl_feval_fforall in H1...
+      rewrite simpl_feval_forall in H1...
   Qed.
 
   (* A.79 *)
@@ -525,8 +523,8 @@ Section props.
     x ∉ formula_fvars B →
     <! ∀ x, A ⇒ B !> ≡ <! (∃ x, A) ⇒ B !>.
   Proof with auto.
-    intros. intros σ. rewrite simpl_feval_fforall. setoid_rewrite simpl_subst_impl.
-    setoid_rewrite simpl_feval_fimpl. simp feval.
+    intros. intros σ. rewrite simpl_feval_forall. setoid_rewrite simpl_subst_impl.
+    setoid_rewrite simpl_feval_impl. simp feval.
     split; intros.
     - destruct H1 as [v Hv]. apply H0 in Hv. apply (feval_subst v) in Hv...
       apply feval_delete_state_var_head in Hv...
@@ -584,7 +582,7 @@ Section props.
   Lemma f_forall_elim t x A :
     <! ∀ x, A !> ⇛ <! A[x \ t] !>.
   Proof with auto.
-    intros σ. rewrite simpl_feval_fforall. intros. pose proof (teval_total σ t) as [v Hv].
+    intros σ. rewrite simpl_feval_forall. intros. pose proof (teval_total σ t) as [v Hv].
     specialize (H v). rewrite (feval_subst v) in H... rewrite (feval_subst v)...
   Qed.
 
@@ -618,7 +616,7 @@ Section props.
   Lemma f_impl_elim A B :
     <! A ∧ (A ⇒ B) !> ⇛ B.
   Proof with auto.
-    intros σ. simp feval. rewrite simpl_feval_fimpl. naive_solver.
+    intros σ. simp feval. rewrite simpl_feval_impl. naive_solver.
   Qed.
 
   (* some lemmas for proving equivalences and entailments *)
@@ -663,7 +661,7 @@ Section props.
   Lemma f_forall_equiv A B y1 y2 :
     (∀ t, <! A[y1 \ t] !> ≡ <! B[y2 \ t] !>) →
     <! ∀ y1, A !> ≡ <! ∀ y2, B !>.
-  Proof. intros Hequiv σ. do 2 rewrite simpl_feval_fforall. naive_solver. Qed.
+  Proof. intros Hequiv σ. do 2 rewrite simpl_feval_forall. naive_solver. Qed.
 
   Lemma f_ent_and_cancel_l A B C :
     B ⇛ C → <! A ∧ B !> ⇛ <! A ∧ C !>.
@@ -690,11 +688,11 @@ Section props.
 
   Lemma f_ent_impl_cancel_l A B C :
     B ⇛ C → <! A ⇒ B !> ⇛ <! A ⇒ C !>.
-  Proof. intros H σ. do 2 rewrite simpl_feval_fimpl. naive_solver. Qed.
+  Proof. intros H σ. do 2 rewrite simpl_feval_impl. naive_solver. Qed.
 
   Lemma f_ent_impl_cancel_r A B C :
     C ⇛ B → <! B ⇒ A !> ⇛ <! C ⇒ A !>.
-  Proof. intros H σ. do 2 rewrite simpl_feval_fimpl. naive_solver. Qed.
+  Proof. intros H σ. do 2 rewrite simpl_feval_impl. naive_solver. Qed.
 
   Lemma f_exists_ent A B y1 y2 :
     (∀ t, <! A[y1 \ t] !> ⇛ <! B[y2 \ t] !>) →
@@ -707,7 +705,7 @@ Section props.
     (∀ t, <! A[y1 \ t] !> ⇛ <! B[y2 \ t] !>) →
     <! ∀ y1, A !> ⇛ <! ∀ y2, B !>.
   Proof.
-    intros Hequiv σ. do 2 rewrite simpl_feval_fforall. intros. naive_solver.
+    intros Hequiv σ. do 2 rewrite simpl_feval_forall. intros. naive_solver.
   Qed.
 
   Lemma f_ent_elim σ A B :
@@ -861,6 +859,21 @@ Section props.
     <! A ∨ B !> ≡_{σ} <! false !> ↔
              A ≡_{σ} <! false !> ∧ B ≡_{σ} <! false !>.
   Proof. unfold equiv, fequiv_st. simp feval. naive_solver. Qed.
+
+  Lemma f_hastype_unknown t :
+    <! ⌜t ∈ₜ ⊤⌝ !> ≡ <! true !>.
+  Proof with auto.
+    intros σ. split; intros _; [done|]. destruct (teval_total σ t) as [v Hv].
+    simp feval. simpl. exists v. split... apply hastype_unknown.
+  Qed.
+
+  Lemma f_forall_ty_top x A :
+    <! ∀ x : ⊤, A !> ≡ <! ∀ x, A !>.
+  Proof. unfold FForallT. rewrite f_hastype_unknown. by rewrite f_true_implies. Qed.
+
+  Lemma f_exists_ty_top x A :
+    <! ∃ x : ⊤, A !> ≡ <! ∃ x, A !>.
+  Proof. unfold FExistsT. rewrite f_hastype_unknown. by rewrite f_and_comm, f_and_true. Qed.
 
 End props.
 

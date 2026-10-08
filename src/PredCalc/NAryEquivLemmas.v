@@ -729,23 +729,6 @@ Section n_ary_lemmas.
   Qed.
 
 
-  (* TODO: Move these somewhere *)
-  (* Lemma fequiv_subst_non_free A x t : *)
-  (*   x ∉ formula_fvars A → *)
-  (*   <! A[x \ t] !> ≡ A. *)
-  (* Proof with auto. *)
-  (*   apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A ≡ B); intros. *)
-  (*   - rewrite subst_af_non_free... *)
-  (*   - f_equiv... *)
-  (*   - simpl in H1. apply not_elem_of_union in H1 as [? ?]. *)
-  (*     f_equiv; [apply H|apply H0]... *)
-  (*   - simpl in H1. apply not_elem_of_union in H1 as [? ?]. *)
-  (*     f_equiv; [apply H|apply H0]... *)
-  (*   - reflexivity. *)
-  (*   - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2. *)
-  (*     destruct H2; subst; contradiction. *)
-  (* Qed. *)
-
   (* A.64 *)
   Lemma f_exists_existslist_comm x xs A :
     <! ∃ x, ∃* xs, A !> ≡ <! ∃* xs, ∃ x, A !>.
@@ -876,7 +859,7 @@ Section n_ary_lemmas.
             - apply list_lookup_fmap_Some. exists x...
             - symmetry in H2. destruct (zpair_lookup_l' H2 Hi) as (t'&?).
               specialize (Hfn x t t'). enough (t = t') by (subst t'; apply H0)... }
-        rewrite f_exists_existslist_idemp... rewrite fequiv_subst_non_free.
+        rewrite f_exists_existslist_idemp... rewrite subst_non_free.
         * apply IH; [| set_solver]...
         * intros contra.
           apply fvars_seqsubst_superset_vars_not_free_in_terms in contra; set_solver.
@@ -1264,13 +1247,13 @@ Section n_ary_lemmas.
     - simpl. rewrite subst_initials_nil...
     - simpl. erewrite (seqsubst_rewrite _ _ (↑ₓ w) _ (⇑₀ w)). Unshelve.
       2-3: unfold fmap; f_equal. destruct (decide (x ∈ w)).
-      + rewrite fequiv_subst_non_free.
+      + rewrite subst_non_free.
         2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra...
             set_unfold in contra. destruct contra as [[] |]; [|set_solver].
             apply not_and_l in H0 as [].
             - apply H0. apply var_final_as_var.
             - rewrite to_final_var_as_var in H0. contradiction. }
-        rewrite subst_initials_cons. rewrite fequiv_subst_non_free.
+        rewrite subst_initials_cons. rewrite subst_non_free.
         1:{ rewrite <- IH at 2 by set_solver. f_equiv. f_equiv. apply OfSameLength_pi. }
         set_solver.
       + rewrite subst_initials_perm with (xs':=w ++ [x]).

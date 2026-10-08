@@ -84,7 +84,11 @@ Defined.
 
 Definition as_var (x : final_variable) := mkVar (final_var_name x) (final_var_sub x) false.
 Coercion as_var : final_variable >-> variable.
+
 Definition as_var_F `{FMap F} (x : F final_variable) : F variable := as_var <$> x.
+Definition as_var_set (vs : gset final_variable) : gset variable :=
+  set_map as_var vs.
+
 Global Instance as_var_inj : Inj (=) (=) as_var.
 Proof.
   intros x1 x2 H. unfold as_var in H. inversion H. destruct x1; destruct x2. simpl in *;
@@ -240,6 +244,15 @@ Lemma fresh_var_id x fvars :
 Proof with auto.
   intros. unfold fresh_var. unfold fresh_var_aux.
   destruct (decide (x ∈ fvars))... contradiction.
+Qed.
+
+Lemma fresh_var_ne_inv y X :
+  fresh_var y X ≠ y →
+  y ∈ X.
+Proof with auto.
+  intros. unfold fresh_var in H. induction X using set_ind_L.
+  - unfold fresh_var_aux in H. destruct (decide (y ∈ ∅))... set_solver.
+  - unfold fresh_var_aux in H. simpl in H. destruct (decide (y ∈ _))... set_solver.
 Qed.
 
 Record fdef {value} `{Bottom value} := mkFdef {

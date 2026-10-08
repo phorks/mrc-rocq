@@ -76,22 +76,6 @@ Section set_solver.
       destruct x. cbv. f_equal...
   Qed.
 
-  Global Instance set_unfold_elem_of_subst_initials_var_fvars x A w P1 P2 :
-    (∀ x', SetUnfoldElemOf x' w (P1 x')) →
-    (∀ x', SetUnfoldElemOf (initial_var_of x') (formula_fvars A) (P2 x')) →
-    SetUnfoldElemOf x
-                      (subst_initials_var_fvars A w)
-                      (∃ x' : final_variable, x = as_var x' ∧ P1 x' ∧ P2 x').
-  Proof. constructor. rewrite <- elem_of_subst_initials_var_fvars. set_solver. Qed.
-
-  Global Instance set_unfold_elem_of_fvars_subst_initials x A w Q1 Q2 Q3 :
-    SetUnfoldElemOf x (formula_fvars A) Q1 →
-    SetUnfoldElemOf x (list_to_set (initial_var_of <$> w) : gset variable) Q2 →
-    SetUnfoldElemOf x (subst_initials_var_fvars A w) Q3 →
-    SetUnfoldElemOf x (formula_fvars <! A[_₀\ w] !>)
-                      ((Q1 ∧ ¬Q2) ∨ Q3).
-  Proof. constructor. rewrite fvars_subst_initials. set_solver. Qed.
-
   Global Instance set_unfold_initial_var_of_elem_of_formula_fvars_subst_initials x A w Q1 Q2 :
     SetUnfoldElemOf (initial_var_of x) (formula_fvars A) Q1 →
     SetUnfoldElemOf x w Q2 →

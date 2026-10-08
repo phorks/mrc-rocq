@@ -666,6 +666,13 @@ Notation "A [ x \ t ]" := (subst_formula A x t)
                                 A custom formula,
                                 x constr at level 0, t custom term) : refiney_scope.
 
+Notation "t [ₜ x \ u ]" := (subst_term t x u)
+                            (in custom formula at level 74, left associativity,
+                                t custom formula,
+                                x constr at level 0, u custom term) : refiney_scope.
+
+
+
 Declare Custom Entry term_seq.
 Declare Custom Entry term_seq_elem.
 

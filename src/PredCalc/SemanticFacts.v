@@ -12,28 +12,11 @@ Section subst.
   Local Notation atomic_formula := (atomic_formula M).
   Local Notation formula := (formula M).
 
-  Implicit Types x : variable.
+  Implicit Types x y z : variable.
   Implicit Types t : term.
   Implicit Types af : atomic_formula.
   Implicit Types A B C : formula.
   Implicit Types v : value M.
-
-  (* TODO: maybe remove fequiv prefix or replace it with just f? *)
-  Lemma fequiv_subst_non_free A x t :
-    x ∉ formula_fvars A →
-    <! A[x \ t] !> ≡ A.
-  Proof with auto.
-    apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A ≡ B); intros.
-    - rewrite subst_af_non_free...
-    - f_equiv...
-    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
-      f_equiv; [apply H|apply H0]...
-    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
-      f_equiv; [apply H|apply H0]...
-    - reflexivity.
-    - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
-      destruct H2; subst; contradiction.
-  Qed.
 
   Lemma teval_delete_state_var x {σ t v} :
     x ∉ term_fvars t →
@@ -402,6 +385,14 @@ Section subst.
   Global Instance fforall_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FForallT.
   Proof with auto. intros x ? <- ty ? <- A B H. unfold FForallT. rewrite H... Qed.
 
+  Lemma subst_non_free' x t B {A} :
+    x ∉ formula_fvars A →
+    A ≡ B →
+    <! B[x \ t] !> ≡ B.
+  Proof with auto.
+    intros. trans A... rewrite <- subst_non_free with (A:=A) (x:=x) (t:=t)... f_equiv...
+  Qed.
+
   Lemma fexists_alpha_equiv x x' A :
     x' ∉ formula_fvars A →
     <! ∃ x, A !> ≡ <! ∃ x', A[x \ x'] !>.
@@ -428,7 +419,7 @@ Section subst.
   Proof with auto.
     intros. apply not_elem_of_quant_subst_fvars_inv in H as [? []]. clear H.
     destruct (decide (x ∈ formula_fvars A)).
-    2:{ rewrite simpl_subst_exists_skip... rewrite (fequiv_subst_non_free A x t)... }
+    2:{ rewrite simpl_subst_exists_skip... rewrite (subst_non_free A x t)... }
     (* rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t as y'. *)
     pose proof (fresh_var_fresh y (formula_fvars A ∪ term_fvars t ∪ {[x]})).
     remember (fresh_var y (formula_fvars A ∪ term_fvars t ∪ {[x]})) as y'.
@@ -506,17 +497,17 @@ Section subst.
         rewrite (insert_commute σ)... apply (teval_delete_state_var_head) in Hv2...
         rewrite <- (teval_delete_state_var_head x2 v2) in Hv1...
         rewrite (feval_subst v2) in H2... rewrite (feval_subst v1) in H2...
-      + rewrite fequiv_subst_non_free in H2.
+      + rewrite subst_non_free in H2.
         2: { rewrite fvars_subst_free... set_solver. }
         pose proof (teval_total σ t1) as [v1 Hv1]. rewrite (feval_subst v1)...
-        rewrite fequiv_subst_non_free... rewrite <- feval_subst with (t:=t1)...
+        rewrite subst_non_free... rewrite <- feval_subst with (t:=t1)...
       + pose proof (teval_total σ t2) as [v2 Hv2]. rewrite (feval_subst v2) in H2...
-        rewrite fequiv_subst_non_free in H2... rewrite <- feval_subst with (t:=t2) in H2...
-        rewrite fequiv_subst_non_free... rewrite fvars_subst_free... set_solver.
-      + rewrite fequiv_subst_non_free. 2: { rewrite fvars_subst_non_free... }
-        rewrite fequiv_subst_non_free...
-        rewrite fequiv_subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
-        rewrite fequiv_subst_non_free in H2...
+        rewrite subst_non_free in H2... rewrite <- feval_subst with (t:=t2) in H2...
+        rewrite subst_non_free... rewrite fvars_subst_free... set_solver.
+      + rewrite subst_non_free. 2: { rewrite fvars_subst_non_free... }
+        rewrite subst_non_free...
+        rewrite subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
+        rewrite subst_non_free in H2...
     - destruct (decide (x1 ∈ formula_fvars A)); destruct (decide (x2 ∈ formula_fvars A)).
       + pose proof (teval_total σ t2) as [v2 Hv2]. rewrite (feval_subst v2)...
         pose proof (teval_total (<[x2:=v2]> σ) t1) as [v1 Hv1]. rewrite (feval_subst v1)...
@@ -524,19 +515,19 @@ Section subst.
         rewrite <- (teval_delete_state_var_head x1 v1) in Hv2...
         rewrite (feval_subst v1) in H2... rewrite (feval_subst v2) in H2...
       + pose proof (teval_total σ t1) as [v1 Hv1]. rewrite (feval_subst v1) in H2...
-        rewrite fequiv_subst_non_free in H2... rewrite <- feval_subst with (t:=t1) in H2...
-        rewrite fequiv_subst_non_free... rewrite fvars_subst_free... set_solver.
-      + rewrite fequiv_subst_non_free in H2.
+        rewrite subst_non_free in H2... rewrite <- feval_subst with (t:=t1) in H2...
+        rewrite subst_non_free... rewrite fvars_subst_free... set_solver.
+      + rewrite subst_non_free in H2.
         2: { rewrite fvars_subst_free... set_solver. }
         pose proof (teval_total σ t2) as [v2 Hv2]. rewrite (feval_subst v2)...
-        rewrite fequiv_subst_non_free... rewrite <- feval_subst with (t:=t2)...
-      + rewrite fequiv_subst_non_free. 2: { rewrite fvars_subst_non_free... }
-        rewrite fequiv_subst_non_free...
-        rewrite fequiv_subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
-        rewrite fequiv_subst_non_free in H2...
+        rewrite subst_non_free... rewrite <- feval_subst with (t:=t2)...
+      + rewrite subst_non_free. 2: { rewrite fvars_subst_non_free... }
+        rewrite subst_non_free...
+        rewrite subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
+        rewrite subst_non_free in H2...
   Qed.
 
-  Lemma simpl_feval_fimpl σ A B :
+  Lemma simpl_feval_impl σ A B :
     feval σ <! A ⇒ B !> ↔ (feval σ A → feval σ B).
   Proof with auto.
     unfold FImpl. simp feval. split.
@@ -544,13 +535,11 @@ Section subst.
     - intros. destruct (feval_lem σ A)...
   Qed.
 
-  Lemma simpl_feval_fiff σ A B :
+  Lemma simpl_feval_iff σ A B :
     feval σ <! A ⇔ B !> ↔ (feval σ A ↔ feval σ B).
-  Proof with auto.
-    unfold FIff. simp feval. do 2 rewrite simpl_feval_fimpl. naive_solver.
-  Qed.
+  Proof. unfold FIff. simp feval. do 2 rewrite simpl_feval_impl. naive_solver. Qed.
 
-  Lemma simpl_feval_fforall σ x A :
+  Lemma simpl_feval_forall σ x A :
     feval σ <! ∀ x, A !> ↔ ∀ v, feval σ <! A [x \ $(TConst v)] !>.
   Proof with auto.
     unfold FForall. simp feval. setoid_rewrite (simpl_subst_not). split; intros.
@@ -608,6 +597,91 @@ Section subst.
     intros. induction A; simp feval.
     2-5: naive_solver.
     apply afeval_delete_bottom_from_state...
+  Qed.
+
+  Lemma subst_subst_ne A x1 t1 x2 t2 :
+    x1 ≠ x2 →
+    x1 ∉ term_fvars t2 →
+    <! A [x1 \ t1][x2 \ t2] !> ≡ <! A [x2 \ t2][x1 \ $(subst_term t1 x2 t2)] !>.
+  Proof with auto.
+    intros ? Hfree σ.
+    opose proof (teval_total σ _) as [v1 ?].
+    rewrite feval_subst with (v:=v1) by exact H0.
+    opose proof (teval_total _ _) as [v2 ?].
+    rewrite feval_subst with (v:=v2) by exact H1.
+    opose proof (teval_total σ _) as [v3 ?].
+    rewrite feval_subst with (v:=v3) by exact H2.
+    opose proof (teval_total _ _) as [v4 ?].
+    rewrite feval_subst with (v:=v4) by exact H3.
+    f_equiv. unfold state. apply map_eq. intros x.
+    destruct (decide (x = x1)); destruct (decide (x = x2)).
+    1:{ subst. contradiction. }
+    3:{ repeat rewrite lookup_insert_ne... }
+    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
+      f_equal. eapply (teval_det t1).
+      + apply H1.
+      + erewrite teval_subst; [exact H2|]...
+    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
+      f_equal. eapply (teval_det t2).
+      + exact H0.
+      + rewrite <- teval_delete_state_var_head; [exact H3|]...
+  Qed.
+
+  Lemma subst_subst_ne' A x1 t1 x2 t2 z :
+    x1 ≠ x2 →
+    z ≠ x1 →
+    z ≠ x2 →
+    z ∉ formula_fvars A →
+    z ∉ term_fvars t1 →
+    z ∉ term_fvars t2 →
+    x2 ∉ term_fvars t1 →
+    <! A [x1 \ t1][x2 \ t2] !> ≡ <! A [x2 \ t2[x1 \ z]][x1 \ t1][z \ x1] !>.
+  Proof with auto.
+    intros ? Hz1 Hz2 Hz3 Hz4 Hz5 Hfree σ.
+    opose proof (teval_total σ _) as [v1 ?].
+    rewrite feval_subst with (v:=v1) by exact H0.
+    opose proof (teval_total _ _) as [v2 ?].
+    rewrite feval_subst with (v:=v2) by exact H1.
+    opose proof (teval_total σ _) as [v3 ?].
+    rewrite feval_subst with (v:=v3) by exact H2.
+    opose proof (teval_total _ _) as [v4 ?].
+    rewrite feval_subst with (v:=v4) by exact H3.
+    opose proof (teval_total _ _) as [v5 ?].
+    rewrite feval_subst with (v:=v5) by exact H4.
+    unfold state. rewrite insert_commute with (j:=z)...
+    rewrite insert_commute with (j:=z)... rewrite feval_delete_state_var_head with (x:=z)...
+    f_equiv. unfold state. apply map_eq. intros x.
+    destruct (decide (x = x1)); destruct (decide (x = x2)).
+    1:{ subst. contradiction. }
+    3:{ repeat rewrite lookup_insert_ne... }
+    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
+      f_equal. eapply (teval_det t1).
+      + rewrite <- teval_delete_state_var_head; [exact H1|]...
+      + rewrite <- teval_delete_state_var_head; [exact H3|]...
+    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
+      f_equal. eapply (teval_det t2).
+      + exact H0.
+      + rewrite teval_delete_state_var_head in H4.
+        2:{ intros ?. apply fvars_subst_term_superset in H5. set_solver. }
+        erewrite teval_subst in H4; [|exact H2]. rewrite subst_term_trans in H4...
+        rewrite subst_term_diag in H4...
+  Qed.
+
+  Lemma subst_subst_eq A x t u : <! A [x \ t] [x \ u] !> ≡ <! A [x \ t[x \ u]] !>.
+  Proof with auto.
+    intros σ.
+    opose proof (teval_total σ _) as [v1 ?].
+    rewrite feval_subst with (v:=v1) by exact H.
+    opose proof (teval_total _ _) as [v2 ?].
+    rewrite feval_subst with (v:=v2) by exact H0.
+    opose proof (teval_total _ _) as [v3 ?].
+    rewrite feval_subst with (v:=v3) by exact H1.
+    f_equiv. unfold state. rewrite insert_insert.
+    apply map_eq. intros y. destruct (decide (x = y)).
+    2:{ repeat rewrite lookup_insert_ne... }
+    subst. do 2 rewrite lookup_insert. f_equal. symmetry. eapply (teval_det <! t[ₜ y\u] !>).
+    - exact H1.
+    - erewrite <- teval_subst with (H:=H)...
   Qed.
 
 End subst.

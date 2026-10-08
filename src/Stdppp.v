@@ -71,19 +71,38 @@ Lemma set_to_list_singleton {A} `{Countable A} (x : A) :
   set_to_list {[x]} = [x].
 Proof. unfold set_to_list. by rewrite set_fold_singleton. Qed.
 
-Lemma set_to_list_union_singleton_l_perm {A} `{Countable A} (x : A) (s : gset A) :
-  x ∉ s →
-  set_to_list ({[x]} ∪ s) ≡ₚ x :: set_to_list s.
+Lemma set_to_list_union_singleton_l_perm {A} `{Countable A} (x : A) (X : gset A) :
+  x ∉ X →
+  set_to_list ({[x]} ∪ X) ≡ₚ x :: set_to_list X.
 Proof.
   intros. unfold set_to_list, set_fold, compose. by rewrite elements_union_singleton.
 Qed.
 
-Lemma set_to_list_union_singleton_r_perm {A} `{Countable A} (x : A) (s : gset A) :
-  x ∉ s →
-  set_to_list (s ∪ {[x]}) ≡ₚ x :: set_to_list s.
+Lemma set_to_list_union_singleton_r_perm {A} `{Countable A} (x : A) (X : gset A) :
+  x ∉ X →
+  set_to_list (X ∪ {[x]}) ≡ₚ x :: set_to_list X.
 Proof.
   intros. rewrite union_comm_L. by apply set_to_list_union_singleton_l_perm.
 Qed.
+
+Lemma elem_of_set_to_list {A} `{Countable A} {x} {X : gset A} :
+  x ∈ set_to_list X ↔ x ∈ X.
+Proof with auto.
+  unfold elem_of at 1. split; intros.
+  - induction X using set_ind_L.
+    + rewrite set_to_list_empty in H0. inversion H0.
+    + rewrite set_to_list_union_singleton_l_perm in H0... set_solver.
+  - induction X using set_ind_L.
+    + set_solver.
+    + rewrite set_to_list_union_singleton_l_perm... set_solver.
+Qed.
+
+Global Instance set_unfold_elem_of_set_to_list {A} `{Countable A} x (X : gset A) P :
+  (∀ x, SetUnfoldElemOf x X (P x)) →
+  SetUnfoldElemOf x
+    (set_to_list X)
+    (P x).
+Proof. constructor. rewrite elem_of_set_to_list. apply H0. Qed.
 
 Lemma set_to_list_union_perm {A} `{Countable A} (s1 s2 : gset A) :
   s1 ## s2 →
@@ -133,6 +152,57 @@ Lemma lookup_total_union_r {K A M} `{FinMap K M} `{Inhabited A} (m1 m2 : M A) i 
   (m1 ∪ m2) !!! i = m2 !!! i.
 Proof with auto.
   intros. unfold lookup_total, map_lookup_total. rewrite lookup_union_r...
+Qed.
+
+
+Local Lemma filter_set_to_list_delete_union_singleton_l' {A : Type} `{Countable A} {P : A → Prop}
+    `{∀ x, Decision (P x)} {x : A} {X : gset A} :
+  x ∉ X →
+  ¬ P x →
+  filter P (set_to_list ({[x]} ∪ X)) ≡ₚ filter P (set_to_list X).
+Proof with auto.
+  intros. rewrite set_to_list_union_singleton_l_perm... rewrite filter_cons.
+  destruct (decide _)... contradiction.
+Qed.
+
+Lemma filter_set_to_list_delete_union_l {A : Type} `{Countable A} {P : A → Prop}
+    `{∀ x, Decision (P x)} (X Y : gset A) :
+  (∀ x, x ∈ X → ¬ P x) →
+  filter P (set_to_list (X ∪ Y)) ≡ₚ filter P (set_to_list Y).
+Proof with auto.
+  intros. generalize dependent Y. induction X using set_ind_L; intros.
+  - rewrite union_empty_l_L...
+  - destruct (decide (x ∈ Y)).
+    + assert ({[x]} ∪ X ∪ Y = X ∪ Y) as -> by set_solver... apply IHX.
+      intros. apply H1. set_solver.
+    + rewrite <- union_assoc_L.
+      rewrite filter_set_to_list_delete_union_singleton_l' by set_solver.
+      apply IHX. intros. apply H1. set_solver.
+Qed.
+
+Lemma filter_set_to_list_delete_union_r {A : Type} `{Countable A} {P : A → Prop}
+    `{∀ x, Decision (P x)} (X Y : gset A) :
+  (∀ x, x ∈ Y → ¬ P x) →
+  filter P (set_to_list (X ∪ Y)) ≡ₚ filter P (set_to_list X).
+Proof with auto.
+  intros. rewrite union_comm_L. apply filter_set_to_list_delete_union_l...
+Qed.
+
+Lemma filter_set_to_list_delete_union_singleton_l {A : Type} `{Countable A} {P : A → Prop}
+    `{∀ x, Decision (P x)} (x : A) (X : gset A) :
+  ¬ P x →
+  filter P (set_to_list ({[x]} ∪ X)) ≡ₚ filter P (set_to_list X).
+Proof with auto.
+  intros. apply filter_set_to_list_delete_union_l. set_solver.
+Qed.
+
+Lemma filter_set_to_list_delete_difference {A : Type} `{Countable A} {P : A → Prop}
+    `{∀ x, Decision (P x)} (X Y : gset A) :
+  (∀ x, x ∈ Y → ¬ P x) →
+  filter P (set_to_list (X ∖ Y)) ≡ₚ filter P (set_to_list X).
+Proof with auto.
+  intros. rewrite <- filter_set_to_list_delete_union_r with (Y:=X ∩ Y) by set_solver.
+  rewrite difference_union_intersection_L...
 Qed.
 
 Lemma submseteq_NoDup {A} (l k : list A) :
@@ -922,3 +992,59 @@ Proof with auto.
   - apply lookup_list_to_map_zip_Some in E as (i&?&?&?)... f_equal. apply (H0 x)...
   - exfalso. apply lookup_list_to_map_zip_None in E...
 Qed.
+
+(* ******************************************************************* *)
+(* deleting elements of lists                                          *)
+(* ******************************************************************* *)
+
+Global Instance list_delete_elem {A} `{E : EqDecision A} : Delete A (list A)
+  := λ x l, remove (decide_rel _) x l.
+
+Global Instance list_delete_elem_proper {A} `{E : EqDecision A} {x : A}
+  : Proper ((≡ₚ) ==> (≡ₚ@{A})) (delete x).
+Proof with auto.
+  intros X Y ?. unfold delete, list_delete_elem. generalize dependent Y.
+  induction X; intros...
+  - apply Permutation_nil_l in H. subst...
+  - apply Permutation_cons_inv_l in H as (Y1&Y2&?&?). subst Y.
+    rewrite remove_app. simpl. destruct (decide_rel _).
+    + rewrite <- remove_app...
+    + rewrite <- Permutation_cons_app.
+      2:{ rewrite <- remove_app. reflexivity. }
+      f_equiv. apply IHX...
+Qed.
+
+Lemma list_delete_elem_nil {A} {x : A}  `{EqDecision A} :
+  delete x [] = [].
+Proof. reflexivity. Qed.
+
+Lemma list_delete_elem_cons {A} {x : A} {X} `{EqDecision A} :
+  delete x (x :: X) = delete x X.
+Proof. apply remove_cons. Qed.
+
+Lemma elem_of_list_delete_elem_inv {A} (x y : A) (X : list A) `{EqDecision A} :
+  x ∈ delete y X → x ≠ y.
+Proof.
+  induction X.
+  - rewrite list_delete_elem_nil. set_solver.
+  - intros. unfold delete, list_delete_elem in H. simpl in H.
+    destruct (decide_rel _).
+    + subst. apply IHX. done.
+    + set_solver.
+Qed.
+
+Lemma list_delete_elem_eq_iff {A} (x : A) (X : list A) `{EqDecision A} :
+  delete x X = X ↔ x ∉ X.
+Proof with auto.
+  unfold delete, list_delete_elem. induction X; [set_solver|].
+  simpl. (destruct (decide_rel _)).
+  - subst. split; [|set_solver]. intros.
+    exfalso. pose proof (elem_of_list_delete_elem_inv a a X).
+    unfold delete, list_delete_elem in H0. apply H0... rewrite H. set_solver.
+  - split; intros; [set_solver|]. f_equal. apply IHX. set_solver.
+Qed.
+
+Lemma list_delete_elem_eq {A} (x : A) (X : list A) `{EqDecision A} :
+  x ∉ X →
+  delete x X = X.
+Proof. apply list_delete_elem_eq_iff. Qed.

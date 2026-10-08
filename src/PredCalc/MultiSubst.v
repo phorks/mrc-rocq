@@ -925,7 +925,7 @@ Section semantics.
     - apply lookup_delete.
   Qed.
 
-  Lemma msubst_subst_comm A x t m :
+  Lemma msubst_subst_comm' A x t m :
     m !! x = Some t →
     dom (delete x m) ## term_fvars t →
     (x ∉ vtmap_fvars (delete x m)) →
@@ -978,6 +978,15 @@ Section semantics.
       2:{ apply lookup_list_to_map_zip_None... }
       apply elem_of_list_fmap. apply lookup_list_to_map_zip_Some in H1 as (i&?&?&_)...
       exists t0. split... apply elem_of_list_lookup. exists i...
+  Qed.
+
+  Lemma msubst_subst_comm A x t xs ts `{!OfSameLength xs ts} :
+    x ∉ xs →
+    x ∉ ⋃ (term_fvars <$> ts) →
+    list_to_set xs ## term_fvars t →
+    <! A[[*xs \ *ts]][x \ t] !> ≡ <! A[x \ t][[*xs \ *ts]] !>.
+  Proof with auto.
+    intros. rewrite <- msubst_extract_l... rewrite msubst_extract_r...
   Qed.
 
   Lemma msubst_extract_2 A x1 t1 x2 t2 :
@@ -1268,36 +1277,6 @@ Section semantics.
       + intros. apply NoDup_lookup with (i:=i) in H9... lia.
   Qed.
 
-
-  (* TODO: move it *)
-  Lemma fsubst_fsubst_ne A x1 t1 x2 t2 :
-    x1 ≠ x2 →
-    x1 ∉ term_fvars t2 →
-    <! A [x1 \ t1][x2 \ t2] !> ≡ <! A [x2 \ t2][x1 \ $(subst_term t1 x2 t2)] !>.
-  Proof with auto.
-    intros ? Hfree σ.
-    opose proof (teval_total σ _) as [v1 ?].
-    rewrite feval_subst with (v:=v1) by exact H0.
-    opose proof (teval_total _ _) as [v2 ?].
-    rewrite feval_subst with (v:=v2) by exact H1.
-    opose proof (teval_total σ _) as [v3 ?].
-    rewrite feval_subst with (v:=v3) by exact H2.
-    opose proof (teval_total _ _) as [v4 ?].
-    rewrite feval_subst with (v:=v4) by exact H3.
-    f_equiv. unfold state. apply map_eq. intros x.
-    destruct (decide (x = x1)); destruct (decide (x = x2)).
-    1:{ subst. contradiction. }
-    3:{ repeat rewrite lookup_insert_ne... }
-    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
-      f_equal. eapply (teval_det t1).
-      + apply H1.
-      + erewrite teval_subst; [exact H2|]...
-    - subst. rewrite lookup_insert. rewrite lookup_insert_ne... rewrite lookup_insert.
-      f_equal. eapply (teval_det t2).
-      + exact H0.
-      + rewrite <- teval_delete_state_var_head; [exact H3|]...
-  Qed.
-
   Lemma msubst_term_msubst_term_disj t xs1 ts1 xs2 ts2 `{!OfSameLength xs1 ts1} `{!OfSameLength xs2 ts2} :
     xs1 ## xs2 →
     NoDup xs1 →
@@ -1465,3 +1444,6 @@ Section semantics.
   Qed.
 
 End semantics.
+
+Global Hint Extern 0 (FormulaFinal <! _ [[ ↑ₓ _ \ ⇑ₜ _ ]] !>) =>
+  class_apply msubst_formula_final : typeclass_instances.

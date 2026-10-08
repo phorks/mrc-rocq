@@ -1,6 +1,9 @@
+From Stdlib Require Import Logic.FunctionalExtensionality.
+From Stdlib Require Import Strings.String.
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
 From MRC Require Import Model.
+From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.Basic.
 From MRC Require Import PredCalc.Equiv.
 From MRC Require Import PredCalc.SyntacticFacts.
@@ -14,11 +17,121 @@ Section variables.
   Notation term := (term M).
   Notation formula := (formula M).
 
-  Definition var_final (x : variable) := var_is_initial x = false.
+  (* ******************************************************************* *)
+  (* properties of final and initial variables                           *)
+  (* ******************************************************************* *)
+
+  Definition var_final x := var_is_initial x = false.
+  Definition var_initial x := var_is_initial x = true.
+
+  Lemma var_final_as_var x : var_final (as_var x).
+  Proof. reflexivity. Qed.
+
+  Lemma var_final_initial_var_of x : ¬ var_final (initial_var_of x).
+  Proof. cbv. discriminate. Qed.
+
+  Lemma initial_var_of_to_final_var x : var_initial x → ₀(to_final_var x) = x.
+  Proof.
+    unfold to_final_var, initial_var_of, var_initial. destruct x. simpl. intros; by subst.
+  Qed.
+
+  Lemma initial_var_of_to_final_var_inv x : ₀(to_final_var x) = x → var_initial x.
+  Proof.
+    unfold to_final_var, initial_var_of, var_initial. destruct x. simpl. by inversion 1.
+  Qed.
+
+  Lemma initial_var_of_initial x : var_initial ₀x.
+  Proof. done. Qed.
+
+  Lemma var_final_not_initial x : var_final x ↔ ¬ var_initial x.
+  Proof. unfold var_final, var_initial. by destruct (var_is_initial x). Qed.
+
+  Lemma var_initial_not_final x : var_initial x ↔ ¬ var_final x.
+  Proof. unfold var_final, var_initial. by destruct (var_is_initial x). Qed.
+
+  Lemma var_initial_or_final x : var_initial x ∨ var_final x.
+  Proof. unfold var_initial, var_final. destruct (var_is_initial x); auto. Qed.
+
+  Lemma to_initial_var_inj' x y :
+    var_final x →
+    var_final y →
+    to_initial_var x = to_initial_var y →
+    x = y.
+  Proof.
+    intros. destruct x. destruct y. unfold var_final in H, H0. simpl in H, H0.
+    inversion H1. subst. reflexivity.
+  Qed.
+
+  Lemma var_initial_to_initial_var x : var_initial (to_initial_var x).
+  Proof. done. Qed.
+
+  Lemma to_final_var_inj_initial {x y} :
+    var_initial x →
+    var_initial y →
+    to_final_var x = to_final_var y →
+    x = y.
+  Proof.
+    unfold var_initial, to_final_var. intros. inversion H1.
+    destruct x; destruct y. simpl in *. naive_solver.
+  Qed.
+
+  Global Instance set_unfold_var_initial_as_var x : SetUnfold (var_initial (as_var x)) False.
+  Proof. done. Qed.
+
+  Class VarFinal (v : variable) := var_is_final : var_final v.
+
+  Global Instance non_initial_var_final {x i} : VarFinal (mkVar x i false).
+  Proof. reflexivity. Qed.
+
+  Global Instance as_var_var_final {x} : VarFinal (as_var x).
+  Proof. reflexivity. Qed.
+
+  Global Instance fresh_var_final x fvars `{VarFinal x} : VarFinal (fresh_var x fvars).
+  Proof with auto.
+    unfold VarFinal. generalize dependent x. unfold fresh_var. induction (S (size fvars)); intros.
+    - simpl. apply H.
+    - simpl. destruct (decide (x ∈ fvars)).
+      + apply IHn. unfold VarFinal, var_final in H. destruct x. simpl in H.
+        rewrite H. reflexivity.
+      + apply H.
+  Qed.
+
+  Lemma to_initial_var_inj x y `{!VarFinal x} `{!VarFinal y} :
+    to_initial_var x = to_initial_var y →
+    x = y.
+  Proof with auto. intros. apply to_initial_var_inj'... Qed.
+
+  (* ******************************************************************* *)
+  (* properties of final and initial terms and formula                   *)
+  (* ******************************************************************* *)
+
   Definition term_final (t : term) := ∀ x, x ∈ term_fvars t → var_final x.
   Definition term_list_final (ts : list term) := Forall term_final ts.
   Definition formula_final (A : formula) :=
     ∀ x, x ∈ formula_fvars A → var_final x.
+
+  (* The following instances use the functional extensionality axiom to prove proof irrelevance
+     of term_final and formula_final. This can be avoided by defining differently using [every]
+     as follows or directly via [Forall]. But then working with them becomes harder.
+     I believe, nothing except these uses functional extensionality in our formalization uses.
+     HACK: If for whatever reason we want to avoid the functional extensionality axiom, change
+           these definitions to the following (the fix_wp branch does this, but is unfinished):
+
+      [Definition term_final t := every var_final (term_fvars t).]
+      [Definition term_list_final ts := every term_final ts.]
+      [Definition formula_final A := every var_final (formula_fvars A).]
+   *)
+  Global Instance term_final_pi {t} : ProofIrrel (term_final t).
+  Proof.
+    unfold term_final. intros p q. apply functional_extensionality_dep. intros.
+    apply functional_extensionality_dep. intros H. apply eq_pi. solve_decision.
+  Qed.
+
+  Global Instance formula_final_pi {A} : ProofIrrel (formula_final A).
+  Proof.
+    unfold formula_final. intros p q. apply functional_extensionality_dep. intros.
+    apply functional_extensionality_dep. intros H. apply eq_pi. solve_decision.
+  Qed.
 
   Instance var_final_dec x : Decision (var_final x).
   Proof. unfold var_final. solve_decision. Qed.
@@ -41,22 +154,6 @@ Section variables.
 
   Definition as_formula_F `{FMap F} (x : F final_formula) : F formula :=
     as_formula <$> x.
-
-  Class VarFinal (v : variable) := var_is_final : var_final v.
-
-  Global Instance non_initial_var_final {x i} : VarFinal (mkVar x i false).
-  Proof. reflexivity. Qed.
-
-  Global Instance as_var_var_final {x} : VarFinal (as_var x).
-  Proof. reflexivity. Qed.
-
-  Lemma var_final_as_var x :
-    var_final (as_var x).
-  Proof. reflexivity. Qed.
-
-  Lemma var_final_initial_var_of x :
-    ¬ var_final (initial_var_of x).
-  Proof. cbv. discriminate. Qed.
 
   Class TermFinal (t : term) := term_is_final : term_final t.
   Class TermListFinal (ts : list term) := term_list_is_final : term_list_final ts.
@@ -162,8 +259,9 @@ Section variables.
   Definition as_final_var x `{VarFinal x} : final_variable :=
     mkFinalVar (var_name x) (var_sub x).
 
-  Lemma as_final_var_as_var x : as_final_var (as_var x) = x.
-  Proof. unfold as_var, as_final_var. destruct x. simpl. reflexivity. Qed.
+  Lemma as_final_var_as_var x H :
+    @as_final_var (as_var x) H = x.
+  Proof. destruct x. unfold as_final_var. simpl. f_equal. Qed.
 
   Lemma as_var_as_final_var x `{VarFinal x} : as_var (as_final_var x) = x.
   Proof.
@@ -173,6 +271,14 @@ Section variables.
 
   Definition as_final_term t `{H : TermFinal t} : final_term :=
     mkFinalTerm t (@term_is_final t H).
+
+  Lemma as_final_term_eq {t t' H} :
+    t = as_term t' →
+    @as_final_term t H = t'.
+  Proof.
+    intros. subst. destruct t'. unfold as_final_term. simpl. f_equal. unfold TermFinal in H.
+    apply term_final_pi.
+  Qed.
 
   Lemma as_final_term_as_term t : as_final_term (as_term t) = t.
   Proof.
@@ -184,6 +290,14 @@ Section variables.
 
   Definition as_final_formula A `{H : FormulaFinal A} : final_formula :=
     mkFinalFormula A (@formula_is_final A H).
+
+  Lemma as_final_formula_eq {A A' H} :
+    A = as_formula A' →
+    @as_final_formula A H = A'.
+  Proof.
+    intros. subst. destruct A'. unfold as_final_formula. simpl. f_equal. unfold FormulaFinal in H.
+    apply formula_final_pi.
+  Qed.
 
   Lemma as_formula_term_as_formula A : as_final_formula (as_formula A) = A.
   Proof.
@@ -202,21 +316,6 @@ Section variables.
     x ∈ formula_fvars A →
     var_final x.
   Proof. intros. apply H in H0. assumption. Qed.
-  (* Axiom v : V. *)
-  (* Axiom x : final_variable. *)
-  (* Axiom y : variable. *)
-  (* Axiom ts : list term. *)
-  (* Axiom H : `{TermListFinal ts}. *)
-  (* Axiom t : final_term. *)
-  (* Axiom u : term. *)
-  (* Axiom A : final_formula. *)
-  (* Axiom B : formula. *)
-  (* Axiom fsym : Strings.String.string. *)
-  (* Axiom psym : Strings.String.string. *)
-
-  (* Definition tt : final_term := as_final_term (TApp fsym (TVar x :: [TVar x])). *)
-  (* Definition aa : final_formula := as_final_formula <! ⌜t + x = t + t⌝ !>. *)
-  (* Definition aa1 : final_formula := as_final_formula <! ⌜t + x = t + t⌝ ∧ A[y \ u] !>. *)
 
   Lemma as_var_to_final_var_final (x : variable) :
     var_final x →
@@ -235,20 +334,9 @@ Section variables.
     subst. simpl in *. set_solver.
   Qed.
 
-  Lemma to_initial_var_inj' x y :
-    var_final x →
-    var_final y →
-    to_initial_var x = to_initial_var y →
-    x = y.
-  Proof.
-    intros. destruct x. destruct y. unfold var_final in H, H0. simpl in H, H0.
-    inversion H1. subst. reflexivity.
-  Qed.
-
-  Lemma to_initial_var_inj x y `{!VarFinal x} `{!VarFinal y} :
-    to_initial_var x = to_initial_var y →
-    x = y.
-  Proof with auto. intros. apply to_initial_var_inj'... Qed.
+  (* ******************************************************************* *)
+  (* lifting fequiv ≡ to final formulas                                  *)
+  (* ******************************************************************* *)
 
   Global Instance ffequiv : Equiv final_formula := λ F1 F2, as_formula F1 ≡ as_formula F2.
   Global Instance ffequiv_refl : Reflexive ffequiv.
@@ -262,6 +350,114 @@ Section variables.
 
   Global Instance ffequiv_equiv : Equivalence ffequiv.
   Proof. split; [exact ffequiv_refl | exact ffequiv_sym | exact ffequiv_trans]. Qed.
+
+  Lemma ffequiv_fequiv (A B : formula) `{!FormulaFinal A} `{!FormulaFinal B} :
+    as_final_formula A ≡ as_final_formula B ↔ A ≡ B.
+  Proof. unfold equiv, ffequiv. do 2 rewrite as_formula_as_final_formula. done. Qed.
+
+  (* ******************************************************************* *)
+  (* some useful functions for extracting final and initials free        *)
+  (*  variables from formulas                                            *)
+  (* ******************************************************************* *)
+
+  Definition final_fvars (A : formula) :=
+    to_final_var <$> (set_to_list (filter var_final (formula_fvars A))).
+  Definition initial_fvars (A : formula) :=
+    filter var_initial (set_to_list (formula_fvars A)).
+  Definition finalized_initial_fvars A :=
+    to_final_var <$> (initial_fvars A).
+
+  Lemma elem_of_initial_fvars {x A} :
+    x ∈ initial_fvars A ↔ x ∈ formula_fvars A ∧ var_initial x.
+  Proof.
+    unfold initial_fvars. split; intros.
+    - apply elem_of_list_filter in H. set_solver.
+    - apply elem_of_list_filter. set_solver.
+  Qed.
+
+  Global Instance set_unfold_elem_of_initial_fvars x A P1 P2 :
+    SetUnfoldElemOf x (formula_fvars A) P1 →
+    SetUnfold (var_initial x) P2 →
+    SetUnfoldElemOf x (initial_fvars A) (P1 ∧ P2).
+  Proof.
+    intros. constructor. rewrite elem_of_initial_fvars.
+    rewrite set_unfold_elem_of by exact H.
+    by rewrite set_unfold with (P:=var_initial x) by exact (H0).
+  Qed.
+
+  Lemma elem_of_final_fvars {x A} :
+    x ∈ final_fvars A ↔ as_var x ∈ formula_fvars A.
+  Proof.
+    unfold final_fvars. split; intros.
+    - apply elem_of_list_fmap in H as (?&?&?). set_unfold in H0. simpl in H0. destruct H0 as [].
+      symmetry in H. apply as_var_to_final_var_final in H0. subst. rewrite <- H0 in H1.
+      done.
+    - apply elem_of_list_fmap. exists (as_var x).
+      split.
+      + rewrite to_final_var_as_var. done.
+      + set_unfold. split; set_solver.
+  Qed.
+
+  Global Instance set_unfold_elem_of_final_fvars x A P :
+    SetUnfoldElemOf (as_var x) (formula_fvars A) P →
+    SetUnfoldElemOf x (final_fvars A) P.
+  Proof.
+    intros. constructor. rewrite elem_of_final_fvars.
+    by rewrite set_unfold_elem_of by exact H.
+  Qed.
+
+  Lemma elem_of_finalized_initial_fvars {x A} :
+    x ∈ finalized_initial_fvars A ↔ ₀x ∈ formula_fvars A.
+  Proof with auto.
+    unfold finalized_initial_fvars. rewrite elem_of_list_fmap.
+    setoid_rewrite elem_of_initial_fvars. split; intros.
+    - destruct H as (y&->&?&?). rewrite initial_var_of_to_final_var...
+    - exists ₀x. rewrite to_final_var_initial_var_of. split_and!... done.
+  Qed.
+
+  Global Instance set_unfold_elem_of_finalized_initial_fvars x A P :
+    SetUnfoldElemOf ₀x (formula_fvars A) P →
+    SetUnfoldElemOf x (finalized_initial_fvars A) P.
+  Proof.
+    intros. constructor. rewrite elem_of_finalized_initial_fvars.
+    by rewrite set_unfold_elem_of by exact H.
+  Qed.
+
+  Lemma finalized_initial_fvars_subst_perm x A :
+    ₀x ∈ formula_fvars A →
+    finalized_initial_fvars <! A[₀x \ x] !> ≡ₚ delete x (finalized_initial_fvars A).
+  Proof with auto.
+    intros. assert (H0:=H). apply union_difference_singleton_L in H.
+    unfold finalized_initial_fvars, initial_fvars.
+    rewrite H. rewrite fvars_subst...
+    rewrite set_to_list_union_perm with (s1:={[₀x]}) by set_solver.
+    rewrite filter_app. rewrite set_to_list_singleton.
+    rewrite fmap_app. simpl.
+    rewrite to_final_var_initial_var_of. rewrite list_delete_elem_cons.
+    rewrite list_delete_elem_eq.
+    2:{
+      intros contra. set_unfold in contra. destruct contra as (?&->&?).
+      apply elem_of_list_filter in H1 as [].
+      set_unfold in H2. simpl in H2. rewrite initial_var_of_to_final_var in H2...
+      naive_solver.
+    }
+    destruct (decide (as_var x ∈ formula_fvars A)).
+    - replace (formula_fvars A ∖ {[₀x]} ∪ {[as_var x]})
+        with (formula_fvars A ∖ {[₀x]}) by set_solver...
+    - rewrite set_to_list_union_perm by set_solver. rewrite Permutation_app_comm.
+      rewrite filter_app. rewrite set_to_list_singleton, fmap_app. simpl...
+  Qed.
+
+  Lemma finalized_initial_fvars_NoDup A : NoDup (finalized_initial_fvars A).
+  Proof with auto.
+    unfold finalized_initial_fvars, initial_fvars. induction (formula_fvars A) using set_ind_L.
+    - rewrite set_to_list_empty. simpl. constructor.
+    - rewrite set_to_list_union_perm by set_solver. rewrite set_to_list_singleton.
+      simpl. rewrite filter_cons... destruct (decide _)... rewrite fmap_cons.
+      constructor... inversion IHg; [set_solver|]. rewrite H0. contradict H.
+      apply elem_of_list_fmap in H as (?&?&?). apply elem_of_list_filter in H3 as [].
+      apply to_final_var_inj_initial in H... set_solver.
+  Qed.
 
 End variables.
 
@@ -468,7 +664,41 @@ Section lemmas.
   Proof. intros. set_solver. Qed.
 End lemmas.
 
-Hint Resolve disjoint_initial_var_of : core.
-Hint Resolve NoDup_initial_var_of : core.
-Hint Resolve NoDup_as_var : core.
-Hint Resolve disjoint_initial_var_of_term_fvars : core.
+Global Hint Resolve disjoint_initial_var_of : core.
+Global Hint Resolve NoDup_initial_var_of : core.
+Global Hint Resolve NoDup_as_var : core.
+Global Hint Resolve disjoint_initial_var_of_term_fvars : core.
+
+Tactic Notation "mk_fresh" uconstr(X) "as" ident(x) :=
+  let H := fresh in
+  pose proof (fresh_var_fresh ""%string X) as H;
+  let Hfinal := fresh "Hfinal" in
+  pose proof (fresh_var_final ""%string X) as Hfinal;
+  repeat rewrite not_elem_of_union in H;
+  let E := fresh in
+  remember (fresh_var ""%string X) as x eqn:E;
+  clear E.
+
+Tactic Notation "mk_fresh" uconstr(y) uconstr(X) "as" ident(x) :=
+  let H := fresh in
+  pose proof (fresh_var_fresh y X) as H;
+  let Hfinal := fresh "Hfinal" in
+  try pose proof (fresh_var_final y X) as Hfinal;
+  repeat rewrite not_elem_of_union in H;
+  let E := fresh in
+  remember (fresh_var y X) as x eqn:E;
+  clear E.
+
+Global Hint Extern 100 (var_final _) => apply var_final_not_initial : core.
+Global Hint Resolve var_initial_to_initial_var : core.
+Global Hint Extern 0 =>
+match goal with
+| H : ¬ var_initial (to_initial_var _) |- _ =>
+    exfalso; apply H; apply var_initial_to_initial_var
+end : core.
+Global Hint Extern 0 (as_var _ = as_var _) => apply as_var_inj : core.
+
+Global Hint Extern 0 (as_final_var (as_var ?x) = ?x) => apply as_final_var_as_var : core.
+Global Hint Extern 0 (?x = as_final_var (as_var ?x)) => symmetry; apply as_final_var_as_var : core.
+Global Hint Extern 0 (as_var (as_final_var ?x) = ?x) => apply as_var_as_final_var : core.
+Global Hint Extern 0 (?x = as_var (as_final_var ?x)) => symmetry; apply as_var_as_final_var : core.

@@ -11,7 +11,8 @@ Section syntactic.
   Local Notation value_ty := (value_ty M).
   Local Notation sgn := (model_sgn M).
 
-  Implicit Types t : term M.
+  Implicit Types x y z : variable.
+  Implicit Types t u : term M.
   Implicit Types af : atomic_formula M.
   Implicit Types A B C : formula M.
   Implicit Types v : value.
@@ -274,6 +275,24 @@ Section syntactic.
       + rewrite simpl_subst_exists_propagate; try contradiction...
   Qed.
 
+  Lemma subst_term_trans : ∀ t x1 x2 u,
+      x2 ∉ term_fvars t →
+      <! t [ₜ x1 \ x2][ₜ x2 \ u] !> = <! t [ₜ x1 \ u] !>.
+  Proof with auto.
+    intros. induction t...
+    - simpl. destruct (decide _).
+      + subst. simpl. destruct (decide _)... done.
+      + simpl. destruct (decide _)... subst. set_solver.
+    - simpl. f_equiv. induction args... simpl. f_equiv.
+      + apply H0.
+        * left...
+        * set_solver.
+      + apply IHargs.
+        * intros. apply H0... right...
+        * set_solver.
+  Qed.
+
+
   Lemma subst_term_diag : forall t x,
       subst_term t x x = t.
   Proof with auto.
@@ -318,6 +337,22 @@ Section syntactic.
       + apply IHargs...
   Qed.
 
+  Lemma subst_non_free A x t :
+    x ∉ formula_fvars A →
+    <! A[x \ t] !> = A.
+  Proof with auto.
+    apply subst_formula_ind with (P:=λ A B, x ∉ formula_fvars B → A = B); intros.
+    - rewrite subst_af_non_free...
+    - f_equiv...
+    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
+      f_equiv; [apply H|apply H0]...
+    - simpl in H1. apply not_elem_of_union in H1 as [? ?].
+      f_equiv; [apply H|apply H0]...
+    - reflexivity.
+    - simpl in H2. apply not_elem_of_difference in H2. rewrite elem_of_singleton in H2.
+      destruct H2; subst; contradiction.
+  Qed.
+
   Local Lemma free_var_subst_fvars_subseteq t x t' :
     x ∈ term_fvars t →
     term_fvars t' ⊆ term_fvars (subst_term t x t').
@@ -334,9 +369,16 @@ Section syntactic.
       apply elem_of_list_fmap. eexists. split; [reflexivity|]...
   Qed.
 
+  Lemma fvars_subst_term_non_free t x u :
+    x ∉ term_fvars t →
+    term_fvars (<! t[ₜ x \ u] !>) = term_fvars t.
+  Proof with auto.
+    intros. rewrite subst_term_non_free...
+  Qed.
+
   Lemma fvars_subst_term_free t x t' :
     x ∈ term_fvars t →
-    term_fvars (subst_term t x t') = (term_fvars t ∖ {[x]}) ∪ term_fvars t'.
+    term_fvars <! t[ₜ x \ t'] !> = (term_fvars t ∖ {[x]}) ∪ term_fvars t'.
   Proof with auto.
     intros. apply leibniz_equiv. induction t.
     - simpl in H. apply elem_of_empty in H as [].
@@ -498,6 +540,14 @@ Section syntactic.
     - apply fvars_subst_non_free...
   Qed.
 
+  Lemma fvars_subst_term_superset t x u :
+    term_fvars (<! t[ₜ x \ u] !>) ⊆ (term_fvars t ∖ {[x]}) ∪ term_fvars u.
+  Proof with auto.
+    destruct (decide (x ∈ term_fvars t)).
+    - rewrite fvars_subst_term_free...
+    - rewrite fvars_subst_term_non_free... set_solver.
+  Qed.
+
   Lemma fvars_subst_superset A x t :
     formula_fvars (<! A[x \ t] !>) ⊆ formula_fvars A ∪ term_fvars t.
   Proof with auto.
@@ -505,6 +555,36 @@ Section syntactic.
     - rewrite fvars_subst_free... apply union_mono_r. apply subseteq_difference_l...
     - rewrite fvars_subst_non_free... apply union_subseteq_l.
   Qed.
+
+  Lemma fvars_subst_superset' A x t :
+    formula_fvars (<! A[x \ t] !>) ⊆ (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
+  Proof with auto.
+    destruct (decide (x ∈ formula_fvars A)).
+    - rewrite fvars_subst_free...
+    - rewrite fvars_subst_non_free... set_solver.
+  Qed.
+
+  Lemma elem_of_subst_fvars x A y t :
+    x ∈ formula_fvars (<! A[y \ t] !>) ↔
+      (x ∈ formula_fvars A ∧ x ≠ y) ∨ (y ∈ formula_fvars A ∧ x ∈ term_fvars t).
+  Proof with auto.
+    destruct (decide (y ∈ formula_fvars A)).
+    + rewrite fvars_subst_free... set_solver.
+    + rewrite fvars_subst_non_free... set_solver.
+  Qed.
+
+  Global Instance set_unfold_elem_of_subst_fvars x A y t P1 P2 P3 :
+    SetUnfoldElemOf x (formula_fvars A) P1 →
+    SetUnfoldElemOf y (formula_fvars A) P2 →
+    SetUnfoldElemOf x (term_fvars t)    P3 →
+    SetUnfoldElemOf x (formula_fvars <! A[y \ t] !>)
+                    ((P1 ∧ x ≠ y) ∨ (P2 ∧ P3)).
+  Proof. intros. constructor. rewrite elem_of_subst_fvars. set_solver. Qed.
+
+  Lemma fvars_subst A x t :
+    x ∈ formula_fvars A →
+    formula_fvars <! A[x \ t] !> = (formula_fvars A ∖ {[x]}) ∪ term_fvars t.
+  Proof. intros. apply set_eq. set_solver. Qed.
 
   Lemma subst_term_commute t x1 t1 x2 t2 :
     x1 ≠ x2 →

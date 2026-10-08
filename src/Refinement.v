@@ -1312,9 +1312,9 @@ Section refinement.
   Lemma f_forall_add_typing x ty A :
     <! ∀ x, A !> ⇛ <! ∀ x : ty, A !>.
   Proof with auto.
-    intros σ H. unfold FForallT. simpl. intros. rewrite simpl_feval_fforall in H |- *.
+    intros σ H. unfold FForallT. simpl. intros. rewrite simpl_feval_forall in H |- *.
     intros. specialize (H v). rewrite feval_subst with (v:=v) in H...
-    rewrite feval_subst with (v:=v)... rewrite simpl_feval_fimpl...
+    rewrite feval_subst with (v:=v)... rewrite simpl_feval_impl...
   Qed.
 
   Lemma fold_fmap_as_var xs : list_fmap final_variable variable as_var xs  = ↑ₓ xs.
@@ -1343,7 +1343,7 @@ Section refinement.
       2:{ unfold quant_subst_fvars. set_solver. }
       rewrite fforall_alpha_equiv with (x:=y) (x':=z).
       2:{ unfold quant_subst_fvars. set_solver. }
-      f_equiv. rewrite fsubst_fsubst_ne... simpl. destruct (decide _).
+      f_equiv. rewrite subst_subst_ne... simpl. destruct (decide _).
       + subst. set_unfold in H0. destruct_and! H0. done.
       + rewrite <- H at 2...
   Qed.
@@ -1380,7 +1380,7 @@ Section refinement.
       set_solver.
     }
     rewrite fforall_unused by set_solver. repeat rewrite subst_initials_msubst.
-    rewrite msubst_subst_comm' by set_solver. repeat rewrite <- subst_initials_msubst.
+    rewrite msubst_subst_comm by set_solver. repeat rewrite <- subst_initials_msubst.
     mk_fresh (formula_fvars <! ∀* ↑ₓ w, post ⇒ A [x \ y] !>
               ∪ {[as_var x; y]} ∪ list_to_set ↑ₓ w ∪ formula_fvars post ∪ formula_fvars A) as z.
     rewrite simpl_subst_forall_rename with (y':=z) by set_solver.
@@ -1936,41 +1936,6 @@ Section refinement.
     <! A[;x, *xs \ t, *ts;] !> ≡ <! A[;*xs \ *ts;][x \ t] !>.
   Proof with auto. intros. simpl. repeat f_equiv. apply eq_pi. solve_decision. Qed.
 
-  Lemma r_varlist_cons_flip x xs p :
-    x ∉ xs →
-    <{ |[ var* $(x :: xs) ⦁ $p ]| }> ≡ <{ |[ var* xs ⦁ |[ var x : ⊤ ⦁ $p ]| ]| }>.
-  Proof with auto.
-    intros. 
-    (* etrans. *)
-    (* { replace (x :: xs) with ([x] ++ xs) by done. apply r_varlist_app. } *)
-    mk_fresh ∅ as z.
-    remember (fresh_vars_for ∅ xs) as zs.
-    intros A. rewrite wp_varlist' with (zs:=[as_final_var z] ++ zs)...
-    (* intros A. rewrite wp_varlist' with (zs:=zs ++ [as_final_var z])... *)
-    2-6: admit.
-    rewrite wp_varlist' with (zs:=zs)...
-    2-6: admit.
-    rewrite wp_var with (y:=z).
-    2-6: admit.
-    unshelve erewrite seqsubst_rewrite.
-    3: { rewrite fmap_app. simpl. rewrite cons_app. reflexivity. }
-    2: { rewrite cons_app. rewrite fmap_app. simpl.
-         rewrite cons_app. reflexivity. }
-    rewrite seqsubst_extract_l'.
-    2-4: admit.
-    apply seqsubst_proper...
-    rewrite fmap_cons at 1. rewrite f_foralllist_permute with (xs':=(↑ₓ xs ++ [as_var x])).
-    2: admit.
-    rewrite foralllist_snoc. rewrite f_forall_ty_top. rewrite simpl_subst_foralllist.
-    2-3: admit.
-    f_equiv. rewrite as_var_as_final_var. f_equiv. f_equiv.
-    apply wp_congr...
-    unshelve erewrite seqsubst_rewrite.
-    3: { rewrite fmap_cons. rewrite cons_app. reflexivity. }
-    2: { simpl.  rewrite cons_app. rewrite as_var_as_final_var. reflexivity. }
-    rewrite seqsubst_extract_r'. f_equiv. f_equiv. reflexivity.
-  Admitted.
-
   Lemma msubst_initials_closed (A : formula) w (xs : list variable)
       (ts : list term) `{!OfSameLength xs ts} :
     initials_closed A w →
@@ -2516,7 +2481,7 @@ Section refinement.
     { intros x ??. set_unfold in H3. destruct H3 as (t&?&vt&->&?). simpl in H3. set_solver. }
     rewrite seqsubst_msubst... epose proof (teval_vtmap_total σ _) as [mv ?].
     rewrite feval_msubst by exact H. simp feval. split_and!.
-    - rewrite simpl_feval_fimpl. simp feval. intros. destruct_and! H3. split_and!...
+    - rewrite simpl_feval_impl. simp feval. intros. destruct_and! H3. split_and!...
       unfold subst_all_initials. unfold subst_initials. rewrite seqsubst_msubst...
       epose proof (teval_vtmap_total _ _) as [mv0 ?].
       rewrite feval_msubst by exact H4. rewrite simpl_feval_foralllist. intros.
@@ -2524,17 +2489,17 @@ Section refinement.
       2:{ apply NoDup_zpair_functional... }
       2:{ intros x ??. set_unfold in H9. destruct H9 as (?&?&?&->&?). simpl in H9. set_solver. }
       epose proof (teval_vtmap_total _ _) as [mv' ?].
-      rewrite feval_msubst by exact H8. rewrite simpl_feval_fimpl. simp feval.
+      rewrite feval_msubst by exact H8. rewrite simpl_feval_impl. simp feval.
       intros [? []]. split...
     - specialize (H2 vs H0). apply seqsubst_msubst in H2...
-      rewrite feval_msubst in H2 by exact H... rewrite simpl_feval_fimpl in H2 |- *.
+      rewrite feval_msubst in H2 by exact H... rewrite simpl_feval_impl in H2 |- *.
       simp feval in H2 |- *. intros [[] ?]. apply H2. split...
-    - rewrite simpl_feval_fimpl. simp feval. naive_solver.
+    - rewrite simpl_feval_impl. simp feval. naive_solver.
     - mk_fresh String.EmptyString
          (Prog.while_fvars <!! g !!> <!! inv ∧ ⌜ var ∈ₜ ℕ ⌝ !!> var
             <{ * w : [inv ∧ g, inv ∧ ⌜ var ∈ₜ ℕ ⌝ ∧ ⌜ 0 ≤ var < var₀ ⌝] }>)
          as y.
-      rewrite simpl_feval_fforall. intros var0. rewrite feval_subst with (v:=var0)...
+      rewrite simpl_feval_forall. intros var0. rewrite feval_subst with (v:=var0)...
       assert (finalized_initial_fvars <! inv ∧ ⌜ var ∈ₜ ℕ ⌝ ∧ ⌜ 0 ≤ var < var₀ ⌝ !> ⊆ w).
       1:{ unfold finalized_initial_fvars, initial_fvars.
           set_unfold. intros. destruct_or! H4. destruct H4 as (t&?&?). destruct_or! H5.
@@ -2544,7 +2509,7 @@ Section refinement.
             + apply term_is_final in H4. apply var_final_initial_var_of in H4 as [].
             + destruct H4. rewrite to_final_var_initial_var_of in H5... }
       rewrite wp_spec_weaken_subst with (xs:=w)... clear H4.
-      rewrite simpl_feval_fimpl. simp feval. intros [[] []]. split_and!...
+      rewrite simpl_feval_impl. simp feval. intros [[] []]. split_and!...
       unfold subst_initials. rewrite seqsubst_msubst...
       epose proof (teval_vtmap_total _ _) as [mv0 ?].
       rewrite feval_msubst by exact H8. rewrite simpl_feval_foralllist.
@@ -2552,7 +2517,7 @@ Section refinement.
       2:{ apply NoDup_zpair_functional... }
       2:{ intros x ??. set_unfold in H11. destruct H11 as (?&?&?&->&?). set_solver. }
       epose proof (teval_vtmap_total _ _) as [mv' ?].
-      rewrite feval_msubst by exact H10. rewrite simpl_feval_fimpl. simp feval.
+      rewrite feval_msubst by exact H10. rewrite simpl_feval_impl. simp feval.
       intros [? [? []]]. rewrite <- feval_msubst in H14 |- * by exact H10.
       unfold term_lt in H14 |- *. simp msubst in H14 |- *. simpl in H14 |- *.
       unfold var₀ in H14. eapply ATPred_proper_st in H14.
@@ -2618,6 +2583,24 @@ Section refinement.
       + unfold var₀. done.
   Qed.
 
+  Lemma r_while_body {g I v p1 p2} :
+    Δ p1 = Δ p2 →
+    p1 ⊑ p2 →
+    PWhile g I v p1 ⊑ PWhile g I v p2.
+  Proof with auto.
+    intros. intros A. simpl. rewrite H. f_equiv. f_equiv...
+    - fSimpl. rewrite refines_iff_fent in H0...
+    - fSimpl. rewrite refines_iff_fent in H0...
+      mk_fresh
+        (formula_fvars I ∪ formula_fvars g ∪ term_fvars v ∪ prog_fvars p1 ∪ prog_fvars p2) as x.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      rewrite wp_while_decrease_variant with (y:=x)...
+      2-5: set_solver.
+      do 2 f_equiv.
+      rewrite H0...
+  Qed.
+
   Lemma feval_seqsubst_pi {xs : list variable} {ts H1 H2 σ A} :
     feval σ (@seqsubst M A xs ts H1) ↔ feval σ (@seqsubst M A xs ts H2).
   Proof. f_equiv. f_equiv. apply OfSameLength_pi. Qed.
@@ -2651,7 +2634,7 @@ Section refinement.
     rewrite seqsubst_msubst in H1.
     2:{ apply NoDup_zpair_functional... }
     2:{ set_unfold. intros. destruct H6 as (?&?&?&?&?). subst. done. }
-    rewrite feval_msubst in H1 by exact H4. rewrite simpl_feval_fimpl in *.
+    rewrite feval_msubst in H1 by exact H4. rewrite simpl_feval_impl in *.
     intros. apply H1. simp feval. split... rewrite <- feval_msubst by exact H4.
     rewrite msubst_non_free... rewrite <- feval_msubst by exact H0.
     rewrite msubst_non_free... set_solver.

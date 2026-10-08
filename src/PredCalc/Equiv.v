@@ -313,6 +313,18 @@ Section lemmas.
   Implicit Types t : term M.
   Implicit Types σ : state M.
 
+  Lemma fequiv_fent A B :
+    A ≡ B ↔ A ⇛ B ∧ B ⇛ A.
+  Proof with auto.
+    split.
+    - intros. split; intros σ; apply H.
+    - intros []. split; intros...
+  Qed.
+
+  Lemma fold_fent {A B} :
+    (∀ σ, feval σ A → feval σ B) ↔ A ⇛ B.
+  Proof. reflexivity. Qed.
+
   Lemma f_ent_contrapositive A B :
     <! ¬ B !> ⇛ <! ¬ A !> ↔ <! A !> ⇛ <! B !>.
   Proof with auto.
