@@ -1321,3 +1321,21 @@ Proof.
 Qed.
 
 Print Assumptions code_refines_spec.
+
+Lemma feval_lem_admissible :
+  ClassicalFacts.excluded_middle → ∀ M σ (A : formula M), feval σ A ∨ ¬ feval σ A.
+Proof. intros. apply (H (feval σ A)). Qed.
+
+Print Assumptions feval_lem_admissible.
+
+Lemma TotalFRel_total_admissible :
+  ClassicalFacts.excluded_middle →
+  ∀ M R (args : list (value M)),
+    ∃ v, TotalFRel R args v.
+Proof.
+  intros H M R args. destruct (H (∃ v, R args v)).
+  - destruct H0 as (v&?). exists v. by apply TotalFRel_Known.
+  - exists ⊥. apply TotalFRel_Unknown. intros. contradict H0. eauto.
+Qed.
+
+Print Assumptions TotalFRel_total_admissible.
