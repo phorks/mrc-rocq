@@ -2149,7 +2149,7 @@ Section semantics.
   (* definition and properties of ⊑ and ≡ on prog                        *)
   (* ******************************************************************* *)
   Global Instance refines : SqSubsetEq prog := λ p1 p2,
-    ∀ A : final_formula, wp p1 A ⇛ (wp p2 A).
+    ∀ A : final_fo, wp p1 A ⇛ (wp p2 A).
 
   Global Instance pequiv : Equiv prog := λ p1 p2, ∀ A : final_formula, wp p1 A ≡ wp p2 A.
   Global Instance refines_refl : Reflexive refines.

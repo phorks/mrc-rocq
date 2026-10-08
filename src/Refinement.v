@@ -1349,7 +1349,7 @@ Section refinement.
   Qed.
 
   (* Law 6.1 *)
-  Lemma r_var_intro {w x ty pre post} `{!FormulaFinal pre} :
+  Lemma r_var_intro x ty {w pre post} `{!FormulaFinal pre} :
     initials_closed post w →
     x ∉ w →
     as_var x ∉ formula_fvars pre →

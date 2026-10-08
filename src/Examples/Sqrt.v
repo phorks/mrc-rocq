@@ -9,6 +9,104 @@ From MRC.Examples Require Import Model Variables.
 Open Scope stdpp_scope.
 Open Scope refiney_scope.
 
+Section moveme.
+  Context {M : model}.
+  Context {MNat : ModelWithNat M}.
+  Local Notation value := (value M).
+  Local Notation value_ty := (value_ty M).
+  Local Notation sgn := (model_sgn M).
+
+  Local Notation term := (term M).
+  Local Notation formula := (formula M).
+  Local Notation final_term := (final_term M).
+  Local Notation final_formula := (final_formula M).
+  Local Notation prog := (prog M).
+
+  Implicit Types (x : final_variable) (t : term) (A : formula) (p : prog).
+
+  Definition pequiv_st σ p1 p2 := ∀ A : final_formula, wp p1 A ≡_{σ} wp p2 A.
+  Definition refines_st σ p1 p2 := ∀ A : final_formula, wp p1 A ⇛_{σ} wp p2 A.
+
+  Global Instance pequiv_st_proper {σ} : Proper ((≡) ==> (≡) ==> (↔)) (pequiv_st σ).
+  Proof.
+    intros p1 p1' ? p2 p2' ?. split; intros.
+    - intros A. specialize (H A σ). specialize (H0 A σ). specialize (H1 A).
+      unfold fequiv_st in *. naive_solver.
+    - intros A. specialize (H A σ). specialize (H0 A σ). specialize (H1 A).
+      unfold fequiv_st in *. naive_solver.
+  Qed.
+
+  Global Instance refines_st_proper {σ} : Proper ((≡) ==> (≡) ==> (↔)) (refines_st σ).
+  Proof.
+    intros p1 p1' ? p2 p2' ?. split; intros.
+    - intros A. specialize (H A σ). specialize (H0 A σ). specialize (H1 A).
+      unfold fent_st in *. naive_solver.
+    - intros A. specialize (H A σ). specialize (H0 A σ). specialize (H1 A).
+      unfold fent_st in *. naive_solver.
+  Qed.
+
+  Global Instance wp_proper_pequiv_st {A : formula} {σ} `{!FormulaFinal A} :
+    Proper ((pequiv_st σ) ==> (≡_{σ})) (λ p, wp p A).
+  Proof. intros p1 p2 Hp. unfold pequiv_st in Hp. by rewrite (Hp <!! A !!>). Qed.
+
+  Global Instance wp_proper_refines_st {A : formula} {σ} `{!FormulaFinal A} :
+    Proper ((refines_st σ) ==> (⇛_{σ})) (λ p, wp p A).
+  Proof. intros p1 p2 Hp. unfold pequiv_st in Hp. by rewrite (Hp <!! A !!>). Qed.
+
+  Global Instance wp_proper_pequiv_st' {A : formula} {σ} `{!FormulaFinal A} :
+    Proper ((≡) ==> (≡_{σ})) (λ p, wp p A).
+  Proof.
+    intros p1 p2 Hp. unfold equiv, pequiv in Hp. unfold fequiv_st.
+    by rewrite (Hp <!! A !!> σ).
+  Qed.
+
+  Global Instance wp_proper_refines_st' {A : formula} {σ} `{!FormulaFinal A} :
+    Proper ((⊑) ==> (⇛_{σ})) (λ p, wp p A).
+  Proof.
+    intros p1 p2 Hp. unfold sqsubseteq, refines in Hp. unfold fent_st.
+    intros. by apply (Hp <!! A !!> σ) in H.
+  Qed.
+
+
+  Local Infix "⊑_{ σ }" := (refines_st σ) (at level 70, no associativity) : refiney_scope.
+  Lemma f_forall_ty_equiv_if (x : variable) ty A B :
+    (∀ σ, feval σ <! ⌜x ∈ₜ ty⌝ !> → A ≡_{σ} B) →
+    <! ∀ x : ty, A !> ≡ <! ∀ x : ty, B !>.
+  Proof with auto.
+    intros. unfold FForallT. apply f_forall_equiv. intros t σ.
+    pose proof (teval_total σ t) as (v&?).
+    rewrite feval_subst with (v:=v)... rewrite feval_subst with (v:=v)...
+    do 2 rewrite simpl_feval_fimpl. split; intros; apply H...
+  Qed.
+
+  Lemma f_forall_ty_ent_if (x : variable) ty A B :
+    (∀ σ, feval σ <! ⌜x ∈ₜ ty⌝ !> → A ⇛_{σ} B) →
+    <! ∀ x : ty, A !> ⇛ <! ∀ x : ty, B !>.
+  Proof with auto.
+    intros. unfold FForallT. intros σ. do 2  rewrite simpl_feval_fforall.
+    intros. specialize (H0 v).
+    rewrite feval_subst with (v:=v)... rewrite feval_subst with (v:=v) in H0...
+    rewrite simpl_feval_fimpl in H0 |- *. intros. apply H0 in H1 as H2.
+    apply H in H2...
+  Qed.
+
+  Lemma r_var_ctx x ty p1 p2 :
+    (∀ σ, feval σ <! ⌜x ∈ₜ ty⌝ !> → p1 ⊑_{ σ } p2) →
+    <{ |[ var x : ty ⦁ $p1 ]| }> ⊑ <{ |[ var x : ty ⦁ $p2 ]| }>.
+  Proof.
+    intros ? A.
+    mk_fresh (
+        {[as_var x]}
+          ∪ prog_fvars p1
+          ∪ prog_fvars p2
+          ∪ formula_fvars A) as y.
+    do 2 rewrite wp_var with (y:=y) by set_solver.
+    f_equiv. intros σ ?. eapply f_forall_ty_ent_if in H1; [exact H1|].
+    unfold refines_st in H. intros. specialize (H σ0 H2 <!! A [x \ y] !!>).
+    apply H.
+  Qed.
+End moveme.
+
 Notation Prog := (prog Model).
 Notation Term := (term Model).
 Notation Formula := (formula Model).
@@ -16,23 +114,19 @@ Notation Formula := (formula Model).
 Definition final_var_to_term (x : Model.final_variable) : Term := TVar (Model.as_var x).
 Coercion final_var_to_term : Model.final_variable >-> Term.
 
-(* Notation "'|[' 'var*' xs ':' ty '⦁' y ']|' " := *)
-(*   (PVarList xs y) *)
-(*     (in custom prog at level 95, xs custom var_seq, ty custom term_ty, y custom prog) : refiney_scope. *)
-
-(* Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r := ⌊√ s⌋ ]| }>. *)
-Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r = ⌊√ s⌋⌝] ]| }>.
-Definition prog1 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r ≤ √ s < r + 1⌝] ]| }>.
-Definition prog2 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r² ≤ s < (r + 1)²⌝] ]| }>.
+Definition spec : Prog := <{ |[ var r s : ℕ ⦁ r := ⌊√ s⌋ ]| }>.
+Definition prog1 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r = ⌊√ s⌋⌝] ]| }>.
+Definition prog2 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r ≤ √ s < r + 1⌝] ]| }>.
+Definition prog3 : Prog := <{ |[ var r s : ℕ ⦁ r : [⌜r ∈ₜ ℕ⌝ ∧ ⌜r² ≤ s < (r + 1)²⌝] ]| }>.
 Definition I : Formula := <! ⌜q ∈ₜ ℕ⌝ ∧ ⌜r ∈ₜ ℕ⌝ ∧ ⌜r² ≤ s < q²⌝ !>.
-Definition prog3 : Prog :=
+Definition prog4 : Prog :=
   <{ |[ var r s q : ℕ ⦁
                       q, r : [I ∧ ⌜r+1 = q⌝] ]| }>.
-Definition prog4 : Prog :=
+Definition prog5 : Prog :=
   <{ |[ var r s q : ℕ ⦁
                       q, r : [I];
                       q, r : [I, I ∧ ⌜r+1 = q⌝] ]| }>.
-Definition prog5 : Prog :=
+Definition prog6 : Prog :=
   <{ |[ var r s q : ℕ ⦁
                       q, r := s + 1, 0;
                       q, r : [I, I ∧ ⌜r+1 = q⌝] ]| }>.
@@ -40,23 +134,11 @@ Definition prog5 : Prog :=
 Program Definition V : final_term Model := {| as_term := term_sub q r |}.
 Next Obligation. unfold term_final. set_solver. Qed.
 
-Definition prog6 : Prog :=
-  <{ |[ var r s q : ℕ ⦁
-          q, r := s + 1, 0;
-          while ⌜r + 1 ≠ q⌝ invariant I variant V ⟶
-            q, r : [⌜r + 1 ≠ q⌝ ∧ I, I ∧ ⌜0 ≤ q - r < ₀q - ₀r⌝]
-          end
-        ]| }>.
-
 Definition prog7 : Prog :=
   <{ |[ var r s q : ℕ ⦁
           q, r := s + 1, 0;
           while ⌜r + 1 ≠ q⌝ invariant I variant V ⟶
-            |[
-              var p : ℕ ⦁
-              p : [⌜r + 1 < q⌝, ⌜r < p < q⌝];
-              q, r : [⌜r < p < q⌝ ∧ I, I ∧ ⌜0 ≤ q - r < ₀q - ₀r⌝]
-            ]|
+            q, r : [⌜r + 1 ≠ q⌝ ∧ I, I ∧ ⌜0 ≤ q - r < ₀q - ₀r⌝]
           end
         ]| }>.
 
@@ -66,9 +148,21 @@ Definition prog8 : Prog :=
           while ⌜r + 1 ≠ q⌝ invariant I variant V ⟶
             |[
               var p : ℕ ⦁
+              p : [⌜p ∈ₜ ℕ⌝ ∧ ⌜r + 1 < q⌝, ⌜p ∈ₜ ℕ⌝ ∧ ⌜r < p < q⌝];
+              q, r : [⌜p ∈ₜ ℕ⌝ ∧ ⌜r < p < q⌝ ∧ I, I ∧ ⌜0 ≤ q - r < ₀q - ₀r⌝]
+            ]|
+          end
+        ]| }>.
+
+Definition prog9 : Prog :=
+  <{ |[ var r s q : ℕ ⦁
+          q, r := s + 1, 0;
+          while ⌜r + 1 ≠ q⌝ invariant I variant V ⟶
+            |[
+              var p : ℕ ⦁
               p := (q - 1);
-              if ⌜s < p²⌝ → q : [⌜s < p²⌝ ∧ ⌜p < q⌝ ∧ I, I ∧ ⌜q < ₀q⌝ ]
-              |  ⌜s ≥ p²⌝ → r : [⌜s ≥ p²⌝ ∧ ⌜r < p⌝ ∧ I, I ∧ ⌜₀r < r⌝ ]
+              if ⌜s < p²⌝ → q : [⌜s < p²⌝ ∧ ⌜p ∈ₜ ℕ⌝ ∧ ⌜p < q⌝ ∧ I, I ∧ ⌜q < ₀q⌝ ]
+              |  ⌜s ≥ p²⌝ → r : [⌜s ≥ p²⌝ ∧ ⌜p ∈ₜ ℕ⌝ ∧ ⌜r < p⌝ ∧ I, I ∧ ⌜₀r < r⌝ ]
               fi
             ]|
           end
@@ -255,42 +349,227 @@ Qed.
 Lemma simpl_feval_and {M σ} {A B : formula M} : feval σ <! A ∧ B !> ↔ feval σ A ∧ feval σ B.
 Proof. simp feval. reflexivity. Qed.
 
-Lemma r2 : spec ≡ prog1.
+Lemma f_forall_ty_comm {M} x xty y yty (A : formula M) :
+  x ≠ y →
+  <! ∀ x : xty, ∀ y : yty, A !> ≡ <! ∀ y : yty, ∀ x : xty, A !>.
+Proof.
+  intros. unfold FForallT. rewrite <- f_forall_impl_unused_l by set_solver.
+  rewrite <- f_forall_impl_unused_l by set_solver. rewrite 2 f_impl_curry.
+  rewrite f_and_comm. by rewrite f_forall_comm.
+Qed.
+
+Lemma r_var_comm x y ty p : <{ |[ var x y : ty ⦁ $p ]| }> ≡ <{ |[ var y x : ty ⦁ $p ]| }>.
 Proof with auto.
-  unfold spec, prog2. intros A. simpl.
-  rewrite f_subst_initials_no_initials.
-  2:{ simpl. set_unfold. intros. destruct H... set_solver. }
-  rewrite f_subst_initials_no_initials.
-  2:{ simpl. set_unfold. intros. destruct H... set_solver. }
-  intros σ. split; intros.
-  - unfold FForallT in *. rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
-    rewrite @feval_subst with (M:=Model) (v:=v) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H0).
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v0).
-    rewrite @feval_subst with (M:=Model) (v:=v0) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1).
-    simp feval in *. split; [constructor|]. destruct H as [_ ?].
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
-    rewrite @feval_subst in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. apply H.
-    rewrite simpl_feval_and. simp feval in H2. destruct H2. split... apply ffloor_spec...
-    simp feval. split.
-    + apply IsNat_IsInt...
-    + apply term_sqrt_typing_nat. apply afeval_delete_state_var_head; [set_solver|]...
-  - unfold FForallT in *. rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
-    rewrite @feval_subst with (M:=Model) (v:=v) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H0).
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v0).
-    rewrite @feval_subst with (M:=Model) (v:=v0) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1).
-    simp feval in *. split; [constructor|]. destruct H as [_ ?].
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
-    rewrite @feval_subst in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. apply H.
-    rewrite simpl_feval_and. simp feval in H2. destruct H2. split... apply ffloor_spec...
-    simp feval. split.
-    + apply IsNat_IsInt...
-    + apply term_sqrt_typing_nat. apply afeval_delete_state_var_head; [set_solver|]...
+  intros A. destruct (decide (x = y)); [subst; reflexivity|].
+  mk_fresh ({[as_var x; as_var y]} ∪ prog_fvars <{ |[ var y : ty ⦁ $ p ]| }> ∪ formula_fvars A ∪
+                                                                     prog_fvars p) as x'.
+  mk_fresh ({[as_var y; x'; as_var x]} ∪ prog_fvars p
+              ∪ formula_fvars <! A[x \ x'] !>
+              ∪ prog_fvars <{ |[ var x : ty ⦁ $ p ]| }>
+              ∪ formula_fvars A) as y'.
+  rewrite wp_var with (y:=x') by set_solver. rewrite wp_var with (y:=y') by set_solver.
+  rewrite wp_var with (y:=y') by set_solver.
+  rewrite wp_var with (y:=x')... 2-3: set_solver.
+  2:{ intros contra. apply fvars_subst_superset' in contra. set_solver. }
+  unfold FForallT.
+  mk_fresh (
+    {[x'; as_var y; as_var x; y']}
+      ∪ quant_subst_fvars x
+      <! ⌜ x ∈ₜ ty ⌝ ⇒ (∀ y, ⌜ y ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ x'] [y \ y'] !>)) [y' \ y] !> x' x
+      ∪ quant_subst_fvars x <! ⌜ x ∈ₜ ty ⌝ ⇒ $(wp p <! A [y \ y'] [x \ x'] !>) !> x' x
+  ) as ux.
+  rewrite simpl_subst_forall_rename with (y:=x) (y':=ux) by set_solver.
+  rewrite simpl_subst_impl. rewrite simpl_subst_af. simpl. destruct (decide _); [|done]. clear e.
+  mk_fresh (
+    {[ux; as_var x; x'; as_var y]}
+      ∪ quant_subst_fvars y <! ⌜ y ∈ₜ ty ⌝ ⇒ $(wp p <! A [x \ x'] [y \ y'] !>) !> y' y
+      ∪ quant_subst_fvars y
+        <! ⌜ y ∈ₜ ty ⌝ ⇒ (∀ x, ⌜ x ∈ₜ ty ⌝ ⇒
+                            $(wp p <! A [y \ y'] [x \ x'] !>)) [x' \ x] !> y' y
+    ) as uy.
+  rewrite simpl_subst_forall_rename with (y:=y) (y':=uy) by set_solver.
+  rewrite simpl_subst_impl. rewrite simpl_subst_af. simpl. destruct (decide _); [set_solver|].
+  rewrite simpl_subst_forall by set_solver. rewrite simpl_subst_forall by set_solver.
+  repeat rewrite simpl_subst_impl. repeat rewrite simpl_subst_af. simpl.
+  destruct (decide _); [| done]. simpl. destruct (decide _); [set_solver|].
+  simpl. destruct (decide _); [set_solver|]. simpl. destruct (decide _); [set_solver|].
+  pose proof (@f_forall_ty_comm Model). unfold FForallT in H3. rewrite H3 by set_solver.
+  rewrite simpl_subst_forall_rename with (y:=y) (y':=uy) by set_solver.
+  rewrite simpl_subst_impl. rewrite simpl_subst_af. simpl. destruct (decide _); [|done]. clear e0.
+  rewrite simpl_subst_forall_rename with (y:=x) (y':=ux) by set_solver.
+  rewrite simpl_subst_impl. rewrite simpl_subst_af. simpl. destruct (decide _); [set_solver|].
+  rewrite simpl_subst_forall by set_solver. rewrite simpl_subst_forall by set_solver.
+  repeat rewrite simpl_subst_impl. repeat rewrite simpl_subst_af. simpl.
+  destruct (decide _); [| done]. simpl. destruct (decide _); [naive_solver|].
+  simpl. destruct (decide _); [set_solver|]. simpl. destruct (decide _); [set_solver|].
+  do 4 f_equiv. rewrite fequiv_subst_comm with (x1:=y') (x2:=x) by set_solver.
+  rewrite fequiv_subst_comm with (x1:=y') (x2:=x') by set_solver.
+  f_equiv.
+  rewrite fequiv_subst_comm with (x1:=y) (x2:=x) by set_solver.
+  rewrite fequiv_subst_comm with (x1:=y) (x2:=x') by set_solver.
+  do 3 f_equiv. apply wp_congr...
+  rewrite fequiv_subst_comm; set_solver.
+Qed.
+
+Lemma wp_proper_fequiv_st σ p1 p2 (A : formula Model) `{!FormulaFinal A} :
+  wp p1 A ≡_{σ} wp p2 A →
+  feval σ (wp p1 A) ↔ feval σ (wp p2 A).
+Proof. intros. by rewrite H. Qed.
+
+Lemma f_forall_proper_st σ (A B : formula Model) x :
+  (∀ t, <! A [x \ t] !> ≡_{σ} <! B [x \ t] !>) →
+  <! ∀ x, A !> ≡_{σ} <! ∀ x, B !>.
+Proof.
+  intros. unfold fequiv_st. unfold FForall. f_equiv. pose proof (@feval_exists_equiv_if _ σ σ).
+  f_equiv. apply H0. intros. f_equiv. do 2 rewrite simpl_subst_not. f_equiv. apply H.
+Qed.
+
+Lemma r1 : spec ≡ prog1.
+Proof with auto.
+  unfold spec, prog1. rewrite r_simple_spec by set_solver.
+  do 2 rewrite r_var_comm. f_equiv. intros A.
+  mk_fresh (
+      {[as_var s]}
+        ∪ prog_fvars <{ r : [⌜ r = ⌊ √ s ⌋ ⌝] }>
+        ∪ prog_fvars <{ r : [⌜ r ∈ₜ ℕ ⌝ ∧ ⌜ r = ⌊ √ s ⌋ ⌝] }>
+        ∪ formula_fvars A) as x.
+  rewrite wp_var by naive_solver. rewrite wp_var by naive_solver. clear H.
+  f_equiv. apply f_forall_ty_equiv_if. intros σ H. apply wp_proper_fequiv_st...
+  simpl. f_equiv. unfold subst_all_initials. rewrite finalized_initial_fvars_final...
+  rewrite finalized_initial_fvars_final... do 2 rewrite subst_initials_nil.
+  eapply f_forall_proper_st. intros t. pose proof (teval_total σ t) as (v&?).
+  repeat rewrite simpl_subst_impl. rewrite simpl_subst_and. repeat rewrite simpl_subst_af.
+  simpl. unfold fequiv_st. repeat rewrite simpl_feval_fimpl. rewrite simpl_feval_and.
+  split; intros.
+  - destruct H2. apply H1...
+  - apply H1. clear H1. split... simp feval in H2. simpl in H2. destruct H2 as (vt&?&?).
+    inversion H2. clear H2. subst. inversion H5. subst. clear H5. inversion H8. subst.
+    clear H8. inversion H7; clear H7.
+    + subst. unfold fdef_rel in H2. simpl in H2. inversion H2. subst. clear H2. simp feval.
+      simpl. inversion H4. subst. clear H4. inversion H6. subst. clear H6. inversion H9.
+      subst. clear H9. inversion H8. subst. clear H8. unfold fdef_rel in H2. simpl in H2.
+      inversion H2. subst. clear H2. simp feval in H. simpl in H. destruct H as (vs&?&?).
+      apply teval_det with (v1:=(mkNum (r ^ 2))) in H... subst vs.
+      inversion H2. subst. assert (INR (Z.to_nat i) = IZR i)%R.
+      { destruct H5. apply Rle_lt_trans with (r1:=(0)%R) in H5...
+        rewrite <- plus_IZR in H5. apply lt_0_IZR in H5.
+        assert (0 <= i)%Z by lia. apply Z2Nat.id in H6.
+        rewrite <- H6. rewrite <- INR_IZR_INZ. f_equal. lia. }
+      exists (mkNat (Z.to_nat i)). split.
+      * rewrite H...
+      * eapply IsNat. reflexivity.
+    + exfalso. destruct H as (sv&?&?). subst. inversion H6. subst. clear H6.
+      inversion H4. clear H4. subst. inversion H6. subst. clear H6.
+      inversion H9; subst; clear H9. inversion H8; subst; clear H8.
+      * unfold fdef_rel in H3. simpl in H3. inversion H3; subst; clear H3.
+        apply teval_det with (v1:=(mkNum (r ^ 2))) in H...
+        apply mkNum_eq in H. eapply (H2 (mkInt (Zfloor r))). unfold fdef_rel. simpl.
+        constructor. apply Zfloor_bound.
+      * apply teval_det with (v1:=v1) in H... subst v1. apply (H3 (mkNum (sqrt (INR n)))).
+        unfold fdef_rel. simpl. constructor.
+        -- apply sqrt_pos.
+        -- rewrite pow2_sqrt... apply pos_INR.
+Qed.
+
+Hint Extern 100 (initials_closed _ _) => apply initials_closed_final; auto : core.
+
+Lemma term_le_inv {σ t1 t2} :
+  feval σ <! ⌜t1 ≤ t2⌝ !> →
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 <= x2)%R).
+Proof.
+  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
+  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
+  specialize (H1 eq_refl). inversion H1. subst. rename r2 into x1, r0 into x2.
+  exists x1, x2. split; auto.
+Qed.
+
+Lemma term_lt_inv {σ t1 t2} :
+  feval σ <! ⌜t1 < t2⌝ !> →
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 < x2)%R).
+Proof.
+  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
+  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
+  specialize (H1 eq_refl). inversion H1. subst. rename r2 into x1, r0 into x2.
+  exists x1, x2. split; auto.
+Qed.
+
+Lemma teval_sub_iff {t1 t2 : Term} {σ x} :
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ x = (x1 - x2)%R) →
+  teval σ (term_sub t1 t2) (mkNum x).
+Proof.
+  intros (x1&x2&?&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNum x2]).
+  - by_constructor.
+  - unfold fn_eval. simpl. constructor. constructor.
+Qed.
+
+Lemma teval_pow2_iff {t : Term} {σ x} :
+  (∃ x1, teval σ t (mkNum x1) ∧ x = (x1 ^ 2)%R) →
+  teval σ (term_pow2 t) (mkNum x).
+Proof.
+  intros (x1&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNat 2]).
+  - by_constructor.
+  - unfold fn_eval. constructor. constructor.
+Qed.
+
+Lemma term_pow2_inv {σ t x} :
+  teval σ (term_pow2 t) (mkNum x) →
+  (∃ xt, teval σ t (mkNum xt) ∧ (x = xt ^ 2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H2. subst. clear H2. inversion H4. subst. clear H4. simpl in H.
+  inversion H. subst. exists r. split... f_equal. replace (1 + 1)%R with (INR 2) in H3 by done.
+  by apply INR_eq in H3.
+Qed.
+
+Lemma term_sqrt_inv {σ t x} :
+  teval σ (term_sqrt t) (mkNum x) →
+  (∃ xt, teval σ t (mkNum xt) ∧ (xt = x ^ 2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H4. subst. clear H4. simpl in H.
+  inversion H. subst. exists (x ^ 2)%R. split...
+Qed.
+
+Lemma term_sum_inv {σ t1 t2 x} :
+  teval σ (term_sum t1 t2) (mkNum x) →
+  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 + xt2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
+  rename r2 into xt1, r0 into xt2. exists xt1, xt2. split_and!...
+Qed.
+
+Lemma term_sub_inv {σ t1 t2 x} :
+  teval σ (term_sub t1 t2) (mkNum x) →
+  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 - xt2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
+  rename r2 into xt1, r0 into xt2. exists xt1, xt2. split_and!...
+Qed.
+
+Lemma r2 : prog1 ⊑ prog2.
+Proof with auto.
+  unfold prog1, prog2. do 2 f_equiv. apply r_strengthen_post...
+  intros σ. repeat rewrite simpl_feval_and. simp feval. simpl. intros [].
+  split... destruct H as (rv&?&?). inversion H1. subst. destruct H0.
+  apply term_le_inv in H0. apply term_lt_inv in H2. destruct H0 as (?&?&?&?&?).
+  apply teval_det with (v2:=mkNat n) in H0... apply mkNum_eq in H0. subst.
+  destruct H2 as (sqv&?&?&?&?). apply teval_det with (v2:=mkNum sqv) in H3...
+  apply mkNum_eq in H3. subst x0. apply term_sqrt_inv in H0.
+  destruct H0 as (?&?&?). subst. apply term_sum_inv in H2 as (?&?&?&?&?).
+  inversion H3. subst. clear H3. rename x0 into vr. exists (mkNum vr).
+  split... apply TEval_App with (vargs:=[mkNum sqv]).
+  - by_constructor. apply TEval_App with (vargs:=[mkNum (sqv ^ 2)%R]).
+    + by_constructor.
+    + constructor. unfold fdef_rel. simpl. apply FSqrt_R...
+      pose proof (pos_INR n). apply Rle_trans with (r3:=sqv) in H3...
+  - by_constructor. unfold fdef_rel. simpl. apply teval_det with (v2:=mkNum vr) in H...
+    apply mkNum_eq in H. subst. rewrite INR_IZR_INZ. constructor.
+    rewrite <- INR_IZR_INZ...
 Qed.
 
 Lemma is_nat_iff {σ} {t : Term} :
@@ -318,64 +597,38 @@ Qed.
 Hint Extern 0 (0 <= INR _)%R => apply pos_INR : core.
 Hint Extern 0 (0 <= sqrt _)%R => apply sqrt_pos : core.
 
-Lemma r3 : prog1 ⊑ prog2.
+Lemma r3 : prog2 ⊑ prog3.
 Proof with auto.
-  unfold spec, prog2. intros A. simpl.
-  rewrite f_subst_initials_no_initials.
-  2:{ simpl. set_unfold. intros. destruct H... set_solver. }
-  rewrite f_subst_initials_no_initials.
-  2:{ simpl. set_unfold. intros. destruct H... set_solver. }
-  intros σ. intros.
-  - unfold FForallT in *. rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
-    rewrite @feval_subst with (M:=Model) (v:=v) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H0).
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v0).
-    rewrite @feval_subst with (M:=Model) (v:=v0) in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1).
-    simp feval in *. split; [constructor|]. destruct H as [_ ?].
-    rewrite simpl_feval_fforall in H |- *. intros. specialize (H v1).
-    rewrite @feval_subst in H |- *...
-    rewrite simpl_feval_fimpl in H |- *. intros. apply H.
-    rewrite simpl_feval_and. simp feval in H2. destruct H2. split...
-    rewrite simpl_feval_and.
-    rewrite <- @afeval_delete_state_var_head with (x:=as_var r) (v:=v1) in H1 by done.
-    destruct (proj1 is_nat_iff H1) as [n Hn].
-    remember (<[as_var r:=v1]> (<[as_var s:=v0]> (<[as_var r:=v]> σ))) as σ'.
-    pose proof (@term_sqrt_reducible_nat σ' s n Hn).
-    destruct (proj1 is_nat_iff H2) as [nr Hnr].
-    split.
-    + unfold term_le. simpl. econstructor. Unshelve. 2: exact [mkNat nr; mkNum (sqrt (INR n))].
-      split; [by_constructor|]. unfold peval. intros. rewrite list_to_vec_2_canon. clear H5.
-      constructor. rename n into ns. destruct H3 as [? _].
-      inversion H3. clear H3. destruct H5. inversion H3. subst t ts x. clear H3.
-      inversion H10. subst t ts vs. clear H10. inversion H11. subst vs0. clear H11.
-      apply teval_det with (v1:=mkNat ns) in H7... subst v3.
-      assert (teval σ' (term_pow2 r) (mkNum (pow (INR nr) 2))).
-      { unfold term_pow2. econstructor. Unshelve. 3: exact [mkNat nr; mkNat 2].
-        all: by_constructor. }
-      apply teval_det with (v1:=v2) in H3... subst v2. unfold peval in H5.
-      simpl in H5. specialize (H5 eq_refl). rewrite list_to_vec_2_canon in H5.
-      inversion H5. subst r1 r3. apply pow2_le... rewrite pow2_sqrt...
-    + unfold term_le. simpl. econstructor. Unshelve. 2: exact [mkNum (sqrt (INR n)); mkNat (nr + 1)].
-      split; [by_constructor|].
-      { unfold term_sum. econstructor. Unshelve. 3: exact [mkNat nr; mkNat 1]. 1: by_constructor.
-        by_constructor. simpl. unfold mkNat. rewrite plus_INR. done. }
-      unfold peval. intros. rewrite list_to_vec_2_canon. clear H5.
-      constructor. rename n into ns. destruct H3 as [_ ?].
-      inversion H3. clear H3. destruct H5. inversion H3. subst t ts x. clear H3.
-      inversion H10. subst t ts vs. clear H10. inversion H11. subst vs0. clear H11.
-      apply teval_det with (v1:=mkNat ((nr + 1) ^ 2)) in H7...
-      2: { unfold term_sum. unfold term_pow2. simpl. econstructor. Unshelve.
-           3: exact [mkNat (nr + 1); mkNat 2].
-           - by_constructor. econstructor. Unshelve. 3: exact [mkNat nr; mkNat 1].
-             + by_constructor.
-             + by_constructor. simpl. unfold mkNat. rewrite plus_INR. done.
-           - replace ((nr + 1) * ((nr + 1) * 1)) with ((nr + 1) ^ 2); try done.
-             constructor. unfold mkNat. rewrite pow_INR... done. }
-      subst v3. apply teval_det with (v1:=mkNat ns) in H8... subst v2. unfold peval in H5.
-      simpl in H5. specialize (H5 eq_refl). rewrite list_to_vec_2_canon in H5.
-      inversion H5. subst r1 r3. apply pow2_lt... rewrite pow2_sqrt... simpl.
-      rewrite mult_INR in H6. rewrite mult_INR in H6. done.
+  unfold prog2, prog3. do 2 f_equiv. apply r_strengthen_post... intros σ.
+  repeat rewrite simpl_feval_and. simpl. intros (?&?&?). split...
+  apply term_le_inv in H0 as (vr2&vs&?&?&?).
+  apply term_pow2_inv in H0 as (vr&?&?). subst.
+  apply term_lt_inv in H1 as (vs'&?&?&?&?).
+  apply term_pow2_inv in H4 as (?&?&?). subst.
+  apply term_sum_inv in H4 as (vr'&?&?&?&?). subst.
+  inversion H6. clear H6. subst.
+  apply teval_det with (v2:=mkNum vr) in H4... apply mkNum_eq in H4. subst vr'.
+  apply teval_det with (v2:=mkNum vs') in H2... apply mkNum_eq in H2. subst vs'.
+  assert (0 <= vr^2)%R as E1 by apply pow2_ge_0. apply Rle_trans with (r3:=vs) in E1...
+  destruct H as (vr'&?&?). eapply teval_det with (v2:=mkNum vr) in H... subst vr'.
+  inversion H2. subst. rename n into nr. assert (0 <= INR nr)%R by apply pos_INR.
+  split.
+  - exists [mkNat nr; mkNum (sqrt vs)]. split.
+    + by_constructor. apply TEval_App with (vargs:=[mkNum vs]).
+      * by_constructor.
+      * by_constructor. apply pow2_sqrt...
+    + apply sqrt_le_1_alt in H3. rewrite sqrt_pow2 in H3...
+      unfold peval. intros. rewrite list_to_vec_2_canon. constructor...
+  - exists [mkNum (sqrt vs); mkNum (INR nr+1)]. split.
+    + by_constructor.
+      * apply TEval_App with (vargs:=[mkNum vs]).
+        -- by_constructor.
+        -- by_constructor. rewrite pow2_sqrt...
+      * apply TEval_App with (vargs:=[mkNat nr; mkNum 1]); by_constructor.
+    + apply sqrt_lt_1 in H5...
+      2:{ apply pow2_ge_0. }
+      rewrite sqrt_pow2 in H5 by lra.
+      unfold peval. intros. rewrite list_to_vec_2_canon. constructor...
 Qed.
 
 (* Definition I := <! ⌜r² ≤ s < q²⌝ !>. *)
@@ -394,115 +647,156 @@ Qed.
 (*   rewrite feval_subst with (v:=v)... *)
 (* Qed. *)
 
-Lemma r_var (x : final_variable) (τ : value_ty Model) p1 p2 A σ :
-  (∀ v,
-    HasType v τ →
-    feval (<[as_var x:=v]> σ) <! $(wp p1 A) !> →
-    feval (<[as_var x:=v]> σ) <! $(wp p2 A) !>) →
-  feval σ (wp <{ |[ var x : τ ⦁ $p1 ]| }> A) → feval σ (wp <{ |[ var x : τ ⦁ $p2 ]| }> A).
-Proof with auto.
-  intros H0. simpl. intros. unfold FForallT in H |- *.
-  rewrite simpl_feval_fforall in H |- *. intros. specialize (H v).
-  rewrite feval_subst with (v:=v) in H... rewrite feval_subst with (v:=v)...
-  rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1). apply H0...
-  inversion H1. destruct H2. apply teval_det with (v1:=v) in H2.
-  2:{ constructor. unfold state. apply fin_maps.lookup_total_insert. }
-  subst...
-Qed.
+(* Lemma r_var (x : final_variable) (τ : value_ty Model) p1 p2 A σ : *)
+(*   (∀ v, *)
+(*     HasType v τ → *)
+(*     feval (<[as_var x:=v]> σ) <! $(wp p1 A) !> → *)
+(*     feval (<[as_var x:=v]> σ) <! $(wp p2 A) !>) → *)
+(*   feval σ (wp <{ |[ var x : τ ⦁ $p1 ]| }> A) → feval σ (wp <{ |[ var x : τ ⦁ $p2 ]| }> A). *)
+(* Proof with auto. *)
+(*   intros H0. simpl. intros. unfold FForallT in H |- *. *)
+(*   rewrite simpl_feval_fforall in H |- *. intros. specialize (H v). *)
+(*   rewrite feval_subst with (v:=v) in H... rewrite feval_subst with (v:=v)... *)
+(*   rewrite simpl_feval_fimpl in H |- *. intros. specialize (H H1). apply H0... *)
+(*   inversion H1. destruct H2. apply teval_det with (v1:=v) in H2. *)
+(*   2:{ constructor. unfold state. apply fin_maps.lookup_total_insert. } *)
+(*   subst... *)
+(* Qed. *)
 
 (* Lemma r_impl A p1 p2  *)
 
 Hint Extern 0 (?A ⇚ ?A) => reflexivity : core.
-Parameter q_free : ∀ (F : gmap.gset variable), as_var q ∉ F.
-Parameter p_free : ∀ (F : gmap.gset variable), as_var p ∉ F.
+(* Parameter q_free : ∀ (F : gmap.gset variable), as_var q ∉ F. *)
+(* Parameter p_free : ∀ (F : gmap.gset variable), as_var p ∉ F. *)
 
 (* Axiom q_free_wp : ∀ p A, as_var q ∉ prog_fvars p → as_var q ∉ formula_fvars (wp p A). *)
 
-Lemma r_add_var (x : final_variable) (τ : value_ty Model) {p} {σ A} :
-  as_var x ∉ formula_fvars (wp p A) →
-  feval σ (wp p A) → feval σ (wp <{ |[ var x : τ ⦁ $p ]| }> A).
+(* Lemma r_add_var (x : final_variable) (τ : value_ty Model) {p} {σ A} : *)
+(*   as_var x ∉ formula_fvars (wp p A) → *)
+(*   feval σ (wp p A) → feval σ (wp <{ |[ var x : τ ⦁ $p ]| }> A). *)
+(* Proof with auto. *)
+(*   intros. simpl. unfold FForallT. rewrite simpl_feval_fforall. intros. *)
+(*   rewrite feval_subst with (v:=v)... rewrite simpl_feval_fimpl. intros. *)
+(*   rewrite feval_delete_state_var_head... *)
+(* Qed. *)
+
+(* Lemma r_add_frame (x : final_variable) (τ : value_ty Model) {σ y post} {A : final_formula Model} : *)
+(*   x ≠ y → *)
+(*   ₀x ∉ formula_fvars post → *)
+(*   as_var x ∉ formula_fvars post → *)
+(*   as_var x ∉ formula_fvars A → *)
+(*   feval σ (wp <{ y : [post] }> A) → feval σ (wp <{ x, y : [⌜x ∈ₜ τ⌝ ∧ post] }> A). *)
+(* Proof with auto. *)
+(*   intros. simpl in *. simp feval in H3 |- *. destruct H3 as []. split... *)
+(*   unfold subst_initials in *. simpl in H4 |- *. *)
+(*   destruct (teval_total σ (y)) as [vy Hvy]. rewrite feval_subst with (v:=vy) in H4... *)
+(*   destruct (teval_total σ (x)) as [vx Hvx]. rewrite feval_subst with (v:=vx)... *)
+(*   destruct (teval_total (<[₀x:=vx]> σ) (y)) as [vy' Hvy']. rewrite feval_subst with (v:=vy')... *)
+(*   rewrite teval_delete_state_var_head in Hvy' by set_solver. *)
+(*   apply teval_det with (v1:=vy) in Hvy'... subst vy'. *)
+(*   rewrite simpl_feval_fforall. intros. rewrite feval_subst with (v:=v)... *)
+(*   rewrite simpl_feval_fforall in H4 |- *. intros. specialize (H4 v0). *)
+(*   rewrite feval_subst with (v:=v0)... rewrite feval_subst with (v:=v0) in H4... *)
+(*   rewrite simpl_feval_fimpl. intros. rewrite simpl_feval_fimpl in H4. *)
+(*   rewrite simpl_feval_and in H5. destruct H5 as [_ ?]. *)
+(*   unfold state in *. *)
+(*   rewrite (fin_maps.insert_commute _ (as_var y) (as_var x)) in H5 |- * by set_solver. *)
+(*   rewrite feval_delete_state_var_head... *)
+(*   rewrite feval_delete_state_var_head in H5 by set_solver... *)
+(*   rewrite (fin_maps.insert_commute _ ₀y ₀x) in H5 |- * by set_solver. *)
+(*   rewrite (fin_maps.insert_commute _ (as_var y) ₀x) in H5 |- * by set_solver. *)
+(*   rewrite feval_delete_state_var_head by set_solver. *)
+(*   rewrite feval_delete_state_var_head in H5 by set_solver... *)
+(* Qed. *)
+
+Lemma tequiv_alt {M} (t1 t2 : term M) :
+  t1 ≡ t2 ↔ ∀ σ, ∃ v, teval σ t1 v ∧ teval σ t2 v.
 Proof with auto.
-  intros. simpl. unfold FForallT. rewrite simpl_feval_fforall. intros.
-  rewrite feval_subst with (v:=v)... rewrite simpl_feval_fimpl. intros.
-  rewrite feval_delete_state_var_head...
+  unfold equiv, tequiv. split; intros.
+  - pose proof (teval_total σ t1) as (v&?). exists v. apply H in H0 as ?. by split.
+  - destruct (H σ) as (v'&?&?). clear H. split; intros.
+    + apply teval_det with (v2:=v) in H0... subst v'...
+    + apply teval_det with (v2:=v) in H1... subst v'...
 Qed.
 
-Lemma r_add_frame (x : final_variable) (τ : value_ty Model) {σ y post} {A : final_formula Model} :
-  x ≠ y →
-  ₀x ∉ formula_fvars post →
-  as_var x ∉ formula_fvars post →
-  as_var x ∉ formula_fvars A →
-  feval σ (wp <{ y : [post] }> A) → feval σ (wp <{ x, y : [⌜x ∈ₜ τ⌝ ∧ post] }> A).
+Lemma tequiv_st_alt {M} σ (t1 t2 : term M) :
+  t1 ≡ₜ_{σ} t2 ↔ ∃ v, teval σ t1 v ∧ teval σ t2 v.
 Proof with auto.
-  intros. simpl in *. simp feval in H3 |- *. destruct H3 as []. split...
-  unfold subst_initials in *. simpl in H4 |- *.
-  destruct (teval_total σ (y)) as [vy Hvy]. rewrite feval_subst with (v:=vy) in H4...
-  destruct (teval_total σ (x)) as [vx Hvx]. rewrite feval_subst with (v:=vx)...
-  destruct (teval_total (<[₀x:=vx]> σ) (y)) as [vy' Hvy']. rewrite feval_subst with (v:=vy')...
-  rewrite teval_delete_state_var_head in Hvy' by set_solver.
-  apply teval_det with (v1:=vy) in Hvy'... subst vy'.
-  rewrite simpl_feval_fforall. intros. rewrite feval_subst with (v:=v)...
-  rewrite simpl_feval_fforall in H4 |- *. intros. specialize (H4 v0).
-  rewrite feval_subst with (v:=v0)... rewrite feval_subst with (v:=v0) in H4...
-  rewrite simpl_feval_fimpl. intros. rewrite simpl_feval_fimpl in H4.
-  rewrite simpl_feval_and in H5. destruct H5 as [_ ?].
-  unfold state in *.
-  rewrite (fin_maps.insert_commute _ (as_var y) (as_var x)) in H5 |- * by set_solver.
-  rewrite feval_delete_state_var_head...
-  rewrite feval_delete_state_var_head in H5 by set_solver...
-  rewrite (fin_maps.insert_commute _ ₀y ₀x) in H5 |- * by set_solver.
-  rewrite (fin_maps.insert_commute _ (as_var y) ₀x) in H5 |- * by set_solver.
-  rewrite feval_delete_state_var_head by set_solver.
-  rewrite feval_delete_state_var_head in H5 by set_solver...
+  unfold equiv, tequiv. split; intros.
+  - pose proof (teval_total σ t1) as (v&?). exists v. apply H in H0 as ?. by split.
+  - destruct H as (v'&?&?). split; intros.
+    + apply teval_det with (v2:=v) in H... subst v'...
+    + apply teval_det with (v2:=v) in H0... subst v'...
 Qed.
 
-Lemma r4 : prog2 ⊑ prog3.
+Lemma fequiv_tequiv {M} σ (t1 t2 : term M) :
+  feval σ <! ⌜t1 = t2 ⌝ !> ↔ t1 ≡ₜ_{σ} t2.
+Proof. simp feval. simpl. rewrite tequiv_st_alt. reflexivity. Qed.
+
+Global Instance FAtom_proper_st {M σ} :
+  Proper ((=) ==> (tequiv_list_st σ) ==> (≡_{σ})) (λ s xs, FAtom (@AT_Pred M s xs)).
 Proof with auto.
-  unfold prog2, prog3, I. intros A σ. apply r_var. intros vr Hvr. apply r_var. intros vs Hvs.
-  intros.
-  opose proof (r_add_frame q ℕ _ _ _ _ H); try set_solver.
-  { apply q_free. }
-  simpl. apply simpl_feval_fforall. intros. rewrite simpl_subst_impl.
-  apply simpl_feval_fimpl. intros. rewrite simpl_subst_and. apply simpl_feval_and.
-  split.
-  1: { constructor. }
-  rewrite f_subst_initials_no_initials.
-  2:{ simpl. set_unfold. intros. destruct_or! H2...
-      + subst. set_solver.
-      + subst. set_solver. }
-  rewrite fequiv_subst_non_free.
-  2: { simpl. set_solver. }
-  simpl in H0. rewrite f_subst_initials_no_initials in H0.
-  2:{ simpl. set_unfold. intros. destruct_or! H2...
-      + subst. set_solver.
-      + subst. set_solver. }
-  simp feval in H0. destruct H0 as [_ ?]. rewrite simpl_feval_fforall in H0 |- *.
-  intros. specialize (H0 v0).
-  rewrite feval_subst with (v:=v0)...
-  rewrite feval_subst with (v:=v0) in H0...
-  rewrite simpl_feval_fforall in H0 |- *. intros. specialize (H0 v1).
-  rewrite feval_subst with (v:=v1)...
-  rewrite feval_subst with (v:=v1) in H0...
-  rewrite simpl_feval_fimpl in H0 |- *. intros. apply H0.
-  simp feval. simp feval in H2. destruct_and! H2. split_and!... simpl in H4.
-  destruct H4 as (r1&?&?). unfold term_lt. simpl. simp feval. simpl. clear H0 H1 H3 H2 H5 H.
-  destruct H7 as (vs'&?&?). inversion H. subst. inversion H7. subst. inversion H9; subst.
-  clear H9 H7. rename v3 into q2. rename v2 into vs'. exists [vs'; q2].
-  split... constructor... constructor. 2: constructor. clear H H3.
-  unfold term_pow2 in *. simpl. simpl in H5. inversion H5. subst. inversion H2. subst.
-  inversion H9. subst. inversion H11; subst. clear H11. inversion H8. subst.
-  clear H9. clear H2. opose proof (teval_det _ _ _ H6 H3) as <-. clear H3.
-  apply TEval_App with (vargs:=[r1; mkNum (1 + 1)])...
-  by_constructor.
+  intros psym ? <- xs ys ?. unfold fequiv_st. simp feval. simpl.
+  unfold tequiv_list_st in H. split; intros.
+  - destruct H0 as (vargs&?&?). exists vargs. split... clear H1.
+    generalize dependent ys. generalize dependent vargs. induction xs as [|x xs].
+    + intros. destruct H as []. simpl in H. symmetry in H. apply length_zero_iff_nil in H.
+      subst...
+    + intros. destruct H as []. simpl in H. symmetry in H. apply length_nonzero_iff_cons in H.
+      destruct H as (y&ys'&->&?). rename ys' into ys. destruct vargs; [inversion H0|].
+      inversion H0. subst. inversion H1. subst. constructor... apply H6 in H5...
+  - destruct H0 as (vargs&?&?). exists vargs. split... clear H1.
+    generalize dependent xs. generalize dependent vargs. induction ys as [|y ys].
+    + intros. destruct H as []. simpl in H. apply length_zero_iff_nil in H. subst...
+    + intros. destruct H as []. simpl in H. apply length_nonzero_iff_cons in H.
+      destruct H as (x&xs'&->&?). rename xs' into xs. destruct vargs; [inversion H0|].
+      inversion H0. subst. inversion H1. subst. constructor... apply H6 in H5...
+Qed.
+
+Global Instance TApp_proper_st {M σ} :
+  Proper ((=) ==> (tequiv_list_st σ) ==> (≡ₜ_{σ})) (@TApp M).
+Proof with auto.
+  intros psym ? <- xs ys ?. unfold tequiv_st. intros v. unfold tequiv_list_st in H.
+  split; intros.
+  - inversion H0. subst. apply TEval_App with (vargs:=vargs)... clear H0 H5.
+    generalize dependent ys. generalize dependent vargs. induction xs as [|x xs].
+    + intros. destruct H as []. simpl in H. symmetry in H. apply length_zero_iff_nil in H.
+      subst. destruct vargs; [|inversion H3]...
+    + intros. destruct H as []. simpl in H. symmetry in H. apply length_nonzero_iff_cons in H.
+      destruct H as (y&ys'&->&?). rename ys' into ys. destruct vargs; [inversion H3|].
+      inversion H3. subst. clear H3. inversion H0. subst. clear H0. constructor.
+      * apply H4...
+      * apply IHxs...
+  - inversion H0. subst. apply TEval_App with (vargs:=vargs)... clear H0 H5.
+    generalize dependent xs. generalize dependent vargs. induction ys as [|y ys].
+    + intros. destruct H as []. simpl in H. apply length_zero_iff_nil in H.
+      subst. destruct vargs; [|inversion H3]...
+    + intros. destruct H as []. simpl in H. apply length_nonzero_iff_cons in H.
+      destruct H as (x&xs'&->&?). rename xs' into xs. destruct vargs; [inversion H3|].
+      inversion H3. subst. clear H3. inversion H0. subst. clear H0. constructor.
+      * apply H4...
+      * apply IHys...
+Qed.
+
+Lemma r4 : prog3 ⊑ prog4.
+Proof with auto.
+  unfold prog3, prog4, I.
+  do 2 f_equiv. etrans.
+  { apply @r_var_intro with (x:=q) (ty:=ℕ); set_solver. }.
+  f_equiv. apply r_strengthen_post... intros σ.
+  repeat rewrite simpl_feval_and. simpl. intros. destruct_and! H. split_and... split...
+  revert H4. unfold term_lt. apply fequiv_tequiv in H1. unfold term_pow2.
+  eapply ATPred_proper_st... f_equiv. f_equiv. rewrite <- H1... reflexivity.
 Qed.
 
 
-Lemma r5 : prog3 ⊑ prog4.
+Lemma r5 : prog4 ⊑ prog5.
 Proof with auto.
-  unfold prog3, prog4. repeat (apply PVar_proper_ref; auto). apply r_seq. unfold I...
+  unfold prog4, prog5. repeat (apply PVar_proper_ref; auto). apply r_seq...
 Qed.
 
 Lemma r_asgn_2 (x y : final_variable) (pre post : Formula) (t1 t2 : Term) `{!FormulaFinal pre} `{!TermFinal t1} `{!TermFinal t2} :
+  initials_closed post [x; y] →
   x ≠ y →
   <! ⌜₀x = x⌝ ∧ ⌜₀y = y⌝ ∧ pre !> ⇛ <! post[[$(as_var x), $(as_var y) \ t1, t2]] !> ->
   <{ x, y : [pre, post] }> ⊑ <{ x, y := t1, t2 }>.
@@ -511,10 +805,10 @@ Proof with auto.
   etransitivity.
   - apply r_assignment with (w:=[]) (ts:=[as_final_term t1; as_final_term t2])...
     + constructor; try set_solver. constructor; try set_solver. constructor.
-    + intros σ ?. specialize (H0 σ). simp feval in H1, H0. simpl in H1. forward H0.
-      * destruct H1 as (_&?&?). unfold FEqList in H1. simpl in H1.
-        simp feval in H1. destruct_and! H1. split_and!...
-      * simpl. apply H0.
+    + intros σ ?. specialize (H1 σ). simp feval in H2, H1. simpl in H2. forward H1.
+      * destruct H2 as (_&?&?). unfold FEqList in H2. simpl in H2.
+        simp feval in H2. destruct_and! H2. split_and!...
+      * simpl. apply H1.
   - simpl...
 Qed.
 
@@ -539,6 +833,7 @@ Qed.
 (* Qed. *)
 
 Lemma r_asgn_1 (x : final_variable) (pre post : Formula) (t : Term) `{!FormulaFinal pre} `{!TermFinal t} :
+  initials_closed post [x] →
   <! ⌜₀x = x⌝ ∧ pre !> ⇛ <! post[x \ t] !> ->
   <{ x : [pre, post] }> ⊑ <{ x := t }>.
 Proof with auto.
@@ -546,79 +841,91 @@ Proof with auto.
   etransitivity.
   - apply r_assignment with (w:=[]) (ts:=[as_final_term t])...
     + constructor; try set_solver. constructor; try set_solver.
-    + intros σ ?. specialize (H σ). simpl. apply msubst_single. apply H. clear H.
-      simp feval in H0. destruct_and! H0. unfold FEqList in H0. simpl in H0.
-      simp feval in H0. destruct H0. simp feval. split...
+    + intros σ ?. specialize (H0 σ). simpl. apply msubst_single. apply H0. clear H0.
+      simp feval in H1. destruct_and! H1. unfold FEqList in H1. simpl in H1.
+      simp feval in H1. destruct H1. simp feval. split...
   - simpl...
 Qed.
 
-Lemma pvar_ref (x : final_variable) t (p1 p2 : Prog) A σ :
-  (∀ v, hastype Model v t → feval (<[as_var x:=v]> σ) (wp p1 A) → feval (<[as_var x:=v]> σ) (wp p2 A)) →
-  (feval σ (wp <{ |[ var x : t ⦁ $p1 ]| }> A) → feval σ (wp <{ |[ var x : t ⦁ $p2 ]| }> A)).
-Proof with auto.
-  intros. simpl in *. unfold FForallT in *. rewrite simpl_feval_fforall in *.
-  intros. specialize (H0 v). rewrite feval_subst with (v:=v)...
-  rewrite feval_subst with (v:=v) in H0... rewrite simpl_feval_fimpl in *.
-  intros. specialize (H0 H1). apply (H v)...
-  simp feval in H1. simpl in H1. destruct H1 as (v'&?&?). enough (v = v') as -> by auto.
-  inversion H1. subst. symmetry. unfold state. apply fin_maps.lookup_total_insert.
-Qed.
+(* Lemma pvar_ref (x : final_variable) t (p1 p2 : Prog) A σ : *)
+(*   (∀ v, hastype Model v t → feval (<[as_var x:=v]> σ) (wp p1 A) → feval (<[as_var x:=v]> σ) (wp p2 A)) → *)
+(*   (feval σ (wp <{ |[ var x : t ⦁ $p1 ]| }> A) → feval σ (wp <{ |[ var x : t ⦁ $p2 ]| }> A)). *)
+(* Proof with auto. *)
+(*   intros. simpl in *. unfold FForallT in *. rewrite simpl_feval_fforall in *. *)
+(*   intros. specialize (H0 v). rewrite feval_subst with (v:=v)... *)
+(*   rewrite feval_subst with (v:=v) in H0... rewrite simpl_feval_fimpl in *. *)
+(*   intros. specialize (H0 H1). apply (H v)... *)
+(*   simp feval in H1. simpl in H1. destruct H1 as (v'&?&?). enough (v = v') as -> by auto. *)
+(*   inversion H1. subst. symmetry. unfold state. apply fin_maps.lookup_total_insert. *)
+(* Qed. *)
 
 Lemma r_var_spec (x : final_variable) ty (pre post : Formula) `{!FormulaFinal pre} w p2:
-  <{ |[ var x : ty ⦁ *w : [pre, post]; $p2 ]| }> ≡ <{ |[ var x : ty ⦁ *w : [⌜x ∈ₜ ty⌝ ∧ pre, post]; $p2 ]| }>.
+  initials_closed post w →
+  <{ |[ var x : ty ⦁ *w : [pre, post]; $p2 ]| }> ≡
+    <{ |[ var x : ty ⦁ *w : [⌜x ∈ₜ ty⌝ ∧ pre, post]; $p2 ]| }>.
 Proof with auto.
-  intros A. simpl. simpl. apply fforall_proper... intros σ. split; intros.
-  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0). simp feval in *.
-    destruct_and! H. split_and!...
-  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0). simp feval in *.
-    destruct_and! H. split_and!...
+  intros Hclosed A.
+  mk_fresh ({[as_var x]} ∪
+              prog_fvars <{ * w : [⌜ x ∈ₜ ty ⌝ ∧ pre, post]; $ p2 }> ∪
+              prog_fvars <{ * w : [pre, post]; $ p2 }> ∪
+              formula_fvars A)
+    as z.
+  rewrite wp_var with (y:=z) by set_solver.
+  rewrite wp_var with (y:=z) by set_solver. clear H.
+  unfold FForallT. do 2 f_equiv.
+  intros σ. split; intros.
+  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0).
+    simpl in *. apply wp_spec' in H... apply wp_spec'...
+    simp feval in *. destruct H. split...
+  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0).
+    simpl in *. apply wp_spec' in H... apply wp_spec'...
+    simp feval in *. destruct_and! H. split...
 Qed.
 
 Lemma r_var_spec' (x : final_variable) ty (pre post : Formula) `{!FormulaFinal pre} w:
+  initials_closed post w →
   <{ |[ var x : ty ⦁ *w : [pre, post] ]| }> ≡ <{ |[ var x : ty ⦁ *w : [⌜x ∈ₜ ty⌝ ∧ pre, post] ]| }>.
 Proof with auto.
-  intros A. simpl. simpl. apply fforall_proper... intros σ. split; intros.
-  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0). simp feval in *.
-    destruct_and! H. split_and!...
-  - rewrite simpl_feval_fimpl in *. intros. specialize (H H0). simp feval in *.
-    destruct_and! H. split_and!...
+  intros Hclosed. pose proof (r_var_spec x ty pre post w skip Hclosed).
+  do 2 rewrite r_skip_seq_r in H...
 Qed.
 
-Local Lemma r_var_permute_2_ref x y ty p :
-  <{ |[ var x y : ty ⦁ $p ]| }> ⊑ <{ |[ var y x : ty ⦁ $p ]| }>.
-Proof with auto.
-  destruct (decide (x = y)); [subst; auto|].
-  unfold equiv, pequiv. simpl. intros A. intros σ ?. simpl in *.
-  unfold FForallT in *. rewrite simpl_feval_fforall in *. intros vy.
-  rewrite feval_subst with (v:=vy)... rewrite simpl_feval_fimpl. intros.
-  rewrite simpl_feval_fforall. intros vx. rewrite feval_subst with (v:=vx)...
-  rewrite simpl_feval_fimpl. intros. unfold state in *.
-  rewrite fin_maps.insert_commute...
-  2: { intros contra. apply as_var_inj in contra. subst. done. }
-  inversion H0. destruct H2 as []. inversion H2. subst.
-  inversion H1. destruct H4 as []. inversion H4. subst.
-  unfold state in *. rewrite fin_maps.lookup_total_insert in *.
-  specialize (H vx). rewrite feval_subst with (v:=vx) in H...
-  rewrite simpl_feval_fimpl in H. forward H.
-  { simp feval. simpl. exists vx. split... constructor.
-    unfold state in *. apply fin_maps.lookup_total_insert. }
-  rewrite simpl_feval_fforall in H. specialize (H vy).
-  rewrite feval_subst with (v:=vy) in H... rewrite simpl_feval_fimpl in H.
-  forward H... simp feval. simpl. exists vy. split... constructor.
-    unfold state in *. apply fin_maps.lookup_total_insert.
-Qed.
+(* Local Lemma r_var_permute_2_ref x y ty p : *)
+(*   <{ |[ var x y : ty ⦁ $p ]| }> ⊑ <{ |[ var y x : ty ⦁ $p ]| }>. *)
+(* Proof with auto. *)
+(*   destruct (decide (x = y)); [subst; auto|]. *)
+(*   unfold equiv, pequiv. simpl. intros A. intros σ ?. simpl in *. *)
+(*   unfold FForallT in *. rewrite simpl_feval_fforall in *. intros vy. *)
+(*   rewrite feval_subst with (v:=vy)... rewrite simpl_feval_fimpl. intros. *)
+(*   rewrite simpl_feval_fforall. intros vx. rewrite feval_subst with (v:=vx)... *)
+(*   rewrite simpl_feval_fimpl. intros. unfold state in *. *)
+(*   rewrite fin_maps.insert_commute... *)
+(*   2: { intros contra. apply as_var_inj in contra. subst. done. } *)
+(*   inversion H0. destruct H2 as []. inversion H2. subst. *)
+(*   inversion H1. destruct H4 as []. inversion H4. subst. *)
+(*   unfold state in *. rewrite fin_maps.lookup_total_insert in *. *)
+(*   specialize (H vx). rewrite feval_subst with (v:=vx) in H... *)
+(*   rewrite simpl_feval_fimpl in H. forward H. *)
+(*   { simp feval. simpl. exists vx. split... constructor. *)
+(*     unfold state in *. apply fin_maps.lookup_total_insert. } *)
+(*   rewrite simpl_feval_fforall in H. specialize (H vy). *)
+(*   rewrite feval_subst with (v:=vy) in H... rewrite simpl_feval_fimpl in H. *)
+(*   forward H... simp feval. simpl. exists vy. split... constructor. *)
+(*     unfold state in *. apply fin_maps.lookup_total_insert. *)
+(* Qed. *)
 
-Lemma r_var_permute_2 x y ty p :
-  <{ |[ var x y : ty ⦁ $p ]| }> ≡ <{ |[ var y x : ty ⦁ $p ]| }>.
-Proof with auto.
-  unfold equiv, pequiv. intros. split; apply r_var_permute_2_ref.
-Qed.
+(* Lemma r_var_permute_2 x y ty p : *)
+(*   <{ |[ var x y : ty ⦁ $p ]| }> ≡ <{ |[ var y x : ty ⦁ $p ]| }>. *)
+(* Proof with auto. *)
+(*   unfold equiv, pequiv. intros. split; apply r_var_permute_2_ref. *)
+(* Qed. *)
 
-Lemma r6 : prog4 ⊑ prog5.
+Lemma r6 : prog5 ⊑ prog6.
 Proof with auto.
-  unfold prog4, prog5. rewrite (r_var_permute_2 s q). rewrite (r_var_permute_2 s q).
-  rewrite r_var_spec.
-  rewrite r_asgn_2; [done|done|].
+  unfold prog5, prog6.
+  rewrite (r_var_comm s q). rewrite (r_var_comm s q).
+  (* rewrite (r_var_permute_2 s q). rewrite (r_var_permute_2 s q). *)
+  rewrite r_var_spec... rewrite r_asgn_2...
   unfold I. intros σ. intros. rewrite msubst_extract_2...
   2:{ simpl; done. }
   simpl. repeat rewrite simpl_subst_and. unfold term_le. unfold term_lt.
@@ -669,9 +976,9 @@ Proof.
   - intros. apply Rge_le. apply Rge_minus. apply Rle_ge. assumption.
 Qed.
 
-Lemma r7 : prog5 ⊑ prog6.
+Lemma r7 : prog6 ⊑ prog7.
 Proof with auto.
-  unfold prog5, prog6. repeat f_equiv. simpl.
+  unfold prog6, prog7. repeat f_equiv. simpl.
   opose proof (r_iteration' [q; r] <!! ⌜r+1 ≠ q⌝ !!> (as_final_formula I)
                 <!! I !!>
                 <!! I ∧ ⌜r + 1 = q⌝ !!>
@@ -694,7 +1001,7 @@ Proof with auto.
         simpl. exists v0. split... inversion H4. subst. unfold fn_eval in H7. inversion H7.
         -- subst v0 args. inversion H5. subst; clear H5. inversion H10; subst; clear H10.
            inversion H11; subst; clear H11. simpl in H1. inversion H1. subst.
-           rename r1 into vq, r7 into vr. clear H7 H1 H4. simpl in H2. unfold peval in H2.
+           rename r7 into vq, r8 into vr. clear H7 H1 H4. simpl in H2. unfold peval in H2.
            simpl in H2. specialize (H2 eq_refl). rewrite list_to_vec_2_canon in H2.
            inversion H2. subst.
            simpl in H, H0. destruct H as (vq'&?&?). destruct H0 as (vr'&?&?).
@@ -714,151 +1021,120 @@ Lemma fsum_iff {r1 r2 r3 : R} :
   FSum_rel [mkNum r1; mkNum r2] (mkNum r3).
 Proof. intros <-. constructor. Qed.
 
-Lemma teval_sub_iff {t1 t2 : Term} {σ x} :
-  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ x = (x1 - x2)%R) →
-  teval σ (term_sub t1 t2) (mkNum x).
-Proof.
-  intros (x1&x2&?&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNum x2]).
-  - by_constructor.
-  - unfold fn_eval. simpl. constructor. constructor.
-Qed.
+Global Hint Mode FormulaFinal ! ! : typeclass_instances.
 
-Lemma teval_pow2_iff {t : Term} {σ x} :
-  (∃ x1, teval σ t (mkNum x1) ∧ x = (x1 ^ 2)%R) →
-  teval σ (term_pow2 t) (mkNum x).
-Proof.
-  intros (x1&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNat 2]).
-  - by_constructor.
-  - unfold fn_eval. constructor. constructor.
-Qed.
-(* Proof. intros <-. constructor. Qed. *)
-
-Lemma term_le_inv {σ t1 t2} :
-  feval σ <! ⌜t1 ≤ t2⌝ !> →
-  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 <= x2)%R).
-Proof.
-  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
-  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
-  specialize (H1 eq_refl). inversion H1. subst. rename r1 into x1, r8 into x2.
-  exists x1, x2. split; auto.
-Qed.
-
-Lemma term_lt_inv {σ t1 t2} :
-  feval σ <! ⌜t1 < t2⌝ !> →
-  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 < x2)%R).
-Proof.
-  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
-  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
-  specialize (H1 eq_refl). inversion H1. subst. rename r1 into x1, r8 into x2.
-  exists x1, x2. split; auto.
-Qed.
-
-Lemma term_pow2_inv {σ t x} :
-  teval σ (term_pow2 t) (mkNum x) →
-  (∃ xt, teval σ t (mkNum xt) ∧ (x = xt ^ 2)%R).
+Lemma initials_closed_and {M} (A B : formula M) w :
+  initials_closed A w →
+  initials_closed B w →
+  initials_closed <! A ∧ B !> w.
 Proof with auto.
-  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
-  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
-  inversion H2. subst. clear H2. inversion H4. subst. clear H4. simpl in H.
-  inversion H. subst. exists r. split... f_equal. replace (1 + 1)%R with (INR 2) in H3 by done.
-  by apply INR_eq in H3.
+  intros. unfold initials_closed in *. intros. rewrite simpl_subst_and.
+  rewrite H... rewrite H0...
 Qed.
 
-Lemma term_sum_inv {σ t1 t2 x} :
-  teval σ (term_sum t1 t2) (mkNum x) →
-  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 + xt2)%R).
+Lemma r_var_intro' x ty {w pre post} `{!FormulaFinal pre} :
+  initials_closed post w →
+  x ∉ w →
+  as_var x ∉ formula_fvars pre →
+  as_var x ∉ formula_fvars post →
+  <{ *w : [pre, post] }> ⊑ <{ |[ var x : ty ⦁ x, *w : [⌜x ∈ₜ ty⌝ ∧ pre, ⌜x ∈ₜ ty⌝ ∧ post] ]| }>.
 Proof with auto.
-  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
-  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
-  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
-  rename r1 into xt1, r8 into xt2. exists xt1, xt2. split_and!...
+  intros Hclosed Hw Hpre Hpost.
+  etrans.
+  1:{ apply @r_var_intro with (x:=x) (ty:=ty)... }
+  rewrite r_var_spec'...
+  2:{ intros u. intros. apply (Hclosed u). set_solver. }
+  f_equiv. apply r_strengthen_post.
+  2:{ apply initials_closed_and... simpl. intros u. intros. apply (Hclosed u). set_solver. }
+  1:{ intros u. intros. apply (Hclosed u). set_solver. }
+  apply f_and_elim_r.
 Qed.
 
-Lemma term_sub_inv {σ t1 t2 x} :
-  teval σ (term_sub t1 t2) (mkNum x) →
-  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 - xt2)%R).
+Lemma r8 : prog7 ⊑ prog8.
 Proof with auto.
-  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
-  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
-  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
-  rename r1 into xt1, r8 into xt2. exists xt1, xt2. split_and!...
-  (* exists r. split... f_equal. replace (1 + 1)%R with (INR 2) in H3 by done. *)
-  (* by apply INR_eq in H3. *)
-Qed.
-
-Lemma r8 : prog6 ⊑ prog7.
-Proof with auto.
-  unfold prog6, prog7. do 4 f_equiv. apply r_while_body.
+  unfold prog7, prog8. do 4 f_equiv. apply r_while_body.
   1: unfold modified_vars; set_solver.
   etrans.
-  - intros A. apply @r_var_intro with (x:=p) (ty:=ℕ); try set_solver. apply p_free.
-  - etrans.
-    +
-      (* rewrite r_var_spec'. *)
-      apply PVar_proper_ref. 1-2: reflexivity.
-      rewrite r_permute_frame with (w':=[q; r] ++ [p]).
-      2:{ simpl. apply perm_trans with (l':=[q; p; r]).
-          - apply perm_swap.
-          - apply perm_skip. apply perm_swap. }
-      apply r_seq_frame with (mid:=<!! ⌜r < p < q⌝ ∧ I !!>).
-      * simpl. set_unfold. intros. destruct H0... destruct H; subst.
-        -- unfold p in *. unfold q in *. inversion H0.
-        -- destruct H... inversion H.
-      * simpl. set_solver.
-    + apply PVar_proper_ref... apply PSeq_proper_ref.
-      * etrans.
-        1:{ apply r_weaken_pre with (pre':=<! ⌜r + 1 < q⌝ ∧ I !>). unfold I.
-            intros σ. intros. simp feval in *. destruct_and! H. split_and!...
-            destruct H as (vq&?&?). destruct H1 as (vr&?&?). inversion H3.
-            rename n into nq. subst. inversion H5. rename n into nr. subst.
-            destruct (lt_eq_lt_dec (nr + 1) nq); [destruct s|].
-            - unfold term_lt. simpl. simp feval. simpl. exists [mkNat (nr + 1); mkNat nq].
-              split.
-              + by_constructor... unfold term_sum.
-                apply TEval_App with (vargs:=[mkNat nr; mkNat 1]).
-                  -- by_constructor.
-                  -- unfold fn_eval. constructor. simpl. apply fsum_iff. rewrite plus_INR...
-              + unfold peval. simpl. intros. rewrite list_to_vec_2_canon. constructor.
-                apply lt_INR...
-            - exfalso. apply H0. simpl. exists (mkNat nq). split... subst nq.
-              unfold term_sum. apply TEval_App with (vargs:=[mkNat nr; mkNat 1]).
-              + by_constructor.
-              + unfold fn_eval. constructor. simpl. apply fsum_iff. rewrite plus_INR...
-            - exfalso. apply term_le_inv in H2 as (vr2&vs&?&?&?).
-              apply term_lt_inv in H4 as (vs'&vq2&?&?&?).
-              pose proof (teval_det _ _ _ H6 H4). apply mkNum_eq in H10. subst vs'.
-              apply term_pow2_inv in H8. destruct H8 as (?&?&?).
-              pose proof (teval_det _ _ _ H H8). apply mkNum_eq in H11. subst x vq2.
-              clear H6 H8.
-              apply term_pow2_inv in H2. destruct H2 as (?&?&?).
-              pose proof (teval_det _ _ _ H1 H2). apply mkNum_eq in H8. subst x vr2.
-              clear H2. assert (INR nr ^ 2 < INR nq ^ 2)%R.
-              + apply Rle_lt_trans with (r2:=vs)...
-              + apply pow2_lt in H2... apply INR_lt in H2. lia. }
-        simpl. etrans.
-        1:{ apply r_strengthen_post. rewrite f_and_comm. reflexivity. }
-        apply r_remove_inv.
-        -- unfold I. set_solver.
+  1:{ intros A. apply @r_var_intro with (x:=p) (ty:=ℕ); try set_solver.
+    unfold I. apply initials_closed_alt'. set_solver. }
+  etrans.
+  1:{ rewrite r_var_spec'... apply initials_closed_alt'. set_solver. }
+  etrans.
+  - apply PVar_proper_ref. 1-2: reflexivity.
+    rewrite r_permute_frame with (w':=[q; r] ++ [p]).
+    2:{ apply initials_closed_alt'. set_solver. }
+    2:{ simpl. apply perm_trans with (l':=[q; p; r]).
+        - apply perm_swap.
+        - apply perm_skip. apply perm_swap. }
+    apply r_seq_frame with (mid:=<!! ⌜p ∈ₜ ℕ⌝ ∧ ⌜r < p < q⌝ ∧ I !!>).
+    1-2: apply initials_closed_alt'; set_solver.
+    + simpl. set_unfold. intros. destruct H0... destruct H; subst.
+      * unfold p in *. unfold q in *. inversion H0.
+      * destruct H... inversion H.
+    + simpl. set_solver.
+  - apply PVar_proper_ref... apply PSeq_proper_ref.
+    + etrans.
+      1:{ apply r_weaken_pre with (pre':=<! ⌜p ∈ₜ ℕ⌝ ∧ ⌜r + 1 < q⌝ ∧ I !>). unfold I.
+          intros σ. intros. simp feval in *. destruct_and! H. split_and!...
+          destruct H1 as (vq&?&?). destruct H2 as (vr&?&?). inversion H4.
+          rename n into nq. subst. inversion H6. rename n into nr. subst.
+          destruct (lt_eq_lt_dec (nr + 1) nq); [destruct s|].
+          - unfold term_lt. simpl. simp feval. simpl. exists [mkNat (nr + 1); mkNat nq].
+            split.
+            + by_constructor... unfold term_sum.
+              apply TEval_App with (vargs:=[mkNat nr; mkNat 1]).
+                -- by_constructor.
+                -- unfold fn_eval. constructor. simpl. apply fsum_iff. rewrite plus_INR...
+            + unfold peval. simpl. intros. rewrite list_to_vec_2_canon. constructor.
+              apply lt_INR...
+          - exfalso. apply H. simpl. exists (mkNat nq). split... subst nq.
+            unfold term_sum. apply TEval_App with (vargs:=[mkNat nr; mkNat 1]).
+            + by_constructor.
+            + unfold fn_eval. constructor. simpl. apply fsum_iff. rewrite plus_INR...
+          - exfalso. apply term_le_inv in H3 as (vr2&vs&?&?&?).
+            apply term_lt_inv in H5 as (vs'&vq2&?&?&?).
+            pose proof (teval_det _ _ _ H7 H5). apply mkNum_eq in H11. subst vs'.
+            apply term_pow2_inv in H9. destruct H9 as (?&?&?).
+            pose proof (teval_det _ _ _ H1 H9). apply mkNum_eq in H12. subst x vq2.
+            clear H7 H9.
+            apply term_pow2_inv in H3. destruct H3 as (?&?&?).
+            pose proof (teval_det _ _ _ H2 H3). apply mkNum_eq in H9. subst x vr2.
+            clear H3. assert (INR nr ^ 2 < INR nq ^ 2)%R.
+            + apply Rle_lt_trans with (r2:=vs)...
+            + apply pow2_lt in H3... apply INR_lt in H3. lia. }
+      simpl.
+      etrans.
+      1:{ apply r_strengthen_post.
+          3:{ rewrite f_and_comm. rewrite f_and_comm with (B:=I).
+              rewrite <- f_and_assoc with (B:=<! ⌜r < p < q⌝ !>).
+              rewrite <- f_and_comm with (B:=<! ⌜r < p < q⌝ !>). reflexivity. }
+          1-2: apply initials_closed_alt'; set_solver. }
+      etrans.
+      1:{ eapply r_weaken_pre. rewrite f_and_assoc. reflexivity. }
+      apply r_remove_inv.
+      * unfold I. set_solver.
+      * constructor.
+        -- set_solver.
         -- constructor.
-           ++ set_solver.
-           ++ constructor.
-      * etrans.
-        1:{ apply r_contract_frame. set_solver. }
-        rewrite f_subst_initials_no_initials by set_solver.
-        simpl. reflexivity.
+    + etrans.
+      1:{ apply r_contract_frame; [apply initials_closed_alt'|]; set_solver. }
+      rewrite f_subst_initials_no_initials by set_solver.
+      simpl. reflexivity.
 Qed.
 
 
-Lemma r9 : prog7 ⊑ prog8.
+Lemma r9 : prog8 ⊑ prog9.
 Proof with auto.
-  unfold prog7, prog8. repeat apply PVar_proper_ref... f_equiv. apply r_while_body.
+  unfold prog8, prog9. repeat apply PVar_proper_ref... f_equiv. apply r_while_body.
   { simpl. unfold modified_vars. simpl. set_solver. }
   apply PVar_proper_ref... apply PSeq_proper_ref.
-  - apply r_asgn_1. unfold term_lt at 2 3. rewrite simpl_subst_and.
+  - apply r_asgn_1... unfold term_lt at 2 3. rewrite simpl_subst_and.
     rewrite simpl_subst_af. simpl. intros σ ?. simp feval in *.
-    simpl in H. destruct H. destruct H as (v0&?&?). apply term_lt_inv in H0.
+    simpl in H. destruct_and! H. clear H. rename H0 into H. rename H2 into H0.
+    destruct H as (v0&?&?). apply term_lt_inv in H0.
     destruct H0 as (xr1&xq&?&?&?). apply term_sum_inv in H0. destruct H0 as (xr&x1&?&?&?).
-    subst. inversion H4. subst. clear H4. split.
+    subst. inversion H4. subst. clear H4. split_and!.
+    +
     + simpl. exists [mkNum xr; mkNum (xq - 1)]. split.
       * by_constructor. apply teval_sub_iff. exists xq, 1%R. split_and!; auto.
         constructor.
@@ -888,12 +1164,14 @@ Proof with auto.
     + simpl. apply r_if_2_proper.
       * simpl. etrans.
         -- rewrite r_permute_frame with (w':=[q] ++ [r]).
-           ++ apply r_contract_frame. set_solver.
+           ++ apply r_contract_frame; [apply initials_closed_alt'|]; set_solver.
+           ++ apply initials_closed_alt'. set_solver.
            ++ simpl. reflexivity.
         -- etrans.
            ++ apply r_weaken_pre with (pre':=<! ⌜ s < p ² ⌝ ∧ ⌜ p < q ⌝ ∧ I !>). 
               intros σ ?. simp feval in *. destruct_and! H. split_and!...
-           ++ apply r_strengthen_post. intros σ ?. unfold subst_initials. simpl.
+           ++ apply r_strengthen_post. 1-2: apply initials_closed_alt'; set_solver.
+              intros σ ?. unfold subst_initials. simpl.
               rewrite simpl_subst_and. rewrite simpl_subst_and.
               unfold term_lt, term_le. do 2 rewrite simpl_subst_af. simpl.
               rewrite fequiv_subst_non_free.
@@ -940,12 +1218,14 @@ Proof with auto.
                      lra.
       * simpl. etrans.
         -- rewrite r_permute_frame with (w':=[r] ++ [q]).
-           ++ apply r_contract_frame. set_solver.
+           ++ apply r_contract_frame; [apply initials_closed_alt'|]; set_solver.
+           ++ apply initials_closed_alt'; set_solver.
            ++ simpl. apply perm_swap.
         -- etrans.
            ++ apply r_weaken_pre with (pre':=<! ⌜ s ≥ p ² ⌝ ∧ ⌜ r < p ⌝ ∧ I !>). 
               intros σ ?. simp feval in *. destruct_and! H. split_and!...
-           ++ apply r_strengthen_post. intros σ ?. unfold subst_initials. simpl.
+           ++ apply r_strengthen_post... 1-2: apply initials_closed_alt'; set_solver.
+              intros σ ?. unfold subst_initials. simpl.
               rewrite simpl_subst_and. rewrite simpl_subst_and.
               unfold term_lt, term_le. do 2 rewrite simpl_subst_af. simpl.
               rewrite fequiv_subst_non_free.
@@ -991,23 +1271,17 @@ Proof with auto.
                      lra.
 Qed.
 
-
-(* Having this as an invariant of the var block requires proper context management;
-    which Morgan's calculus lacks. I believe it's technically possible to circumvent this
-    by embedding these in the pre and postconditions of the appropriate blocks inside the loop*)
-Parameter var_int : ∀ σ, feval σ <! ⌜p ∈ₜ ℕ⌝ !>.
-
-Lemma r10 : prog8 ⊑ code.
+Lemma r10 : prog9 ⊑ code.
 Proof with auto.
-  unfold prog8, code. do 4 f_equiv. apply r_while_body.
+  unfold prog9, code. do 4 f_equiv. apply r_while_body.
   { simpl. unfold modified_vars. simpl. set_solver. }
   f_equiv. f_equiv. apply r_if_2_proper.
-  - apply r_asgn_1. unfold I. intros σ ?. simp feval in *. destruct_and!.
-    repeat rewrite simpl_subst_and. simp feval.
+  - apply r_asgn_1; [apply initials_closed_alt'; set_solver|]. unfold I. intros σ ?.
+    simp feval in *. destruct_and!. repeat rewrite simpl_subst_and. simp feval.
     simpl. repeat rewrite simpl_subst_af. simpl.
     unfold term_le, term_lt. repeat rewrite simpl_subst_af. simpl in *.
     split_and!...
-    + apply var_int.
+    + admit.
     + simp feval. simpl. destruct H0 as (v&?&?).
       apply term_lt_inv in H1. destruct H1 as (xp&xq&?&?&?).
       pose proof (teval_det _ _ _ H7 H5). subst v.
@@ -1015,8 +1289,8 @@ Proof with auto.
       * by_constructor.
       * unfold peval. intros ?. rewrite list_to_vec_2_canon. clear H9.
         simpl. constructor...
-  - apply r_asgn_1. unfold I. intros σ ?. simp feval in *. destruct_and!.
-    repeat rewrite simpl_subst_and. simp feval.
+  - apply r_asgn_1; [apply initials_closed_alt'; set_solver|]. unfold I. intros σ ?.
+    simp feval in *. destruct_and!. repeat rewrite simpl_subst_and. simp feval.
     simpl. repeat rewrite simpl_subst_af. simpl.
     unfold term_le, term_lt. repeat rewrite simpl_subst_af. simpl in *.
     split_and!...

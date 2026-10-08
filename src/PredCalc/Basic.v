@@ -77,7 +77,7 @@ Section syntax.
   | AT_False
   | AT_Eq (t1 t2 : term)
   | AT_HasType (t : term) (ty : value_ty)
-  | AT_Pred (p : psym) (args : list (term)).
+  | AT_Pred (p : psym) (args : list term).
 
   Unset Elimination Schemes.
   Inductive formula : Type :=
