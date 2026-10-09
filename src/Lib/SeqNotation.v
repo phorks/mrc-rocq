@@ -1,7 +1,7 @@
 From Stdlib Require Import Lists.List. Import ListNotations.
 From stdpp Require Import base.
 From MRC Require Import Prelude.
-From MRC Require Import Model.
+From MRC.Lib Require Import Variables.
 
 Declare Custom Entry var_seq.
 Declare Custom Entry var_seq_elem.

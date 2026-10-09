@@ -1,11 +1,9 @@
 From Stdlib Require Import Strings.String.
 From stdpp Require Import gmap.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
-From MRC Require Import Stdppp.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import PredCalc.Basic.
-From MRC Require Import PredCalc.Variables.
+From MRC.PredCalc Require Import Basic Variables.
 Import EqNotations.
 
 Class ModelWithSum (M : model) := sum_sym : model_fsym M.
@@ -169,3 +167,8 @@ Class ModelWithNat (M : model) := {
 }.
 
 Notation ℕ := (@nat_ty _).
+
+Definition nat_to_term {M} `{ModelWithNat M} (n : nat) : term M := TConst (nat_to_value n).
+Set Warnings "-uniform-inheritance".
+Coercion nat_to_term : nat >-> term.
+Set Warnings "+uniform-inheritance".

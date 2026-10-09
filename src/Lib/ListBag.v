@@ -1,6 +1,7 @@
 From Stdlib Require Import List Reals.
 From stdpp Require Import base tactics sorting.
-From MRC Require Import Prelude Tactics Comparable.
+From MRC Require Import Prelude.
+From MRC.Lib Require Import Tactics Comparable.
 
 Record listbag (A : Type) := Listbag {
   listbag_car : list A;

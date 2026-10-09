@@ -1,6 +1,7 @@
 From Stdlib Require Import List String Reals.
 From stdpp Require Import base tactics list.
-From MRC Require Import Prelude Tactics.
+From MRC Require Import Prelude.
+From MRC.Lib Require Import Tactics.
 
 
 Section raw_compare.

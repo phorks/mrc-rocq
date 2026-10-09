@@ -1,9 +1,8 @@
 From stdpp Require Import fin_maps.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.Basic.
+From MRC.PredCalc Require Import Basic.
 
 Section syntactic.
   Context {M : model}.

@@ -1,6 +1,7 @@
-From Stdlib Require Import Reals ZArith Sorting.
+From Stdlib Require Import Reals ZArith Sorting Lra.
 From stdpp Require Import listset vector.
-From MRC Require Export PredCalc Comparable ListBag Prelude Tactics Stdppp.
+From Equations Require Import Equations.
+From MRC Require Export Prelude Lib PredCalc Lib.Comparable Lib.ListBag.
 
 Notation compare := Comparable.compare.
 
@@ -564,9 +565,8 @@ Notation "'⌊' t '⌋'" := (term_floor t)
 Definition value_to_term (v : Value) : Term := @TConst Model v.
 Coercion value_to_term : Value >-> Term.
 
-Definition nat_to_term_nat (n : nat) : Term := @TConst Model (mkNat n).
-
-Coercion nat_to_term_nat : nat >-> Term.
+(* Definition nat_to_term_nat (n : nat) : Term := @TConst Model (mkNat n). *)
+(* Coercion nat_to_term_nat : nat >-> Term. *)
 
 Lemma VNum_canon x i : VNum x ↾ i = mkNum x.
 Proof. simpl in i. by destruct i. Qed.
@@ -660,3 +660,257 @@ Next Obligation.
 Qed.
 
 Global Existing Instance Model_WithNat.
+
+(** * some facts about our model *)
+Ltac by_constructor := repeat (constructor; auto).
+
+Definition is_num (v : Value) : bool :=
+  match `v with
+  | VNum r => true
+  | _ => false
+  end.
+
+
+Lemma term_le_same {σ}  {t1 t2 : Term} (v : Value) :
+  is_num v →
+  teval σ t1 v →
+  teval σ t2 v →
+  feval σ <! ⌜t1 ≤ t2⌝ !>.
+Proof.
+  intros. unfold term_le. simp feval. simpl. exists [v; v]. split.
+  - by_constructor.
+  - unfold peval. intros. rewrite list_to_vec_2_canon. simpl. destruct v.
+    destruct x; simpl in *; try contradiction.
+    + rewrite VNum_canon. constructor. done.
+Qed.
+
+Notation ℝ := (TReal : Model.value_ty Model).
+Notation ℤ := (TInt : Model.value_ty Model).
+
+Lemma mkNum_eq x y : mkNum x = mkNum y ↔ x = y.
+Proof.
+  split; intros.
+  - unfold mkNum in H. by inversion H.
+  - by subst.
+Qed.
+
+Lemma ffloor_spec {σ} x y : feval σ <! ⌜x ∈ₜ ℤ⌝ ∧ ⌜y ∈ₜ ℝ⌝ !> → <! ⌜x = ⌊y⌋⌝ !> ≡_{σ} <! ⌜x ≤ y < x + 1⌝ !>.
+Proof with auto.
+  intros Hnum. simp feval in Hnum. destruct Hnum as [Hx Hy]. split; intros.
+  - inversion H. destruct H0 as []. inversion H1. subst. inversion H4. subst.
+    inversion H8. subst. clear H H1 H4 H8. inversion H6; clear H6.
+    + simpl in *. subst. inversion H. clear H. subst. simp feval. split.
+      * econstructor. Unshelve. 2: exact [mkInt i; mkNum r]. split; [by_constructor|].
+        unfold peval. intros. rewrite list_to_vec_2_canon. clear H. simpl. constructor.
+        lra.
+      * econstructor. Unshelve. 2: exact [mkNum r; mkNum (IZR i + 1)]. split.
+        -- by_constructor. unfold term_sum. econstructor. Unshelve. 3: exact [mkInt i; mkInt 1].
+           ++ by_constructor.
+           ++ by_constructor.
+        -- simpl. unfold peval. intros. rewrite list_to_vec_2_canon. clear H. simpl.
+           constructor. lra.
+    + subst. simpl in H. exfalso. inversion Hy. simpl in H1. destruct H1.
+      apply teval_det with (v1:=v) in H1... subst x0. inversion H2. subst v. eapply (H _).
+      constructor. Unshelve. 2: exact (Zfloor r). apply Zfloor_bound.
+  - simp feval in H. destruct H as []. simp feval. inversion H. destruct H1. inversion H1.
+    clear H1; subst. inversion H7; subst. clear H7. inversion H8. subst. clear H8.
+    unfold peval in H2. simpl in H2. specialize (H2 eq_refl). rewrite list_to_vec_2_canon in H2.
+    inversion H2. subst. rename r2 into vy. rename r1 into vx. clear H.
+    inversion H0; clear H0; subst. inversion H; clear H; subst. inversion H0; subst; clear H0.
+    inversion H9; subst; clear H9. inversion H10; subst; clear H10.
+    unfold term_sum in H6. inversion H6. subst. inversion H8; subst; clear H8.
+    inversion H12; clear H12; subst. inversion H13; clear H13; subst. inversion H8.
+    subst. clear H8. apply teval_det with (v1:=mkNum vx) in H9... subst v1. inversion H10.
+    + subst. simpl in H. inversion H. subst. unfold peval in H1. simpl in H1.
+      specialize (H1 eq_refl). inversion H1. subst. apply teval_det with (v1:=mkNum vy) in H7...
+      apply mkNum_eq in H7. subst r1. econstructor. split; [exact H5|]. econstructor.
+      Unshelve. 3: exact [mkNum vy]. 1: by_constructor. unfold fn_eval. simpl.
+      constructor.
+      inversion Hx. destruct H0. apply teval_det with (v1:=mkNum vx) in H0... subst x0.
+      inversion H7. subst. rename n into vx.
+      assert (vx = Zfloor vy) as ->.
+      * symmetry. apply Zfloor_eq. lra.
+      * constructor. lra.
+    + exfalso. subst. eapply H. simpl. constructor.
+Qed.
+
+(* HACK: is this useful? *)
+(* Hint Extern 10 => *)
+(*   match goal with *)
+(*   | A : final_formula _, H : ¬ formula_final _ |- _ => solve [destruct (H (final_formula_final A))] *)
+(*   end : core. *)
+
+Lemma IsNat_IsInt {σ} (t : Term) : afeval σ (AT_HasType t TNat) → afeval σ (AT_HasType t TInt).
+Proof.
+  inversion 1. destruct H0. inversion H1. subst. econstructor. split; [exact H0|].
+  apply IsInt with (n:=Z.of_nat n). apply INR_IZR_INZ.
+Qed.
+
+Lemma IsInt_IsReal {σ} (t : Term) : afeval σ (AT_HasType t TInt) → afeval σ (AT_HasType t TReal).
+Proof.
+  inversion 1. destruct H0. inversion H1. subst. econstructor. split; [exact H0|].
+  constructor.
+Qed.
+
+Lemma IsNat_IsReal {σ} (t : Term) : afeval σ (AT_HasType t TNat) → afeval σ (AT_HasType t TReal).
+Proof.
+  inversion 1. destruct H0. inversion H1. subst. econstructor. split; [exact H0|].
+  constructor.
+Qed.
+
+Lemma term_floor_reducible_real {σ} (t : Term) (r : R) : teval σ t (mkNum r) → teval σ (term_floor t) (mkNum (IZR (Zfloor r))).
+Proof.
+  intros. unfold term_floor. econstructor. Unshelve. 3: exact [mkNum r].
+  - by_constructor.
+  - do 2 constructor. pose proof Zfloor_bound. apply H0.
+Qed.
+
+Lemma term_floor_inv {σ} (t : Term) v : teval σ (term_floor t) v → (∃ r, teval σ t (mkNum r) ∧ v = mkNum (IZR (Zfloor r))) ∨ v = ⊥.
+Proof with auto.
+  intros. unfold term_floor. inversion H. subst. inversion H4.
+  - subst. inversion H0. subst. left. exists r. inversion H2. subst. split...
+    do 2 f_equal. symmetry. apply Zfloor_eq...
+  - right...
+Qed.
+
+Lemma term_floor_typing {σ} (t: Term) : afeval σ (AT_HasType t TReal) → afeval σ (AT_HasType (term_floor t) TInt).
+Proof.
+  inversion 1. destruct H0. inversion H1. subst. pose proof (@term_floor_reducible_real σ t r H0).
+  econstructor. split; [exact H2|]. eapply IsInt. reflexivity.
+Qed.
+
+Lemma term_sqrt_reducible {σ} (t : Term) (r : R) : (0 <= r)%R → teval σ t (mkNum r) → teval σ (term_sqrt t) (mkNum (sqrt r)).
+Proof.
+  intros. econstructor. Unshelve. 3: exact [mkNum r].
+  - by_constructor.
+  - do 2 constructor.
+    + apply sqrt_pos.
+    + by apply pow2_sqrt.
+Qed.
+
+Lemma term_sqrt_reducible_nat {σ} (t : Term) (n : nat) : teval σ t (mkNat n) → teval σ (term_sqrt t) (mkNum (sqrt (INR n))).
+Proof.
+  apply term_sqrt_reducible. apply pos_INR.
+Qed.
+
+Lemma term_sqrt_typing_nat {σ} (t : Term) : afeval σ (AT_HasType t TNat) → afeval σ (AT_HasType (term_sqrt t) TReal).
+Proof.
+  inversion 1. destruct H0. inversion H1. subst. epose proof (@term_sqrt_reducible σ t (INR n) _ H0).
+  econstructor. split; [exact H2|]. constructor.
+  Unshelve. apply pos_INR.
+Qed.
+
+Lemma term_le_inv {σ t1 t2} :
+  feval σ <! ⌜t1 ≤ t2⌝ !> →
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 <= x2)%R).
+Proof.
+  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
+  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
+  specialize (H1 eq_refl). inversion H1. subst. rename r1 into x1, r2 into x2.
+  exists x1, x2. split; auto.
+Qed.
+
+Lemma term_lt_inv {σ t1 t2} :
+  feval σ <! ⌜t1 < t2⌝ !> →
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ (x1 < x2)%R).
+Proof.
+  intros. inversion H. destruct H0. inversion H0; subst; clear H0. inversion H6; clear H6; subst.
+  inversion H7; clear H7; subst. simpl in H1. unfold peval in H1. simpl in H1.
+  specialize (H1 eq_refl). inversion H1. subst. rename r1 into x1, r2 into x2.
+  exists x1, x2. split; auto.
+Qed.
+
+Lemma teval_sub_iff {t1 t2 : Term} {σ x} :
+  (∃ x1 x2, teval σ t1 (mkNum x1) ∧ teval σ t2 (mkNum x2) ∧ x = (x1 - x2)%R) →
+  teval σ (term_sub t1 t2) (mkNum x).
+Proof.
+  intros (x1&x2&?&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNum x2]).
+  - by_constructor.
+  - unfold fn_eval. simpl. constructor. constructor.
+Qed.
+
+Lemma teval_pow2_iff {t : Term} {σ x} :
+  (∃ x1, teval σ t (mkNum x1) ∧ x = (x1 ^ 2)%R) →
+  teval σ (term_pow2 t) (mkNum x).
+Proof.
+  intros (x1&?&?). subst. apply TEval_App with (vargs:=[mkNum x1; mkNat 2]).
+  - by_constructor.
+  - unfold fn_eval. constructor. constructor.
+Qed.
+
+Lemma term_pow2_inv {σ t x} :
+  teval σ (term_pow2 t) (mkNum x) →
+  (∃ xt, teval σ t (mkNum xt) ∧ (x = xt ^ 2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H2. subst. clear H2. inversion H4. subst. clear H4. simpl in H.
+  inversion H. subst. exists r. split... f_equal. replace (1 + 1)%R with (INR 2) in H3 by done.
+  by apply INR_eq in H3.
+Qed.
+
+Lemma term_sqrt_inv {σ t x} :
+  teval σ (term_sqrt t) (mkNum x) →
+  (∃ xt, teval σ t (mkNum xt) ∧ (xt = x ^ 2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H4. subst. clear H4. simpl in H.
+  inversion H. subst. exists (x ^ 2)%R. split...
+Qed.
+
+Lemma term_sum_inv {σ t1 t2 x} :
+  teval σ (term_sum t1 t2) (mkNum x) →
+  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 + xt2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
+  rename r1 into xt1, r2 into xt2. exists xt1, xt2. split_and!...
+Qed.
+
+Lemma term_sub_inv {σ t1 t2 x} :
+  teval σ (term_sub t1 t2) (mkNum x) →
+  (∃ xt1 xt2, teval σ t1 (mkNum xt1) ∧ teval σ t2 (mkNum xt2) ∧ (x = xt1 - xt2)%R).
+Proof with auto.
+  intros. inversion H. subst. clear H. inversion H2; clear H2; subst.
+  inversion H5; clear H5; subst. inversion H6; clear H6; subst.
+  inversion H4. subst. clear H4. simpl in H. inversion H. subst.
+  rename r1 into xt1, r2 into xt2. exists xt1, xt2. split_and!...
+Qed.
+
+Lemma is_nat_iff {σ} {t : Term} :
+  afeval σ (AT_HasType t TNat) ↔ ∃ n, teval σ t (mkNat n).
+Proof.
+  split; intros.
+  - intros. simpl in H. destruct H as [v []]. inversion H0. subst. exists n. done.
+  - destruct H as [n ?]. simpl. exists (mkNat n). split; try done. apply IsNat with (n:=n).
+    reflexivity.
+Qed.
+
+Lemma pow2_le_inv {a b} : (0 <= a)%R → (a <= b)%R → (a ^ 2 <= b ^ 2)%R.
+Proof with auto. intros. by apply pow_incr with (n:=2). Qed.
+
+Lemma pow2_le {a b} : (0 <= a)%R → (0 <= b)%R → (a ^ 2 <= b ^ 2)%R → (a <= b)%R.
+Proof with auto.
+  intros. apply sqrt_le_1 in H1. 2-3: apply pow2_ge_0. do 2 rewrite sqrt_pow2 in H1...
+Qed.
+
+Lemma pow2_lt {a b} : (0 <= a)%R → (0 <= b)%R → (a ^ 2 < b ^ 2)%R → (a < b)%R.
+Proof with auto.
+  intros. apply sqrt_lt_1 in H1. 2-3: apply pow2_ge_0. do 2 rewrite sqrt_pow2 in H1...
+Qed.
+
+Hint Extern 0 (0 <= INR _)%R => apply pos_INR : core.
+Hint Extern 0 (0 <= sqrt _)%R => apply sqrt_pos : core.
+
+Lemma Rle_0_minus : forall (r1 r2 : R), (0 <= r2 - r1)%R ↔ (r1 <= r2)%R.
+Proof.
+  intros r1 r2; split.
+  - intros. apply Rge_le. apply Rminus_ge. apply Rle_ge. assumption.
+  - intros. apply Rge_le. apply Rge_minus. apply Rle_ge. assumption.
+Qed.
+
+Lemma fsum_iff {r1 r2 r3 : R} :
+  (r1 + r2)%R = r3 →
+  FSum_rel [mkNum r1; mkNum r2] (mkNum r3).
+Proof. intros <-. constructor. Qed.

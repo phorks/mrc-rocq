@@ -3,10 +3,8 @@ From Stdlib Require Import Lia.
 From stdpp Require Import gmap vector.
 From Equations Require Import Equations.
 From MRC Require Import Prelude.
-From MRC Require Import Stdppp.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import Tactics.
-From MRC Require Import SeqNotation.
 Open Scope bool_scope.
 
 Section syntax.
@@ -23,6 +21,9 @@ Section syntax.
   | TVar (x : variable)
   | TApp (f : fsym) (args : list term).
   Set Elimination Schemes.
+
+  Global Instance TVar_inj : Inj (=) (=) TVar.
+  Proof. congruence. Qed.
 
   Fixpoint term_rank (t : term) :=
     match t with
@@ -751,6 +752,17 @@ Section semantics.
       locally. *)
   Axiom TotalFRel_total :
     ∀ R : list value → value → Prop, ∀ args : list value, ∃ v, TotalFRel R args v.
+
+  (* [TotalFRel_total] is derivable from the law of excluded middle *)
+  Local Lemma TotalFRel_total_admissible :
+    (∀ P, P ∨ ¬ P) →
+    ∀ R (args : list value),
+      ∃ v, TotalFRel R args v.
+  Proof.
+    intros H R args. destruct (H (∃ v, R args v)).
+    - destruct H0 as (v&?). exists v. by apply TotalFRel_Known.
+    - exists ⊥. apply TotalFRel_Unknown. intros. contradict H0. eauto.
+  Qed.
 
   Definition fn_eval fn vargs v : Prop := TotalFRel (fdef_rel (fdefs M fn)) vargs v.
 

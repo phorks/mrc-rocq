@@ -3,17 +3,10 @@ From Stdlib Require Import Lia.
 From Stdlib Require Import Lists.List.
 From stdpp Require Import base list_monad sets gmap.
 From MRC Require Import Prelude.
-From MRC Require Import Stdppp.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import SeqNotation.
-From MRC Require Import PredCalc.Basic.
-From MRC Require Import PredCalc.Equiv.
-From MRC Require Import PredCalc.SyntacticFacts.
-From MRC Require Import PredCalc.SemanticFacts.
-From MRC Require Import PredCalc.EquivLemmas.
-From MRC Require Import PredCalc.MultiSubst.
-From MRC Require Import PredCalc.Variables.
-From MRC Require Import PredCalc.NAry.
+From MRC.PredCalc Require Import Basic Equiv SyntacticFacts SemanticFacts
+  EquivLemmas MultiSubst Variables NAry.
 
 Section n_ary_lemmas.
   Context {M : model}.

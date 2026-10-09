@@ -2,14 +2,10 @@ From Equations Require Import Equations.
 From Stdlib Require Import Lists.List. Import ListNotations.
 From stdpp Require Import base gmap.
 From MRC Require Import Prelude.
-From MRC Require Import Stdppp.
-From MRC Require Import SeqNotation.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import PredCalc.Basic.
-From MRC Require Import PredCalc.SyntacticFacts.
-From MRC Require Import PredCalc.Equiv.
-From MRC Require Import PredCalc.SemanticFacts.
-From MRC Require Import PredCalc.Variables.
+From MRC.PredCalc Require Import Basic SyntacticFacts Equiv SemanticFacts
+  Variables.
 
 Open Scope refiney_scope.
 
@@ -110,9 +106,19 @@ Section syntax.
     deduce_rank_eq H. rewrite Hfr. rewrite Hqr. lia.
   Qed.
 
-  Definition to_vtmap (xs : list variable) (ts : list term) `{!OfSameLength xs ts}
+  Definition to_vtmap xs ts `{!OfSameLength xs ts}
       : gmap variable term :=
     list_to_map (zip xs ts).
+
+  Lemma to_vtmap_proper xs xs' ts1 ts2 `{!OfSameLength xs ts1} `{!OfSameLength xs' ts2} :
+    zpair_functional xs ts1 →
+    zpair_functional xs' ts2 →
+    (xs, ts1) ≡ₚₚ (xs', ts2) →
+    to_vtmap xs ts1 = to_vtmap xs' ts2.
+  Proof with auto.
+    intros. unfold to_vtmap.
+    apply zpair_Permutation_list_to_map_zip'...
+  Qed.
 
   Local Notation "t [ [ₜ xs \ ts ] ]" := (msubst_term t (to_vtmap xs ts))
                                            (in custom formula at level 74, left associativity,
@@ -283,19 +289,19 @@ Section syntax.
       + rewrite fvars_subst_non_free in H... set_solver.
   Qed.
 
-  Lemma simpl_msubst_not A (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_not A xs ts `{!OfSameLength xs ts} :
     <! (¬ A) [[*xs \ *ts]] !> = <! ¬ (A [[*xs \ *ts]]) !>.
   Proof. simp msubst. reflexivity. Qed.
-  Lemma simpl_msubst_and A B (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_and A B xs ts `{!OfSameLength xs ts} :
     <! (A ∧ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∧ B [[*xs \ *ts]] !>.
   Proof. simp msubst. reflexivity. Qed.
-  Lemma simpl_msubst_or A B (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_or A B xs ts `{!OfSameLength xs ts} :
     <! (A ∨ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ∨ B [[*xs \ *ts]] !>.
   Proof. simp msubst. reflexivity. Qed.
-  Lemma simpl_msubst_impl A B (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_impl A B xs ts `{!OfSameLength xs ts} :
     <! (A ⇒ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇒ B [[*xs \ *ts]] !>.
   Proof. unfold FImpl. simp msubst. reflexivity. Qed.
-  Lemma simpl_msubst_iff A B (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_iff A B xs ts `{!OfSameLength xs ts} :
     <! (A ⇔ B) [[*xs \ *ts]] !> = <! A [[*xs \ *ts]] ⇔ B [[*xs \ *ts]] !>.
   Proof. unfold FIff, FImpl. simp msubst. reflexivity. Qed.
 
@@ -531,6 +537,7 @@ Section semantics.
   Local Notation term := (term M).
   Local Notation atomic_formula := (atomic_formula M).
   Local Notation formula := (formula M).
+  Local Notation final_term := (final_term M).
 
   Implicit Types x y : variable.
   Implicit Types t : term.
@@ -766,7 +773,7 @@ Section semantics.
     repeat rewrite feval_msubst with (mv:=mv); auto; intros; apply H...
   Qed.
 
-  Lemma simpl_msubst_exists y A (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_exists y A xs ts `{!OfSameLength xs ts} :
     y ∉ (quant_msubst_fvars y A (to_vtmap xs ts)) →
     <! (∃ y, A)[[*xs \ *ts]] !> ≡ <! (∃ y, A [[*xs \ *ts]]) !>.
   Proof with auto.
@@ -776,7 +783,7 @@ Section semantics.
     simp msubst. simpl. rewrite H0. rewrite fequiv_subst_diag...
   Qed.
 
-  Lemma simpl_msubst_forall y A (xs : list variable) ts `{!OfSameLength xs ts} :
+  Lemma simpl_msubst_forall y A xs ts `{!OfSameLength xs ts} :
     y ∉ (quant_msubst_fvars y A (to_vtmap xs ts)) →
     <! (∀ y, A)[[*xs \ *ts]] !> ≡ <! (∀ y, A [[*xs \ *ts]]) !>.
   Proof with auto.
@@ -1431,15 +1438,93 @@ Section semantics.
         set_solver.
   Qed.
 
+  Lemma msubst_zpair_Permutation' A (xs : list variable) ts (xs' : list variable) ts' `{!OfSameLength xs ts} `{!OfSameLength xs' ts'} :
+    zpair_functional xs ts →
+    zpair_functional xs' ts' →
+    (xs, ts) ≡ₚₚ (xs', ts') →
+    msubst A (to_vtmap xs ts) ≡ msubst A (to_vtmap xs' ts').
+  Proof. intros. f_equiv. by apply to_vtmap_proper. Qed.
+
   Lemma msubst_zpair_Permutation A xs ts xs' ts' `{!OfSameLength xs ts} `{!OfSameLength xs' ts'} :
     NoDup xs →
     NoDup xs' →
     (xs, ts) ≡ₚₚ (xs', ts') →
     msubst A (to_vtmap xs ts) ≡ msubst A (to_vtmap xs' ts').
+  Proof. intros. by apply msubst_zpair_Permutation'. Qed.
+
+  Lemma initials_closed_msubst (A : formula) w (xs : list variable)
+      (ts : list term) `{!OfSameLength xs ts} :
+    initials_closed A w →
+    (∀ x : final_variable, ₀x ∈ xs → x ∈ w) →
+    (∀ (x : final_variable) t, t ∈ ts → ₀x ∈ term_fvars t → x ∈ w) →
+    initials_closed <! A [[*xs \ *ts]] !> w.
   Proof with auto.
-    intros. f_equiv. apply zpair_Permutation_list_to_map_zip...
+    intros HH. pose proof (initials_closed_strong A w HH) as H. clear HH. intros Hxs Hts.
+    split; intros.
+    - pose proof (teval_total σ x) as (v&?).
+      rewrite feval_subst with (v:=v) in H1...
+      opose proof (teval_vtmap_total _ _) as (mv&?).
+      rewrite feval_msubst with (mv:=mv) in H1; [|exact H3].
+      unfold state in *.
+      rewrite insert_union_singleton_l in H3.
+      rewrite teval_vtmap_delete_state_vtmap_head in H3.
+      2:{
+        intros x0 ??. set_unfold in H4. subst.
+        apply elem_of_vtmap_fvars in H5 as (x'&t&?&?).
+        unfold to_vtmap in H4. apply elem_of_list_to_map_2 in H4.
+        apply elem_of_zip_r in H4 as H6.
+        apply (Hts x) in H6... }
+      rewrite <- insert_union_r in H1.
+      2:{
+        destruct (mv !! ₀x) eqn:E... apply elem_of_dom_2 in E. destruct H3 as [].
+        rewrite H3 in E. unfold to_vtmap in E. rewrite dom_list_to_map_L in E.
+        rewrite elem_of_list_to_set in E. set_unfold in E. simpl in E.
+        destruct E as (x0&?&?). destruct x0. apply elem_of_zip_l in H6.
+        simpl in H5. subst. apply Hxs in H6. contradiction. }
+      rewrite feval_msubst with (mv:=mv)...
+      rewrite <- feval_subst in H1... rewrite H in H1...
+    - pose proof (teval_total σ x) as (v&?).
+      rewrite feval_subst with (v:=v)...
+      opose proof (teval_vtmap_total _ _) as (mv&?).
+      rewrite feval_msubst with (mv:=mv); [|exact H3].
+      unfold state in *.
+      rewrite insert_union_singleton_l in H3.
+      rewrite teval_vtmap_delete_state_vtmap_head in H3.
+      2:{
+        intros x0 ??. set_unfold in H4. subst.
+        apply elem_of_vtmap_fvars in H5 as (x'&t&?&?).
+        unfold to_vtmap in H4. apply elem_of_list_to_map_2 in H4.
+        apply elem_of_zip_r in H4 as H6.
+        apply (Hts x) in H6... }
+      rewrite <- insert_union_r.
+      2:{
+        destruct (mv !! ₀x) eqn:E... apply elem_of_dom_2 in E. destruct H3 as [].
+        rewrite H3 in E. unfold to_vtmap in E. rewrite dom_list_to_map_L in E.
+        rewrite elem_of_list_to_set in E. set_unfold in E. simpl in E.
+        destruct E as (x0&?&?). destruct x0. apply elem_of_zip_l in H6.
+        simpl in H5. subst. apply Hxs in H6. contradiction. }
+      rewrite feval_msubst with (mv:=mv) in H1...
+      rewrite <- feval_subst... rewrite H...
   Qed.
 
+  Lemma initials_closed_msubst' (A : formula) w (xs : list final_variable)
+      (ts : list final_term) `{!OfSameLength (↑ₓ xs) (⇑ₜ ts)} :
+    initials_closed A w →
+    initials_closed <! A [[↑ₓ xs \ ⇑ₜ ts]] !> w.
+  Proof with auto.
+    intros. apply initials_closed_msubst; [assumption | set_solver |].
+    set_unfold. intros. destruct H0 as (t&->&?). apply term_is_final in H1.
+    apply var_final_initial_var_of in H1 as [].
+  Qed.
+
+  Global Instance msubst_final {A xs ts}
+      `{!FormulaFinal A} `{!OfSameLength xs ts} `{!TermListFinal ts} :
+    FormulaFinal <! A [[ *xs \ *ts ]] !>.
+  Proof with auto.
+    intros x?. apply fvars_msubst_superset in H. set_unfold. destruct H.
+    - apply formula_is_final in H...
+    - destruct H as (t&?&?). apply term_list_is_final' in H0...
+  Qed.
 End semantics.
 
 Global Hint Extern 0 (FormulaFinal <! _ [[ ↑ₓ _ \ ⇑ₜ _ ]] !>) =>

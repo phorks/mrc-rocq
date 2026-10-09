@@ -1,14 +1,10 @@
 From Equations Require Import Equations.
 From stdpp Require Import fin_maps.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
 From MRC Require Import Model.
-From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.Basic.
-From MRC Require Import PredCalc.SyntacticFacts.
-From MRC Require Import PredCalc.Equiv.
-From MRC Require Import PredCalc.SemanticFacts.
-From MRC Require Import PredCalc.EquivLemmas.
+From MRC Require Import Lib.
+From MRC.PredCalc Require Import Basic SyntacticFacts Equiv SemanticFacts
+  EquivLemmas.
 
 Ltac fSplit :=
   match goal with

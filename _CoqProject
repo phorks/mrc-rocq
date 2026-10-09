@@ -1,9 +1,13 @@
 -Q src MRC
 src/Prelude.v
-src/Stdppp.v
-src/SeqNotation.v
+src/Lib/Tactics.v
+src/Lib/Base.v
+src/Lib/Variables.v
+src/Lib/SeqNotation.v
+src/Lib/Comparable.v
+src/Lib/ListBag.v
+src/Lib.v
 src/Model.v
-src/Tactics.v
 src/PredCalc/Basic.v
 src/PredCalc/SyntacticFacts.v
 src/PredCalc/Equiv.v
@@ -19,7 +23,6 @@ src/PredCalc.v
 src/Prog.v
 src/Refinement.v
 src/RefCalc.v
-src/Comparable.v
-src/ListBag.v
 src/Examples/Model.v
 src/Examples/Variables.v
+src/Examples/Sqrt.v

@@ -1,9 +1,8 @@
 From Equations Require Import Equations.
 From stdpp Require Import base tactics.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import Stdppp.
 From MRC Require Import PredCalc.Basic.
 
 Section equiv.
@@ -306,12 +305,42 @@ Notation "(⇚ₗ@{ M } )" := (flip (@fent M)) (only parsing) : refiney_scope.
 
 Global Hint Extern 0 (?A ⇛ ?A) => reflexivity : core.
 Global Hint Extern 0 (?A ⇛_{_} ?A) => reflexivity : core.
+Global Hint Extern 0 (?A ⇚ ?A) => reflexivity : core.
 
 Section lemmas.
   Context {M : model}.
+  Local Notation term := (term M).
   Implicit Types A B C : formula M.
-  Implicit Types t : term M.
+  Implicit Types t : term.
   Implicit Types σ : state M.
+
+  Lemma tequiv_alt t1 t2 :
+    t1 ≡ t2 ↔ ∀ σ, ∃ v, teval σ t1 v ∧ teval σ t2 v.
+  Proof with auto.
+    unfold equiv, tequiv. split; intros.
+    - pose proof (teval_total σ t1) as (v&?). exists v. apply H in H0 as ?. by split.
+    - destruct (H σ) as (v'&?&?). clear H. split; intros.
+      + apply teval_det with (v2:=v) in H0... subst v'...
+      + apply teval_det with (v2:=v) in H1... subst v'...
+  Qed.
+
+  Lemma tequiv_st_alt σ t1 t2 :
+    t1 ≡ₜ_{σ} t2 ↔ ∃ v, teval σ t1 v ∧ teval σ t2 v.
+  Proof with auto.
+    unfold equiv, tequiv. split; intros.
+    - pose proof (teval_total σ t1) as (v&?). exists v. apply H in H0 as ?. by split.
+    - destruct H as (v'&?&?). split; intros.
+      + apply teval_det with (v2:=v) in H... subst v'...
+      + apply teval_det with (v2:=v) in H0... subst v'...
+  Qed.
+
+  Lemma fequiv_tequiv σ t1 t2 :
+    feval σ <! ⌜t1 = t2 ⌝ !> ↔ t1 ≡ₜ_{σ} t2.
+  Proof. simp feval. simpl. rewrite tequiv_st_alt. reflexivity. Qed.
+
+
+  Global Instance teval_proper : Proper (eq ==> (≡) ==> eq ==> iff) (@teval M).
+  Proof. intros σ ? -> t1 t2 ? v ? ->. apply H. Qed.
 
   Lemma fequiv_fent A B :
     A ≡ B ↔ A ⇛ B ∧ B ⇛ A.
@@ -338,6 +367,16 @@ Section lemmas.
     <! A !> ⇚ <! B !> ↔ <! ¬ A !> ⇛ <! ¬ B !>.
   Proof with auto.
     unfold flip. rewrite f_ent_contrapositive...
+  Qed.
+
+  Lemma fequiv_st_lem σ A B :
+    A ≡_{σ} B ∨ ¬ A ≡_{σ} B.
+  Proof with auto.
+    destruct (feval_lem σ A); destruct (feval_lem σ B).
+    - left. done.
+    - right. intros []...
+    - right. intros []...
+    - left. done.
   Qed.
 
 End lemmas.

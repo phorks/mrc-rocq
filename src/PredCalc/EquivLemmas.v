@@ -1,13 +1,9 @@
 From Equations Require Import Equations.
 From stdpp Require Import fin_maps gmap.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.Basic.
-From MRC Require Import PredCalc.SyntacticFacts.
-From MRC Require Import PredCalc.Equiv.
-From MRC Require Import PredCalc.SemanticFacts.
+From MRC.PredCalc Require Import Basic SyntacticFacts Equiv SemanticFacts.
 
 Section props.
   Context {M : model}.
@@ -874,6 +870,52 @@ Section props.
   Lemma f_exists_ty_top x A :
     <! ∃ x : ⊤, A !> ≡ <! ∃ x, A !>.
   Proof. unfold FExistsT. rewrite f_hastype_unknown. by rewrite f_and_comm, f_and_true. Qed.
+
+  Lemma f_forall_ty_intro x ty A :
+    <! ∀ x, A !> ⇛ <! ∀ x : ty, A !>.
+  Proof with auto.
+    intros σ H. unfold FForallT. rewrite simpl_feval_forall.
+    rewrite simpl_feval_forall in H. intros. specialize (H v).
+    rewrite feval_subst with (v:=v) in H...
+    rewrite feval_subst with (v:=v)... rewrite simpl_feval_impl...
+  Qed.
+
+  Lemma f_exists_ty_elim x ty A :
+    <! ∃ x : ty, A !> ⇛ <! ∃ x, A !>.
+  Proof with auto.
+    unfold FExistsT. intros σ. simp feval. setoid_rewrite simpl_subst_and. intros (v&?).
+    simp feval in H. destruct H. eauto.
+  Qed.
+
+  Lemma f_forall_ty_equiv (x : variable) ty A B :
+    (∀ σ, feval σ <! ⌜x ∈ₜ ty⌝ !> → A ≡_{σ} B) →
+    <! ∀ x : ty, A !> ≡ <! ∀ x : ty, B !>.
+  Proof with auto.
+    intros. unfold FForallT. apply f_forall_equiv. intros t σ.
+    pose proof (teval_total σ t) as (v&?).
+    rewrite feval_subst with (v:=v)... rewrite feval_subst with (v:=v)...
+    do 2 rewrite simpl_feval_impl. split; intros; apply H...
+  Qed.
+
+  Lemma f_forall_ty_ent (x : variable) ty A B :
+    (∀ σ, feval σ <! ⌜x ∈ₜ ty⌝ !> → A ⇛_{σ} B) →
+    <! ∀ x : ty, A !> ⇛ <! ∀ x : ty, B !>.
+  Proof with auto.
+    intros. unfold FForallT. intros σ. do 2  rewrite simpl_feval_forall.
+    intros. specialize (H0 v).
+    rewrite feval_subst with (v:=v)... rewrite feval_subst with (v:=v) in H0...
+    rewrite simpl_feval_impl in H0 |- *. intros. apply H0 in H1 as H2.
+    apply H in H2...
+  Qed.
+
+  Lemma f_forall_ty_comm  x xty y yty (A : formula) :
+    x ≠ y →
+    <! ∀ x : xty, ∀ y : yty, A !> ≡ <! ∀ y : yty, ∀ x : xty, A !>.
+  Proof.
+    intros. unfold FForallT. rewrite <- f_forall_impl_unused_l by set_solver.
+    rewrite <- f_forall_impl_unused_l by set_solver. rewrite 2 f_impl_curry.
+    rewrite f_and_comm. by rewrite f_forall_comm.
+  Qed.
 
 End props.
 

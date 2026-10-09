@@ -1,10 +1,9 @@
 From Equations Require Import Equations.
 From stdpp Require Import fin_maps gmap.
 From MRC Require Import Prelude.
-From MRC Require Import Tactics.
+From MRC Require Import Lib.
 From MRC Require Import Model.
-From MRC Require Import Stdppp.
-From MRC Require Import PredCalc.Basic PredCalc.Equiv PredCalc.SyntacticFacts.
+From MRC.PredCalc Require Import Basic Equiv SyntacticFacts.
 
 Section subst.
   Context {M : model}.
@@ -351,38 +350,46 @@ Section subst.
   Qed.
 
 
-  Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExists.
+  Global Instance f_exists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExists.
   Proof with auto.
     intros x ? <- A B H σ. apply feval_exists_equiv. intros v. rewrite H...
   Qed.
 
-  Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FExists.
+  Global Instance f_exists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FExists.
   Proof with auto.
     intros x ? <- A B Hent σ H. simp feval. simp feval in H. destruct H as [v Hv].
     exists v. revert Hv. rewrite (feval_subst v)... rewrite (feval_subst v)...
   Qed.
 
-  Global Instance fforall_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForall.
+  Global Instance f_forall_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FForall.
   Proof with auto. intros x ? <- A B H σ. unfold FForall. rewrite H... Qed.
 
-  Global Instance fforall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FForall.
+  Lemma f_forall_proper_st σ A B x :
+    (∀ t, <! A [x \ t] !> ≡_{σ} <! B [x \ t] !>) →
+    <! ∀ x, A !> ≡_{σ} <! ∀ x, B !>.
+  Proof.
+    intros. unfold fequiv_st. unfold FForall. f_equiv. pose proof (@feval_exists_equiv _ σ σ).
+    f_equiv. apply H0. intros. f_equiv. do 2 rewrite simpl_subst_not. f_equiv. apply H.
+  Qed.
+
+  Global Instance f_forall_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FForall.
   Proof with auto.
     intros x ? <- A B H. unfold FForall. apply f_ent_contrapositive.
     apply f_ent_contrapositive in H. rewrite H. reflexivity.
   Qed.
 
-  Global Instance fexists_ty_proper
+  Global Instance f_exists_ty_proper
     : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (≡@{formula})) FExistsT.
   Proof with auto. intros x ? <- ty ? <- A B H σ. unfold FExistsT. rewrite H... Qed.
 
-  Global Instance fexists_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FExistsT.
+  Global Instance f_exists_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FExistsT.
   Proof with auto. intros x ? <- ty ? <- A B H. unfold FExistsT. rewrite H... Qed.
 
-  Global Instance fforall_ty_proper
+  Global Instance f_forall_ty_proper
     : Proper ((=) ==> (=) ==> (≡@{formula}) ==> (≡@{formula})) FForallT.
   Proof with auto. intros x ? <- ty ? <- A B H σ. unfold FForallT. rewrite H... Qed.
 
-  Global Instance fforall_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FForallT.
+  Global Instance f_forall_ty_proper_fent : Proper ((=) ==> (=) ==> (⇛) ==> (⇛ₗ@{M})) FForallT.
   Proof with auto. intros x ? <- ty ? <- A B H. unfold FForallT. rewrite H... Qed.
 
   Lemma subst_non_free' x t B {A} :
@@ -526,6 +533,11 @@ Section subst.
         rewrite subst_non_free in H2. 2: { rewrite fvars_subst_non_free... }
         rewrite subst_non_free in H2...
   Qed.
+
+  (* This one is reduntant since [simp feval] already simplifies it. However, it can be
+      useful when rewriting. HACK: we might need to specify similar lemmas for other formulas *)
+  Lemma simpl_feval_and σ A B : feval σ <! A ∧ B !> ↔ feval σ A ∧ feval σ B.
+  Proof. simp feval. reflexivity. Qed.
 
   Lemma simpl_feval_impl σ A B :
     feval σ <! A ⇒ B !> ↔ (feval σ A → feval σ B).
@@ -682,6 +694,34 @@ Section subst.
     subst. do 2 rewrite lookup_insert. f_equal. symmetry. eapply (teval_det <! t[ₜ y\u] !>).
     - exact H1.
     - erewrite <- teval_subst with (H:=H)...
+  Qed.
+
+  Lemma simpl_subst_forall_skip' y A x t  :
+    x ∉ term_fvars t →
+    <! A[x\t] !> ≡ <! A !> →
+    <! (∀ y, A)[x\t] !> ≡ <! ∀ y, A !>.
+  Proof with auto.
+    intros Hfree H. destruct (decide (x = y)).
+    - rewrite simpl_subst_forall_skip...
+    - rewrite <- H. rewrite simpl_subst_forall_skip...
+      right. intros contra. apply fvars_subst_superset' in contra. set_solver.
+  Qed.
+
+  Lemma simpl_subst_forall_skip'' (x y : variable) A t :
+    y ∉ term_fvars t →
+    <! A[x\t] !> ≡ <! A !> →
+    <! (∀ y, A)[x\t] !> ≡ <! ∀ y, A !>.
+  Proof with auto.
+    intros Hfree ?. destruct (decide (x = y)).
+    - rewrite simpl_subst_forall_skip...
+    - mk_fresh (formula_fvars A ∪ {[x; y]} ∪ term_fvars t) as z.
+      rewrite simpl_subst_forall_rename with (y':=z).
+      2:{ unfold quant_subst_fvars. set_solver. }
+      rewrite fforall_alpha_equiv with (x:=y) (x':=z).
+      2:{ unfold quant_subst_fvars. set_solver. }
+      f_equiv. rewrite subst_subst_ne... simpl. destruct (decide _).
+      + subst. set_unfold in H0. destruct_and! H0. done.
+      + rewrite <- H at 2...
   Qed.
 
 End subst.
