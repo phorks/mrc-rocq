@@ -11,28 +11,18 @@ Proof.
   intros. split; intros [v Hv]; exists v; apply H; auto.
 Qed.
 
-Notation "x ∈? X" := (bool_decide (x ∈ X)) (at level 70) : stdpp_scope.
-Notation "x ∉? X" := (bool_decide (x ∉ X)) (at level 70) : stdpp_scope.
-
-Notation "x =? y" := (bool_decide (x = y)) (at level 70) : stdpp_scope.
-Notation "x ≠? y" := (bool_decide (x ≠ y)) (at level 70) : stdpp_scope.
-
-Lemma eq_dec_eq {A} {x y : A} `{EqDecision A} :
-  x =? y ↔ x = y.
+Lemma not_or P Q : ¬ (P ∨ Q) ↔ ¬ P ∧ ¬ Q.
 Proof with auto.
-  destruct (x =? y) eqn:E.
-  - rewrite bool_decide_eq_true in E. split...
-  - rewrite bool_decide_eq_false in E. rewrite Is_true_true. split; intros.
-    + discriminate.
-    + contradiction.
+  split; intros.
+  - split; contradict H...
+  - destruct H. intros []...
 Qed.
 
-Lemma eq_dec_refl {A} {x : A} `{EqDecision A} :
-  x =? x = true.
+Lemma not_not P `{Decision P} : ¬ ¬ P ↔ P.
 Proof with auto.
-  destruct (x =? x) eqn:E.
-  - rewrite bool_decide_eq_true in E. split...
-  - rewrite bool_decide_eq_false in E. contradiction.
+  split; intros.
+  - destruct (decide P)... contradict H0...
+  - intros ?. apply H1...
 Qed.
 
 Lemma Is_true_andb {b1 b2} :
@@ -49,11 +39,6 @@ Qed.
 
 Definition is_some {A} (opt : option A) : bool :=
   match opt with | Some x => true | None => false end.
-
-(* Class InhabitedSigDecision {A} P := decide_inhabited_sig : {x : A | P x} + {∀ x : A, ¬ P x}. *)
-(* Arguments InhabitedSigDecision (A P)%_type. *)
-(* Notation "{ x ? P }" := (InhabitedSigDecision (fun x => P)) (x binder, at level 0) : type_scope. *)
-(* Notation "{ x : A ? P }" := (InhabitedSigDecision (A:=A) (fun x => P)) (x binder, at level 0) : type_scope. *)
 
 Lemma eq_iff : forall (P Q : Prop), P = Q -> (P <-> Q).
 Proof. intros P Q H. rewrite H. apply iff_refl. Qed.

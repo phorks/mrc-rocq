@@ -14,7 +14,6 @@ From MRC Require Import PredCalc.EquivLemmas.
 From MRC Require Import PredCalc.MultiSubst.
 From MRC Require Import PredCalc.Variables.
 From MRC Require Import PredCalc.NAry.
-From MRC Require Import PredCalc.SetSolver.
 
 Section n_ary_lemmas.
   Context {M : model}.
@@ -620,7 +619,6 @@ Section n_ary_lemmas.
   Qed.
 
   (* A.76 *)
-  (* TODO: replace all [_ ∩ _ = ∅]s with [_ ## _]s *)
   Lemma f_foralllist_and_unused_l xs A B :
     list_to_set xs ## formula_fvars A →
     <! ∀* xs, A ∧ B !> ≡ <! A ∧ (∀* xs, B) !>.
@@ -1252,7 +1250,7 @@ Section n_ary_lemmas.
             set_unfold in contra. destruct contra as [[] |]; [|set_solver].
             apply not_and_l in H0 as [].
             - apply H0. apply var_final_as_var.
-            - rewrite to_final_var_as_var in H0. contradiction. }
+            - contradiction. }
         rewrite subst_initials_cons. rewrite subst_non_free.
         1:{ rewrite <- IH at 2 by set_solver. f_equiv. f_equiv. apply OfSameLength_pi. }
         set_solver.
@@ -1264,7 +1262,7 @@ Section n_ary_lemmas.
         intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra...
         set_unfold. destruct contra as [[] | []].
         * apply Hfree in H... split... rewrite to_final_var_initial_var_of...
-        * rewrite to_final_var_initial_var_of in H0. contradiction.
+        * contradiction.
   Qed.
 
 End n_ary_lemmas.

@@ -193,7 +193,7 @@ Section syntax.
     - apply IHargs. set_solver.
   Qed.
 
-  (* TODO: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
+  (* HACK: can I replace all teval equiv lemmas with simple equality? Or at least tequiv? *)
   Lemma msubst_term_non_free t xs ts `{!OfSameLength xs ts} :
     list_to_set xs ## term_fvars t →
     msubst_term t (to_vtmap xs ts) = t.
@@ -228,8 +228,7 @@ Section syntax.
     induction t; simpl; [set_solver| | ].
     - destruct (to_vtmap xs ts !! x) eqn:E.
       + unfold to_vtmap in E. apply lookup_list_to_map_zip_Some in E as (i&?&?&_)...
-        apply elem_of_list_lookup_2 in H0. set_unfold. intros x0 ?. right.
-        apply elem_of_union_list. exists (term_fvars t). set_solver.
+        apply elem_of_list_lookup_2 in H0. set_solver.
       + simpl. set_solver.
     - induction args.
       + simpl. set_solver.
@@ -249,9 +248,8 @@ Section syntax.
     - destruct (decide (x ∈ xs)).
       + apply elem_of_list_lookup in e as (i&?). destruct (lookup_of_same_length_l ts H0) as (t&?).
         * replace (to_vtmap xs ts !! x) with (Some t).
-          -- intros x' ?. set_unfold. right. apply elem_of_union_list. exists (term_fvars t).
-             split... apply elem_of_list_fmap. exists t. split...
-             apply elem_of_list_lookup_2 in H1...
+          -- intros x' ?. set_unfold. right. exists t. apply elem_of_list_lookup_2 in H1.
+             naive_solver.
           -- symmetry. unfold to_vtmap. apply lookup_list_to_map_zip_Some...
              exists i. split_and!... intros. apply NoDup_lookup with (i:=i) in H2...
              lia.
@@ -307,8 +305,7 @@ Section syntax.
   Proof with auto.
     intros x ?. apply fvars_msubst_superset in H. set_unfold. destruct H as [|].
     - apply formula_is_final in H...
-    - apply elem_of_union_list in H as (fvars&?&?). set_unfold. destruct H as (?&->&t&->&?).
-      apply (final_term_final t) in H0...
+    - destruct H as (?&?&t&->&?). apply (final_term_final t) in H...
   Qed.
 
   Lemma msubst_term_trans t xs1 xs2 ts `{!OfSameLength xs1 (⇑ₓ₊ xs2)} `{!OfSameLength xs2 ts}
@@ -666,7 +663,7 @@ Section semantics.
     - rewrite IHA1 by set_solver. rewrite IHA2 by set_solver...
     - rewrite IHA1 by set_solver. rewrite IHA2 by set_solver...
     - simpl. generalize_fresh_var_for_msubst x A m as y'.
-      intros σ. apply feval_exists_equiv_if. intros v. rewrite H...
+      intros σ. apply feval_exists_equiv. intros v. rewrite H...
       + destruct H3.
         * subst. rewrite fequiv_subst_diag...
         * rewrite (fequiv_subst_trans A x y' (TConst v))...

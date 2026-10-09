@@ -122,6 +122,16 @@ Section syntax.
     | TApp f args => ⋃ (term_fvars <$> args)
     end.
 
+  Global Instance set_unfold_elem_of_term_fvars x ts P1 P2 :
+    (∀ t, SetUnfoldElemOf x (term_fvars t) (P1 t)) →
+    (∀ t, SetUnfoldElemOf t ts (P2 t)) →
+    SetUnfoldElemOf x
+      (⋃ (term_fvars <$> ts))
+      (∃ t, P1 t ∧ P2 t) | 10.
+  Proof with auto.
+    intros. constructor. rewrite elem_of_union_list. set_solver.
+  Qed.
+
   Definition af_fvars af : gset variable :=
     match af with
     | AT_Eq t₁ t₂ => term_fvars t₁ ∪ term_fvars t₂
@@ -729,6 +739,8 @@ Section semantics.
   Context {M : model}.
   Local Notation value := (value M).
 
+  Implicit Types (A : @formula M).
+
   Definition state := gmap variable value.
 
   Inductive TotalFRel (R : list value → value → Prop) : list value → value → Prop :=
@@ -825,7 +837,7 @@ Section semantics.
     | AT_Pred p args => ∃ vargs, teval_list σ args vargs ∧ peval p vargs
   end.
 
-  Equations? feval (σ : state) (A : formula) : Prop by wf (rank A) lt :=
+  Equations? feval (σ : state) A : Prop by wf (rank A) lt :=
     feval σ (FAtom af) => afeval σ af;
     feval σ (FNot A) => ¬ feval σ A;
     feval σ (FAnd A B) => feval σ A ∧ feval σ B;
@@ -851,6 +863,12 @@ Section semantics.
   Lemma feval_dec : ∀ σ A, Decidable.decidable (feval σ A).
   Proof. exact feval_lem. Qed.
 
+  (* Obviously [feval_lem] is derivable from excluded middle. Which makes it admissible: *)
+  Local Lemma feval_lem_admissible :
+    (∀ P, P ∨ ¬ P) →
+    ∀ σ A, feval σ A ∨ ¬ feval σ A.
+  Proof. intros. apply (H (feval σ A)). Qed.
+
   Lemma feval_stable σ A :
     ¬ ¬ feval σ A ↔ feval σ A.
   Proof with auto. intros. apply (Decidable.not_not_iff _ (feval_dec σ A)). Qed.
@@ -858,12 +876,44 @@ Section semantics.
   (* ******************************************************************* *)
   (* some useful lemmas                                                  *)
   (* ******************************************************************* *)
-  Lemma feval_exists_equiv_if {σ1 σ2 x1 x2} {A1 A2 : formula}:
+  Lemma feval_exists_equiv {σ1 σ2 x1 x2} {A1 A2 : formula}:
     (∀ v, feval σ1 (<! A1 [x1 \ $(TConst v) ] !>) ↔ feval σ2 (<! A2 [x2 \ $(TConst v) ] !>)) →
     feval σ1 <! ∃ x1, A1 !> ↔ feval σ2 <! ∃ x2, A2 !>.
   Proof with auto.
     intros. simp feval. split; intros [v Hv]; exists v; apply H...
   Qed.
+
+  (* ******************************************************************* *)
+  (* SetUnfold instances for [formula_fvars]                             *)
+  (* ******************************************************************* *)
+  Global Instance set_unfold_elem_of_fvars_FAnd x A1 A2 Q1 Q2 :
+    SetUnfoldElemOf x (formula_fvars A1) Q1 →
+    SetUnfoldElemOf x (formula_fvars A2) Q2 →
+    SetUnfoldElemOf x (formula_fvars <! A1 ∧ A2 !>) (Q1 ∨ Q2).
+  Proof with auto. intros. constructor. set_solver. Qed.
+  Global Instance set_unfold_elem_of_fvars_FOr x A1 A2 Q1 Q2 :
+    SetUnfoldElemOf x (formula_fvars A1) Q1 →
+    SetUnfoldElemOf x (formula_fvars A2) Q2 →
+    SetUnfoldElemOf x (formula_fvars <! A1 ∨ A2 !>) (Q1 ∨ Q2).
+  Proof with auto. intros. constructor. set_solver. Qed.
+  Global Instance set_unfold_elem_of_fvars_FImpl x A1 A2 Q1 Q2 :
+    SetUnfoldElemOf x (formula_fvars A1) Q1 →
+    SetUnfoldElemOf x (formula_fvars A2) Q2 →
+    SetUnfoldElemOf x (formula_fvars <! A1 ⇒ A2 !>) (Q1 ∨ Q2).
+  Proof with auto. intros. constructor. set_solver. Qed.
+  Global Instance set_unfold_elem_of_fvars_FIff x A1 A2 Q1 Q2 :
+    SetUnfoldElemOf x (formula_fvars A1) Q1 →
+    SetUnfoldElemOf x (formula_fvars A2) Q2 →
+    SetUnfoldElemOf x (formula_fvars <! A1 ⇔ A2 !>) (Q1 ∨ Q2).
+  Proof with auto. intros. constructor. set_solver. Qed.
+  Global Instance set_unfold_elem_of_fvars_FExists x y A Q :
+    SetUnfoldElemOf x (formula_fvars A) Q →
+    SetUnfoldElemOf x (formula_fvars <! ∃ y, A !>) (x ≠ y ∧ Q).
+  Proof with auto. intros. constructor. simpl. set_solver. Qed.
+  Global Instance set_unfold_elem_of_fvars_FForall x y A Q :
+    SetUnfoldElemOf x (formula_fvars A) Q →
+    SetUnfoldElemOf x (formula_fvars <! ∀ y, A !>) (x ≠ y ∧ Q).
+  Proof with auto. intros. constructor. simpl. set_solver. Qed.
 End semantics.
 
 Arguments term M : clear implicits.

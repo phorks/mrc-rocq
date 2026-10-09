@@ -656,7 +656,7 @@ Section props.
   Lemma f_exists_equiv A B y1 y2 :
     (∀ t, <! A[y1 \ t] !> ≡ <! B[y2 \ t] !>) →
     <! ∃ y1, A !> ≡ <! ∃ y2, B !>.
-  Proof. intros Hequiv σ. apply feval_exists_equiv_if. naive_solver. Qed.
+  Proof. intros Hequiv σ. apply feval_exists_equiv. naive_solver. Qed.
 
   Lemma f_forall_equiv A B y1 y2 :
     (∀ t, <! A[y1 \ t] !> ≡ <! B[y2 \ t] !>) →

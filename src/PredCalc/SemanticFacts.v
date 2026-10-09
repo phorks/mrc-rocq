@@ -280,7 +280,7 @@ Section subst.
       { destruct (quant_subst_skip_cond y A x).
         - rewrite simpl_subst_exists_skip...
         - rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x x as y'.
-          intros σ. apply feval_exists_equiv_if. intros.
+          intros σ. apply feval_exists_equiv. intros.
           pose proof (H':=H). forward (H (A[!y\y'!][!x\x!])). 1: { eapply shape_eq_trans... }
           destruct (H y') as [_ ?]. rewrite <- (H0 σ (TConst v) v)... clear H H0.
           pose proof (H:=H'). forward (H (A[!y\y'!])) by auto.
@@ -294,7 +294,7 @@ Section subst.
           + destruct H4 as [|]; [contradiction|]. rewrite (insert_commute σ)...
             rewrite (feval_delete_state_var_head y')... }
       intros. destruct (decide (y = x)).
-      + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv_if.
+      + subst. rewrite simpl_subst_exists_skip... apply feval_exists_equiv.
         intros. forward (H A)... destruct (H x) as [_ ?].
         rewrite <- (H1 (<[x:=v]> σ) (TConst v0) v0)...
         rewrite <- (H1 σ (TConst v0) v0)... rewrite (insert_insert σ)...
@@ -302,7 +302,7 @@ Section subst.
         2: { rewrite simpl_subst_exists_skip... rewrite feval_delete_state_var_head... simpl.
              set_solver. }
         rewrite simpl_subst_exists_propagate... generalize_fresh_var y A x t as x'.
-        apply feval_exists_equiv_if. intros.
+        apply feval_exists_equiv. intros.
         pose proof (H':=H). forward (H (A[!y\x'!][!x\t!])). { eapply shape_eq_trans... }
         destruct (H x') as [_ ?]. rewrite <- (H1 σ (TConst v0) v0)... clear H1 H.
         pose proof (H:=H'). forward (H (A[!y\x'!])). { eapply shape_eq_trans... }
@@ -353,7 +353,7 @@ Section subst.
 
   Global Instance fexists_proper : Proper ((=) ==> (≡@{formula}) ==> (≡@{formula})) FExists.
   Proof with auto.
-    intros x ? <- A B H σ. apply feval_exists_equiv_if. intros v. rewrite H...
+    intros x ? <- A B H σ. apply feval_exists_equiv. intros v. rewrite H...
   Qed.
 
   Global Instance fexists_proper_fent : Proper ((=) ==> (⇛) ==> (⇛ₗ@{M})) FExists.
@@ -397,7 +397,7 @@ Section subst.
     x' ∉ formula_fvars A →
     <! ∃ x, A !> ≡ <! ∃ x', A[x \ x'] !>.
   Proof with auto.
-    intros Hfree σ. apply feval_exists_equiv_if. intros.
+    intros Hfree σ. apply feval_exists_equiv. intros.
     rewrite (feval_subst v)... rewrite (feval_subst v)...
     rewrite (feval_subst v). 2: { constructor. rewrite (lookup_total_insert σ)... }
     destruct (decide (x = x')).

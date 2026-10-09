@@ -52,6 +52,15 @@ Section variables.
   Lemma var_initial_or_final x : var_initial x ∨ var_final x.
   Proof. unfold var_initial, var_final. destruct (var_is_initial x); auto. Qed.
 
+  Lemma var_final_ne_initial_var_of x (y : final_variable) :
+    var_final x →
+    x ≠ ₀ y.
+  Proof.
+    intros ? contra. destruct x, y. unfold initial_var_of in contra.
+    inversion contra. subst. unfold var_final in H. simpl in H. done.
+  Qed.
+
+
   Lemma to_initial_var_inj' x y :
     var_final x →
     var_final y →
@@ -133,8 +142,11 @@ Section variables.
     apply functional_extensionality_dep. intros H. apply eq_pi. solve_decision.
   Qed.
 
-  Instance var_final_dec x : Decision (var_final x).
-  Proof. unfold var_final. solve_decision. Qed.
+  Global Instance var_initial_dec {x} : Decision (var_initial x).
+  Proof. unfold var_initial. solve_decision. Defined.
+
+  Global Instance var_final_dec {x} : Decision (var_final x).
+  Proof. unfold var_final. solve_decision. Defined.
 
   Record final_term := mkFinalTerm {
     as_term : term;
@@ -432,7 +444,8 @@ Section variables.
     rewrite H. rewrite fvars_subst...
     rewrite set_to_list_union_perm with (s1:={[₀x]}) by set_solver.
     rewrite filter_app. rewrite set_to_list_singleton.
-    rewrite fmap_app. simpl.
+    rewrite fmap_app. simpl. unfold fmap at 2. unfold filter at 2.
+    simpl.
     rewrite to_final_var_initial_var_of. rewrite list_delete_elem_cons.
     rewrite list_delete_elem_eq.
     2:{
@@ -646,9 +659,7 @@ Section lemmas.
     xs1 ## xs2 →
     list_to_set ↑₀ xs1 ## ⋃ (@term_fvars M <$> ⇑ₓ xs2).
   Proof.
-    intros. set_unfold. intros x (x'&->&?) ?. apply elem_of_union_list in H1 as (fvars&?&?).
-    apply elem_of_list_fmap in H1 as (tx&->&?). rewrite <- list_fmap_compose in H1.
-    apply elem_of_list_fmap in H1 as (y&->&?). set_solver.
+    intros. set_unfold. intros x (x'&->&?) (fvars&?&tx&->&y&->&?). set_solver.
   Qed.
 
   Lemma disjoint_initial_final_vars (xs1 xs2 : gset variable) :
@@ -689,16 +700,126 @@ Tactic Notation "mk_fresh" uconstr(y) uconstr(X) "as" ident(x) :=
   remember (fresh_var y X) as x eqn:E;
   clear E.
 
+Global Hint Mode VarFinal ! : typeclass_instances.
+Global Hint Mode TermFinal ! ! : typeclass_instances.
+Global Hint Mode FormulaFinal ! ! : typeclass_instances.
+
 Global Hint Extern 100 (var_final _) => apply var_final_not_initial : core.
 Global Hint Resolve var_initial_to_initial_var : core.
+
 Global Hint Extern 0 =>
 match goal with
 | H : ¬ var_initial (to_initial_var _) |- _ =>
     exfalso; apply H; apply var_initial_to_initial_var
+| H : ¬ var_final (as_var ?x) |- _ =>
+    destruct (H (var_final_as_var x)) as []
+| H : var_final (initial_var_of _) |- _ =>
+    apply var_final_initial_var_of in H as []
 end : core.
-Global Hint Extern 0 (as_var _ = as_var _) => apply as_var_inj : core.
 
+Global Hint Extern 0 (var_final (initial_var_of _)) => apply var_final_initial_var_of : core.
+Global Hint Extern 0 (as_var _ = as_var _) => apply as_var_inj : core.
 Global Hint Extern 0 (as_final_var (as_var ?x) = ?x) => apply as_final_var_as_var : core.
 Global Hint Extern 0 (?x = as_final_var (as_var ?x)) => symmetry; apply as_final_var_as_var : core.
 Global Hint Extern 0 (as_var (as_final_var ?x) = ?x) => apply as_var_as_final_var : core.
 Global Hint Extern 0 (?x = as_var (as_final_var ?x)) => symmetry; apply as_var_as_final_var : core.
+
+Global Hint Extern 0 =>
+  match goal with
+  | H1 : var_final ?x, H2 : ?x = initial_var_of ?y |- _ =>
+      apply (var_final_ne_initial_var_of x y H1) in H2 as []
+  | H1 : var_final ?x, H2 : initial_var_of ?y = ?x |- _ =>
+      symmetry in H2;
+      apply (var_final_ne_initial_var_of x y H1) in H2 as []
+  end : core.
+
+Global Hint Extern 0 =>
+  match goal with
+  | H : var_final ?x     |- VarFinal ?x => apply H
+  | H : term_final ?t    |- TermFinal ?t => apply H
+  | H : formula_final ?t |- FormulaFinal ?t => apply H
+  end : typeclass_instances.
+
+Global Instance set_unfold_to_final_var_initial_var_of {C}
+    x (X : C) P `{ElemOf final_variable C} :
+  SetUnfoldElemOf x X P →
+  SetUnfoldElemOf (to_final_var (₀x)) X P.
+Proof. by rewrite to_final_var_initial_var_of. Qed.
+
+Global Instance set_unfold_to_final_var_as_var {C}
+    (x : final_variable) (X : C) P `{ElemOf final_variable C} :
+  SetUnfoldElemOf x X P →
+  SetUnfoldElemOf (to_final_var (as_var x)) X P.
+Proof. by rewrite to_final_var_as_var. Qed.
+
+Global Instance set_unfold_as_final_var_as_var {C}
+    (x : final_variable) (X : C) P `{ElemOf final_variable C} `{VarFinal x} :
+  SetUnfoldElemOf x X P →
+  SetUnfoldElemOf (as_final_var (as_var x)) X P.
+Proof. by rewrite as_final_var_as_var. Qed.
+
+Global Instance set_unfold_as_var_as_final_var {C}
+    (x : variable) (X : C) P `{ElemOf variable C} `{VarFinal x} :
+  SetUnfoldElemOf x X P →
+  SetUnfoldElemOf (as_var (as_final_var x)) X P.
+Proof. by rewrite as_var_as_final_var. Qed.
+
+Global Instance set_unfold_as_var_to_final_var {C}
+    (x : variable) (X : C) P `{ElemOf variable C} `{VarFinal x} :
+  SetUnfoldElemOf x X P →
+  SetUnfoldElemOf (as_var (to_final_var x)) X P.
+Proof. by rewrite as_var_to_final_var_final. Qed.
+
+Global Instance set_unfold_elem_of_term_fvars_of_initial_vars {M} x w Q :
+  SetUnfoldElemOf (to_final_var x) w Q →
+  SetUnfoldElemOf x
+    (⋃ (term_fvars <$> (@TVar M <$> (initial_var_of <$> w))))
+    (¬ var_final x ∧ Q).
+Proof with auto.
+  constructor. set_unfold. split.
+  - intros (t&?&tx&->&x'&->&?). set_unfold in H0. subst x. split... apply H.
+    rewrite to_final_var_initial_var_of...
+  - intros []. exists x. simpl. split; [set_solver|]. exists x. split...
+    exists (to_final_var x). apply H in H1. split... unfold var_final in H0.
+    apply not_false_is_true in H0. unfold initial_var_of. destruct x. simpl. f_equal...
+Qed.
+
+Global Instance set_unfold_elem_of_term_fvars_of_vars {M} x w Q :
+  SetUnfoldElemOf (to_final_var x) w Q →
+  SetUnfoldElemOf x
+    (⋃ (term_fvars <$> (@TVar M <$> (as_var <$> w))))
+    (var_final x ∧ Q).
+Proof with auto.
+  constructor. set_unfold. split.
+  - intros (t&?&tx&->&x'&->&?). set_unfold in H0. subst x. split... apply H.
+    rewrite to_final_var_as_var...
+  - intros []. exists x. simpl. split; [set_solver|]. exists x. split...
+    exists (to_final_var x). apply H in H1. split... unfold var_final in H0.
+    unfold to_final_var, as_var. destruct x. simpl. f_equal...
+Qed.
+
+Global Instance set_unfold_elem_of_list_to_set_as_var_final_vars x w Q :
+  SetUnfoldElemOf (to_final_var x) w Q →
+  SetUnfoldElemOf x
+    (list_to_set (as_var <$> w) : gset variable)
+    (var_final x ∧ Q).
+Proof with auto.
+  constructor. set_unfold. split.
+  - intros (x'&?&?). subst. split; [apply var_final_as_var |]... apply H.
+    rewrite to_final_var_as_var...
+  - intros []. exists (to_final_var x). set_unfold. split... unfold var_final in H.
+    destruct x. cbv. f_equal...
+Qed.
+
+Global Instance set_unfold_elem_of_list_to_set_initials_of_final_variables x w Q :
+  SetUnfoldElemOf (to_final_var x) w Q →
+  SetUnfoldElemOf x
+      (list_to_set (initial_var_of <$> w) : gset variable)
+      (¬ var_final x ∧ Q).
+Proof with auto.
+  constructor. set_unfold. split.
+  - intros (x'&?&?). subst. split; [apply var_final_initial_var_of|]. apply H.
+    rewrite to_final_var_initial_var_of...
+  - intros []. exists (to_final_var x). set_unfold. split... unfold var_final in H0.
+    apply not_false_is_true in H0. destruct x. simpl in H0. rewrite H0. f_equal.
+Qed.

@@ -1135,11 +1135,10 @@ Section semantics.
       rewrite msubst_subst_comm.
       2:{ intros contra. set_unfold in contra. destruct contra as (?&->&?&?).
           apply not_and_l in H5. destruct H5; [set_solver|].
-          rewrite to_final_var_initial_var_of in H5. destruct H; [set_solver|].
-          apply formula_is_final in H. apply var_final_initial_var_of in H... }
+          destruct H; [set_solver|]. apply formula_is_final in H... }
       2:{ intros contra. set_unfold in contra. destruct contra as (?&?&?).
           rewrite not_and_l in H6. destruct H6; [set_solver|]. destruct H5; [set_solver|].
-          apply formula_is_final in H5. apply var_final_initial_var_of in H5... }
+          apply formula_is_final in H5... }
       2: set_solver.
       do 2 rewrite <- subst_initials_msubst. f_equiv.
       2:{ rewrite PSpec_finalized_initial_fvars... rewrite PSpec_finalized_initial_fvars... }

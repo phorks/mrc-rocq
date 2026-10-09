@@ -57,53 +57,6 @@ Section refinement.
   (*       apply (H i j x); apply elem_of_zpair_indexed; (split; assumption) *)
   (*   end : core. *)
 
-  Lemma seqsubst_extract_l (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
-    x ∉ xs →
-    x ∉ ⋃ (term_fvars <$> ts) →
-    list_to_set xs ## term_fvars t →
-    <! A[;x, *xs \ t, *ts;] !> ≡ <! A[x \ t][;*xs \ *ts;] !>.
-  Proof with auto.
-    intros. simpl.
-    induction_same_length xs ts as y u...
-    intros. simpl. unfold OfSameLength in H'. simpl in H'. inversion H'.
-    apply not_elem_of_cons in H as []. rewrite <- IH...
-    2-3: set_solver.
-    rewrite fequiv_subst_comm...
-    - f_equiv. f_equiv. f_equiv. apply eq_pi. solve_decision.
-    - set_solver.
-    - set_solver.
-  Qed.
-  Lemma seqsubst_extract_r (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
-    <! A[;x, *xs \ t, *ts;] !> ≡ <! A[;*xs \ *ts;][x \ t] !>.
-  Proof with auto. intros. simpl. repeat f_equiv. apply eq_pi. solve_decision. Qed.
-  Lemma seqsubst_subst_comm (A : formula) x t (xs : list variable) ts `{!OfSameLength xs ts} :
-    x ∉ xs →
-    x ∉ ⋃ (term_fvars <$> ts) →
-    list_to_set xs ## term_fvars t →
-    <! A[;*xs \ *ts;][x \ t] !> ≡ <! A[x \ t][;*xs \ *ts;] !>.
-  Proof with auto.
-    intros. rewrite <- seqsubst_extract_l... rewrite seqsubst_extract_r. reflexivity.
-  Qed.
-
-  Global Instance seqsubst_formula_final {A} {xs : list variable} {ts}
-      `{!FormulaFinal A} `{!OfSameLength xs (⇑ₜ ts)} :
-    FormulaFinal <! A[;*xs \ ⇑ₜ ts;] !>.
-  Proof with auto.
-    intros x ?. apply fvars_seqsubst_superset in H. set_unfold. destruct H as [|].
-    - apply formula_is_final in H...
-    - destruct H as (?&?&?&->&?). apply final_term_final in H...
-  Qed.
-
-  Global Instance seqsubst_formula_final' {A} {xs : list variable} {ys}
-      `{!FormulaFinal A} `{!OfSameLength xs (⇑ₓ ys)} :
-    FormulaFinal <! A[;*xs \ ⇑ₓ ys;] !>.
-  Proof with auto.
-    intros x ?. apply fvars_seqsubst_superset in H. set_unfold. destruct H as [|].
-    - apply formula_is_final in H...
-    - destruct H...
-  Qed.
-
-
   Lemma elem_of_set_to_list {A : Type} `{Countable A} x (xs : gset A) :
     x ∈ set_to_list xs ↔ x ∈ xs.
   Proof with auto.
@@ -1007,8 +960,8 @@ Section refinement.
         enough (l1 ++ l2 ≡ₚ finalized_initial_fvars <! A [₀x \ x] !>).
         * rewrite H5. apply IHw. rewrite <- H5. set_solver.
         * rewrite finalized_initial_fvars_subst_perm.
-          -- rewrite H1. rewrite Permutation_app_cons_r_comm. rewrite delete_cons.
-             rewrite delete_eq by set_solver. apply subseteq_cons_not_in in H...
+          -- rewrite H1. rewrite Permutation_app_cons_r_comm. rewrite list_delete_elem_cons.
+             rewrite list_delete_elem_eq by set_solver. apply subseteq_cons_not_in in H...
              set_solver.
           -- assert (x ∈ finalized_initial_fvars A) by (rewrite H1; set_solver).
              set_solver.
@@ -1044,8 +997,8 @@ Section refinement.
              rewrite H0... set_solver.
           -- apply initial_var_of_eq_final_variable in H8 as [].
         * rewrite finalized_initial_fvars_subst_perm.
-          -- rewrite H2. rewrite Permutation_app_cons_r_comm. rewrite delete_cons.
-             rewrite delete_eq by set_solver...
+          -- rewrite H2. rewrite Permutation_app_cons_r_comm. rewrite list_delete_elem_cons.
+             rewrite list_delete_elem_eq by set_solver...
           -- assert (x ∈ finalized_initial_fvars A) by (rewrite H2; set_solver).
              set_solver.
       + rewrite subst_initials_cons_l. rewrite subst_non_free; [apply IHw|]; set_solver.
@@ -1183,8 +1136,7 @@ Section refinement.
     pose proof (subst_initials_closed_disjoint _ _ _ Hclosed Hdisjoint) as H.
     do 2 (rewrite wp_spec; auto)...
     2:{ intros y?. rewrite simpl_subst_and. rewrite (Hclosed y) by set_solver.
-        rewrite subst_non_free... contradict H0. rewrite fvars_eqlist in H0.
-        set_unfold in H0. rewrite to_final_var_initial_var_of in H0. set_solver. }
+        rewrite subst_non_free... set_solver. }
     simpl. fSimpl.
     unfold subst_initials.
     rewrite <- f_foralllist_one_point... rewrite <- f_foralllist_one_point...
@@ -1443,7 +1395,7 @@ Section refinement.
         contradict H. apply elem_of_list_fmap.
         exists (as_final_var
                   (fresh_var String.EmptyString (list_to_set ↑ₓ (fresh_vars_n X n) ∪ X))).
-        split... rewrite as_var_as_final_var...
+        split...
       + intros x??. rewrite elem_of_union, elem_of_singleton in H1. destruct H1; [|set_solver].
         subst. rewrite as_var_as_final_var in H0. set_solver.
       + naive_solver.
@@ -1634,7 +1586,7 @@ Section refinement.
       }
       clear IH. f_equiv. rewrite simpl_seqsubst_forall.
       2:{ intros contra. apply (H1 x); set_solver. }
-      2:{ set_unfold. intros []. rewrite to_final_var_as_var in H6. set_solver. }
+      2:{ set_solver. }
       f_equiv. unfold fmap at 6 7. apply seqsubst_proper...
       f_equiv. apply wp_congr... rewrite seqsubst_subst_comm.
       - f_equiv. apply eq_pi. solve_decision.
@@ -1646,10 +1598,7 @@ Section refinement.
     }
     pose proof (Hlen := of_same_length_rest H').
     assert (as_var x ∉ prog_fvars <{ |[ var* xs ⦁ $ p ]| }>).
-    {
-      intros contra. rewrite prog_fvars_varlist in contra. set_unfold in contra.
-      rewrite to_final_var_as_var in contra. set_solver.
-    }
+    {intros contra. rewrite prog_fvars_varlist in contra. set_solver.}
     rewrite fforall_unused.
     2:{ intros contra. apply fvars_wp in contra. apply elem_of_union in contra as [|]...
         apply fvars_subst_superset' in H5. set_solver. }
@@ -1664,26 +1613,19 @@ Section refinement.
     rewrite fequiv_subst_diag.
     rewrite IH...
     2-4: set_solver.
-    rewrite fforall_unused.
-    2:{
-      rewrite fvars_foralllist. set_unfold. apply not_and_l. right.
-      rewrite not_and_l. intros contra. rewrite to_final_var_as_var in contra.
-      set_solver.
-    }
+    rewrite fforall_unused by set_solver.
     assert (z ∈ zs).
     {
       pose proof (of_same_length_rest H'). unfold OfSameLength in H3.
       apply (zpair_functional_cons_elem_of_tl x xs z zs)...
     }
     rewrite subst_non_free.
-    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
-        - set_unfold. rewrite to_final_var_as_var in contra. set_solver.
-        - set_solver. }
+    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra;
+          set_solver. }
     apply seqsubst_proper... f_equiv. apply wp_congr...
     rewrite subst_non_free.
-    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra.
-        - set_unfold. rewrite to_final_var_as_var in contra. set_solver.
-        - set_solver. }
+    2:{ intros contra. apply fvars_seqsubst_superset_vars_not_free_in_terms in contra;
+          set_solver. }
     apply seqsubst_proper...
     Unshelve. 1-2: naive_solver.
   Qed.
@@ -2156,7 +2098,6 @@ Section refinement.
          reflexivity. }
     setoid_rewrite f_foralllist_one_point... rewrite fold_subst_initials.
     rewrite f_subst_initials_final_formula...
-    apply msubst_formula_final.
     Unshelve. typeclasses eauto.
   Qed.
 
@@ -2507,7 +2448,7 @@ Section refinement.
           - subst. subst var₀. apply fvars_msubst_term_superset in H4. set_unfold in H4.
             destruct_or! H4.
             + apply term_is_final in H4. apply var_final_initial_var_of in H4 as [].
-            + destruct H4. rewrite to_final_var_initial_var_of in H5... }
+            + destruct H4... }
       rewrite wp_spec_weaken_subst with (xs:=w)... clear H4.
       rewrite simpl_feval_impl. simp feval. intros [[] []]. split_and!...
       unfold subst_initials. rewrite seqsubst_msubst...
@@ -2552,13 +2493,13 @@ Section refinement.
             apply elem_of_zpair in E as (i&?&?). apply list_lookup_fmap_Some in H5 as (x&?&?).
             subst y. apply elem_of_list_lookup_2 in H5. unfold Prog.while_fvars in H3.
             simpl in H3. repeat rewrite not_elem_of_union in H3. destruct_and! H3.
-            exfalso. revert H5 H8. clear. intros. set_unfold in H8.
-            rewrite to_final_var_as_var in H8. set_solver. }
+            exfalso. revert H5 H8. clear. intros. set_solver. }
         simpl. destruct (to_vtmap ↑₀ w ⇑ₓ w !! y) eqn:E'.
         1:{ unfold to_vtmap in E. apply lookup_list_to_map_zip_Some_inv in E'.
             2:{ typeclasses eauto. }
             apply elem_of_zpair in E' as (i&?&?). apply list_lookup_fmap_Some in H5 as (x&?&?).
-            subst y. unfold VarFinal in Hfinal. apply var_final_initial_var_of in Hfinal as []. }
+            subst y. unfold VarFinal in Hfinal.
+            apply var_final_initial_var_of in Hfinal as []. }
         intros v. split; intros.
         * apply teval_det with (v1:=v) in H2... subst...
         * apply teval_det with (v1:=v) in H4... subst...

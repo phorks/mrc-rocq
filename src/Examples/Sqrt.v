@@ -1025,8 +1025,6 @@ Lemma fsum_iff {r1 r2 r3 : R} :
   FSum_rel [mkNum r1; mkNum r2] (mkNum r3).
 Proof. intros <-. constructor. Qed.
 
-Global Hint Mode FormulaFinal ! ! : typeclass_instances.
-
 Lemma initials_closed_and {M} (A B : formula M) w :
   initials_closed A w →
   initials_closed B w →
@@ -1329,10 +1327,6 @@ Proof.
 Qed.
 
 Print Assumptions code_refines_spec.
-
-Lemma feval_lem_admissible :
-  ClassicalFacts.excluded_middle → ∀ M σ (A : formula M), feval σ A ∨ ¬ feval σ A.
-Proof. intros. apply (H (feval σ A)). Qed.
 
 Print Assumptions feval_lem_admissible.
 
